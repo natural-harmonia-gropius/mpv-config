@@ -1,8 +1,7 @@
 local opt = require('mp.options')
 local options = {
     bind = 'SPACE',
-    click = 'cycle pause',
-    action = 'set speed 3',
+    action = 'set speed 3; set pause no',
     invert = 'set speed 1',
     duration = 200
 }
@@ -10,6 +9,13 @@ opt.read_options(options)
 
 local pressed = false
 local keydown_at = 0
+
+local original = 'ignore'
+for i, v in ipairs(mp.get_property_native('input-bindings')) do
+    if v.key == options.bind then
+        original = v.cmd
+    end
+end
 
 function now()
     return mp.get_time() * 1000
@@ -27,7 +33,7 @@ function keyup(key_name, key_text, is_mouse)
     if pressed then
         command(options.invert)
     else
-        command(options.click)
+        command(original)
     end
 
     pressed = false
