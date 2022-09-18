@@ -6,30 +6,31 @@ Except users of Windows 11 need to put [Segoe Fluent Icons](https://aka.ms/Segoe
 
 ## TL;DR
 
-[MPV](https://github.com/shinchiro/mpv-winbuild-cmake/releases)  
+[mpv-player](https://github.com/shinchiro/mpv-winbuild-cmake/releases)  
 [yt-dlp](https://github.com/yt-dlp/yt-dlp/releases)  
-[Vapoursynth](https://github.com/vapoursynth/vapoursynth/releases)  
-[Python](https://www.python.org/downloads)  
-[FFmpeg](https://www.gyan.dev/ffmpeg/builds/#release-builds)
+[vapoursynth](https://github.com/vapoursynth/vapoursynth/releases)  
+[python](https://www.python.org/downloads)  
+[ffmpeg](https://www.gyan.dev/ffmpeg/builds/#release-builds)
 
-[UI - darsain/uosc](https://github.com/darsain/uosc)  
-[UI - christoph-heinrich/mpv-quality-menu](https://github.com/christoph-heinrich/mpv-quality-menu)
+[darsain/uosc](https://github.com/darsain/uosc)  
+[christoph-heinrich/mpv-quality-menu](https://github.com/christoph-heinrich/mpv-quality-menu)
+[po5/thumbfast](https://github.com/po5/thumbfast)
 
-[UI alt - dexeonify/modernx](https://github.com/dexeonify/mpv-config/blob/main/scripts/modernx.lua)  
-[UI alt - deus0ww/Thumbnailer](https://github.com/deus0ww/mpv-conf/tree/master/scripts)
+[dexeonify/modernx](https://github.com/dexeonify/mpv-config/blob/main/scripts/modernx.lua)  
+[deus0ww/Thumbnailer](https://github.com/deus0ww/mpv-conf/tree/master/scripts)
 
-[Shader - igv/gist](https://gist.github.com/igv)  
-[Shader - igv/FSRCNNX](https://github.com/igv/FSRCNN-TensorFlow/releases)  
-[Shader - bjin/mpv-prescalers](https://github.com/bjin/mpv-prescalers/tree/master/vulkan/compute)  
-[Shader - agyild/gist](https://gist.github.com/agyild)
+[igv/gist](https://gist.github.com/igv)  
+[igv/FSRCNNX](https://github.com/igv/FSRCNN-TensorFlow/releases)  
+[bjin/mpv-prescalers](https://github.com/bjin/mpv-prescalers/tree/master/vulkan/compute)  
+[agyild/gist](https://gist.github.com/agyild)
 
-[LUT rec2020 to rec 709 - toru-ver4/BT.2407 Annex2](https://trev16.hatenablog.com/entry/2020/06/07/094646)  
-[LUT rec2100pq to rec709 - toru-ver4/BT.2446 Method C](https://trev16.hatenablog.com/entry/2020/08/01/131907)  
-[LUT for test - toru-ver4/Luminance Map](https://trev16.hatenablog.com/entry/2020/04/26/190416)  
-[LUT generator - cameramanben/LUTCalc](https://cameramanben.github.io/LUTCalc/LUTCalc/index.html)
+[toru-ver4/BT.2407 Annex2](https://trev16.hatenablog.com/entry/2020/06/07/094646)  
+[toru-ver4/BT.2446 Method C](https://trev16.hatenablog.com/entry/2020/08/01/131907)  
+[toru-ver4/Luminance Map](https://trev16.hatenablog.com/entry/2020/04/26/190416)  
+[cameramanben/LUTCalc](https://cameramanben.github.io/LUTCalc/LUTCalc/index.html)
 
-[MediaSession - datasone/MPVMediaControl](https://github.com/datasone/MPVMediaControl)  
-[Protocol - akiirui/mpv-handler](https://github.com/akiirui/mpv-handler)
+[datasone/MPVMediaControl](https://github.com/datasone/MPVMediaControl)  
+[akiirui/mpv-handler](https://github.com/akiirui/mpv-handler)
 
 ## About the shaders-toys folder
 
