@@ -974,7 +974,7 @@ function ass_mt:txt(x, y, align, value, opts)
 	-- font size
 	tags = tags .. '\\fs' .. opts.size
 	-- bold
-	if opts.bold then tags = tags .. '\\b1' end
+	if opts.bold or options.font_bold then tags = tags .. '\\b1' end
 	-- italic
 	if opts.italic then tags = tags .. '\\i1' end
 	-- wrap
@@ -2624,6 +2624,9 @@ function Timeline:init()
 	self.size_min_override = options.timeline_start_hidden and 0 or nil
 	self.font_size = 0
 	self.top_border = options.timeline_border
+
+	-- Release any dragging when file gets unloaded
+	mp.register_event('end-file', function() self.pressed = false end)
 end
 
 function Timeline:get_visibility()
@@ -3175,8 +3178,9 @@ function Controls:serialize()
 	for i, item in ipairs(items) do
 		local config = shorthands[item.config] and shorthands[item.config] or item.config
 		local config_tooltip = split(config, ' *%? *')
-		config = config_tooltip[1]
 		local tooltip = config_tooltip[2]
+		config = shorthands[config_tooltip[1]]
+			and split(shorthands[config_tooltip[1]], ' *%? *')[1] or config_tooltip[1]
 		local parts = split(config, ' *: *')
 		local kind, params = parts[1], itable_slice(parts, 2)
 

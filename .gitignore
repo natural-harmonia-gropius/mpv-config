@@ -7,7 +7,9 @@
 *.code-workspace
 .history/
 
-watch_later
-fonts
-luts
 misc
+luts
+watch_later
+
+fonts/*
+!fonts/uosc_textures.ttf
