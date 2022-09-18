@@ -1,6 +1,8 @@
 # mpv_config
 
-portable_config for MPV player
+Personal portable_config for MPV player, The aim is to use it right out of the box.
+
+Except users of Windows 11 need to put [Segoe Fluent Icons](https://aka.ms/SegoeFluentIcons) into fonts folder to use my modified uosc.
 
 ## TL;DR
 
@@ -20,8 +22,6 @@ portable_config for MPV player
 [Shader - igv/FSRCNNX](https://github.com/igv/FSRCNN-TensorFlow/releases)  
 [Shader - bjin/mpv-prescalers](https://github.com/bjin/mpv-prescalers/tree/master/vulkan/compute)  
 [Shader - agyild/gist](https://gist.github.com/agyild)
-
-## Optional
 
 [LUT rec2020 to rec 709 - toru-ver4/BT.2407 Annex2](https://trev16.hatenablog.com/entry/2020/06/07/094646)  
 [LUT rec2100pq to rec709 - toru-ver4/BT.2446 Method C](https://trev16.hatenablog.com/entry/2020/08/01/131907)  
