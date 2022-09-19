@@ -44,8 +44,11 @@ function keypress(key_name, key_text, is_mouse)
 end
 
 function keyrepeat(key_name, key_text, is_mouse)
-    local trigger = now() - keydown_at > options.duration
-    if not pressed and trigger then
+    if pressed then
+        return
+    end
+
+    if now() - keydown_at > options.duration then
         pressed = true
         command(options.action)
     end
