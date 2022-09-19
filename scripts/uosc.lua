@@ -2566,7 +2566,7 @@ function PauseIndicator:flash()
 	self.paused = mp.get_property_native('pause')
 	if self.is_manual then self.type = 'flash' end
 	self.opacity = 1
-	self:tween_property('opacity', 1, 0, 0.15)
+	self:tween_property('opacity', 1, 0, 0.05)
 end
 
 -- decides whether static indicator should be visible or not
