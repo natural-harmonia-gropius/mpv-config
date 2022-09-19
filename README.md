@@ -16,8 +16,7 @@ Except users of Windows 11 need to put [Segoe Fluent Icons](https://aka.ms/Segoe
 [christoph-heinrich/mpv-quality-menu](https://github.com/christoph-heinrich/mpv-quality-menu)  
 [po5/thumbfast](https://github.com/po5/thumbfast)
 
-[dexeonify/modernx](https://github.com/dexeonify/mpv-config/blob/main/scripts/modernx.lua)  
-[deus0ww/Thumbnailer](https://github.com/deus0ww/mpv-conf/tree/master/scripts)
+[dexeonify/modernx&Thumbnailer](https://github.com/dexeonify/mpv-config/tree/main/scripts)
 
 [igv/gist](https://gist.github.com/igv)  
 [igv/FSRCNNX](https://github.com/igv/FSRCNN-TensorFlow/releases)  
@@ -39,6 +38,8 @@ Except users of Windows 11 need to put [Segoe Fluent Icons](https://aka.ms/Segoe
 TBD
 
 ```ini
+vo=gpu-next
+
 glsl-shader=~~/shaders-toys/Helper/ClipBlack.glsl
 # glsl-shader=~~/shaders-toys/HLG_to_Y.glsl
 glsl-shader=~~/shaders-toys/PQ_to_Y.glsl
@@ -49,6 +50,7 @@ glsl-shader=~~/shaders-toys/Y_to_CV.glsl
 # glsl-shader=~~/shaders-toys/Tonemapper/ACES_KN_yc.gls
 # glsl-shader=~~/shaders-toys/Tonemapper/BT2446A.glsl
 glsl-shader=~~/shaders-toys/CV_to_BT1886.glsl
+
 lut=~~/luts/Rec202012-bit_Rec2020-Rec202012-bit_Rec709.cube
 lut-type=conversion
 ```
