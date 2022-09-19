@@ -24,10 +24,6 @@ function round(number)
 	return modulus < 0.5 and math.floor(number) or math.ceil(number)
 end
 
-function call_me_maybe(fn, ...)
-	if fn then fn(...) end
-end
-
 ---@param str string
 ---@param pattern string
 ---@return string[]
@@ -155,9 +151,9 @@ local options = {
 	timeline_opacity = 0.9,
 	timeline_border = 1,
 	timeline_step = 5,
-	timeline_chapters = 'dots',
+	timeline_chapters = 'lines',
 	timeline_chapters_opacity = 0.4,
-	timeline_chapters_width = 6,
+	timeline_chapters_width = 1,
 
 	controls = 'menu,gap,subtitles,<has_audio,!audio>audio,<stream>stream-quality,gap,space,speed,space,shuffle,loop-playlist,loop-file,gap,prev,items,next,gap,fullscreen',
 	controls_size = 32,
@@ -330,6 +326,43 @@ local config = {
 			}
 		end
 	end)(),
+	chapter_serializers = (function()
+		-- Parse `chapter_ranges` option into workable data structure
+		local chapter_ranges = {}
+		for _, definition in ipairs(split(options.chapter_ranges, ' *,+ *')) do
+			local start_patterns, color, opacity, end_patterns = string.match(
+				definition, '([^<]+)<(%x%x%x%x%x%x):(%d?%.?%d*)>([^>]+)'
+			)
+
+			-- Valid definition
+			if start_patterns then
+				start_patterns = start_patterns:lower()
+				end_patterns = end_patterns:lower()
+				local uses_bof = start_patterns:find('{bof}') ~= nil
+				local uses_eof = end_patterns:find('{eof}') ~= nil
+				local chapter_range = {
+					start_patterns = split(start_patterns, '|'),
+					end_patterns = split(end_patterns, '|'),
+					color = color,
+					opacity = tonumber(opacity),
+					ranges = {},
+					uses_bof = uses_bof,
+					uses_eof = uses_eof,
+				}
+
+				-- Filter out special keywords so we don't use them when matching titles
+				if uses_bof then
+					chapter_range.start_patterns = itable_remove(chapter_range.start_patterns, '{bof}')
+				end
+				if uses_eof and chapter_range.end_patterns then
+					chapter_range.end_patterns = itable_remove(chapter_range.end_patterns, '{eof}')
+				end
+
+				chapter_ranges[#chapter_ranges + 1] = chapter_range
+			end
+		end
+		return chapter_ranges
+	end)(),
 }
 -- Adds `{element}_persistency` property with table of flags when the element should be visible (`{paused = true}`)
 for _, name in ipairs({'timeline', 'controls', 'volume', 'top_bar', 'speed'}) do
@@ -371,7 +404,8 @@ local state = {
 	time_human = nil, -- current playback time in human format
 	duration_or_remaining_time_human = nil, -- depends on options.total_time
 	pause = mp.get_property_native('pause'),
-	chapters = nil,
+	chapters = {},
+	chapter_ranges = {},
 	border = mp.get_property_native('border'),
 	fullscreen = mp.get_property_native('fullscreen'),
 	maximized = mp.get_property_native('window-maximized'),
@@ -402,116 +436,6 @@ local state = {
 	margin_top = 0,
 	margin_bottom = 0,
 }
-
--- Parse `chapter_ranges` option into workable data structure
-local chapter_ranges = nil
-for _, definition in ipairs(split(options.chapter_ranges, ' *,+ *')) do
-	local start_patterns, color, opacity, end_patterns = string.match(
-		definition, '([^<]+)<(%x%x%x%x%x%x):(%d?%.?%d*)>([^>]+)'
-	)
-
-	-- Valid definition
-	if start_patterns then
-		start_patterns = start_patterns:lower()
-		end_patterns = end_patterns:lower()
-		local uses_bof = start_patterns:find('{bof}') ~= nil
-		local uses_eof = end_patterns:find('{eof}') ~= nil
-		local chapter_range = {
-			start_patterns = split(start_patterns, '|'),
-			end_patterns = split(end_patterns, '|'),
-			color = color,
-			opacity = tonumber(opacity),
-			ranges = {},
-		}
-
-		-- Filter out special keywords so we don't use them when matching titles
-		if uses_bof then
-			chapter_range.start_patterns = itable_remove(chapter_range.start_patterns, '{bof}')
-		end
-		if uses_eof and chapter_range.end_patterns then
-			chapter_range.end_patterns = itable_remove(chapter_range.end_patterns, '{eof}')
-		end
-
-		chapter_range['serialize'] = function(chapters)
-			chapter_range.ranges = {}
-			local current_range = nil
-			-- bof and eof should be used only once per timeline
-			-- eof is only used when last range is missing end
-			local bof_used = false
-
-			local function start_range(chapter)
-				-- If there is already a range started, should we append or overwrite?
-				-- I chose overwrite here.
-				current_range = {['start'] = chapter}
-			end
-
-			local function end_range(chapter)
-				current_range['end'] = chapter
-				chapter_range.ranges[#chapter_range.ranges + 1] = current_range
-				-- Mark both chapter objects
-				current_range['start']._uosc_used_as_range_point = true
-				current_range['end']._uosc_used_as_range_point = true
-				-- Clear for next range
-				current_range = nil
-			end
-
-			for _, chapter in ipairs(chapters) do
-				if type(chapter.title) == 'string' then
-					local lowercase_title = chapter.title:lower()
-
-					-- Is ending check and handling
-					if chapter_range.end_patterns then
-						chapter.is_end_only = false
-						for _, end_pattern in ipairs(chapter_range.end_patterns) do
-							if lowercase_title:find(end_pattern) then
-								if current_range == nil and uses_bof and not bof_used then
-									bof_used = true
-									start_range({time = 0})
-								end
-								if current_range ~= nil then
-									end_range(chapter)
-								end
-								chapter.is_end_only = end_pattern ~= '.*'
-								break
-							end
-						end
-					end
-
-					-- Is start check and handling
-					for _, start_pattern in ipairs(chapter_range.start_patterns) do
-						if lowercase_title:find(start_pattern) then
-							start_range(chapter)
-							chapter.is_end_only = false
-							break
-						end
-					end
-				end
-			end
-
-			-- If there is an unfinished range and range type accepts eof, use it
-			if current_range ~= nil and uses_eof then
-				end_range({time = state.duration or infinity})
-			end
-		end
-
-		chapter_ranges = chapter_ranges or {}
-		chapter_ranges[#chapter_ranges + 1] = chapter_range
-	end
-end
-
---[[ CLASSES ]]
-
----@class Class
-local Class = {}
-function Class:new(...)
-	local object = setmetatable({}, {__index = self})
-	object:init(...)
-	return object
-end
-function Class:init() end
-function Class:destroy() end
-
-function class(parent) return setmetatable({}, {__index = parent or Class}) end
 
 --[[ HELPERS ]]
 
@@ -577,7 +501,7 @@ function tween(from, to, setter, factor_or_callback, callback)
 		if not done then
 			done = true
 			timeout:kill()
-			call_me_maybe(callback)
+			if callback then callback() end
 		end
 	end
 
@@ -607,9 +531,7 @@ end
 
 ---@param text string|number
 ---@param font_size number
-function text_width_estimate(text, font_size)
-	return text_length(text) * font_size * options.font_height_to_letter_width_ratio
-end
+function text_width_estimate(text, font_size) return text_length_width_estimate(text_length(text), font_size) end
 
 ---@param length number
 ---@param font_size number
@@ -621,7 +543,7 @@ end
 function text_length(text)
 	if not text or text == '' then return 0 end
 	local text_length = 0
-	for _, _, length in utf8_iter(text) do text_length = text_length + length end
+	for _, _, length in utf8_iter(tostring(text)) do text_length = text_length + length end
 	return text_length
 end
 
@@ -887,14 +809,75 @@ function delete_file(path)
 	})
 end
 
+function serialize_chapter_ranges(chapters)
+	state.chapter_ranges = {}
+
+	for _, chapter_serializer in ipairs(config.chapter_serializers) do
+		local current_range = nil
+		-- bof and eof should be used only once per timeline
+		-- eof is only used when last range is missing end
+		local bof_used = false
+
+		local function start_range(chapter)
+			-- If there is already a range started, should we append or overwrite?
+			-- I chose overwrite here.
+			current_range = {['start'] = chapter}
+		end
+
+		local function end_range(chapter)
+			current_range['end'] = chapter
+			current_range.color = chapter_serializer.color
+			current_range.opacity = chapter_serializer.opacity
+			state.chapter_ranges[#state.chapter_ranges + 1] = current_range
+			-- Mark both chapter objects
+			current_range['start']._uosc_used_as_range_point = true
+			current_range['end']._uosc_used_as_range_point = true
+			-- Clear for next range
+			current_range = nil
+		end
+
+		for _, chapter in ipairs(chapters) do
+			if type(chapter.title) == 'string' then
+				local lowercase_title = chapter.title:lower()
+
+				-- Is ending check and handling
+				if chapter_serializer.end_patterns then
+					for _, end_pattern in ipairs(chapter_serializer.end_patterns) do
+						if lowercase_title:find(end_pattern) then
+							if current_range == nil and chapter_serializer.uses_bof and not bof_used then
+								bof_used = true
+								start_range({time = 0})
+							end
+							if current_range ~= nil then
+								end_range(chapter)
+								chapter.is_end_only = end_pattern ~= '.*'
+							end
+							break
+						end
+					end
+				end
+
+				-- Is start check and handling
+				for _, start_pattern in ipairs(chapter_serializer.start_patterns) do
+					if lowercase_title:find(start_pattern) and current_range == nil then
+						start_range(chapter)
+						chapter.is_end_only = false
+						break
+					end
+				end
+			end
+		end
+
+		-- If there is an unfinished range and range type accepts eof, use it
+		if current_range ~= nil and chapter_serializer.uses_eof then
+			end_range({time = infinity})
+		end
+	end
+end
+
 -- Ensures chapters are in chronological order
-function get_normalized_chapters()
-	local chapters = mp.get_property_native('chapter-list')
-
+function normalize_chapters(chapters)
 	if not chapters then return end
-
-	-- Copy table
-	chapters = itable_slice(chapters)
 
 	-- Ensure chronological order of chapters
 	table.sort(chapters, function(a, b) return a.time < b.time end)
@@ -902,17 +885,12 @@ function get_normalized_chapters()
 	return chapters
 end
 
-function serialize_chapters()
-	-- Sometimes state.duration is not initialized yet for some reason
-	state.duration = mp.get_property_native('duration')
-	local chapters = get_normalized_chapters()
-
-	if not chapters or not state.duration then return end
+function serialize_chapters(chapters)
+	chapters = normalize_chapters(chapters)
+	if not chapters then return end
 
 	-- Reset custom ranges
-	for _, chapter_range in ipairs(state.chapter_ranges or {}) do
-		chapter_range.serialize(chapters)
-	end
+	serialize_chapter_ranges(chapters)
 
 	for _, chapter in ipairs(chapters) do
 		chapter.title_wrapped, chapter.title_wrapped_width = wrap_text(chapter.title, 25)
@@ -985,20 +963,12 @@ function ass_mt:txt(x, y, align, value, opts)
 	tags = tags .. '\\shad' .. shadow_size
 	-- colors
 	tags = tags .. '\\1c&H' .. (opts.color or options.foreground)
-	if border_size > 0 then
-		tags = tags .. '\\3c&H' .. (opts.border_color or options.background)
-	end
-	if shadow_size > 0 then
-		tags = tags .. '\\4c&H' .. (opts.shadow_color or options.background)
-	end
+	if border_size > 0 then tags = tags .. '\\3c&H' .. (opts.border_color or options.background) end
+	if shadow_size > 0 then tags = tags .. '\\4c&H' .. (opts.shadow_color or options.background) end
 	-- opacity
-	if opts.opacity then
-		tags = tags .. string.format('\\alpha&H%X&', opacity_to_alpha(opts.opacity))
-	end
+	if opts.opacity then tags = tags .. string.format('\\alpha&H%X&', opacity_to_alpha(opts.opacity)) end
 	-- clip
-	if opts.clip then
-		tags = tags .. opts.clip
-	end
+	if opts.clip then tags = tags .. opts.clip end
 	-- render
 	self:new_event()
 	self.text = self.text .. '{' .. tags .. '}' .. value
@@ -1184,19 +1154,13 @@ function Elements:update_proximities()
 	for _, element in ipairs(mouse_enter_elements) do element:trigger('mouse_enter') end
 end
 
--- Toggles elements visibility between 0 and 1.
----@param elements string[] IDs of elements to peek.
-function Elements:peek(elements)
-	local highest_visibility = 0
-	for _, name in ipairs(elements) do
-		local visibility = self[name] and self[name]:get_visibility() or 0
-		if visibility > highest_visibility then highest_visibility = visibility end
-	end
-	local to = highest_visibility > 0.5 and 0 or 1
-	for _, name in ipairs(elements) do
-		local element = self[name]
-		if element then element:tween_property('proximity', element.proximity, to) end
-	end
+-- Toggles passed elements' min visibilities between 0 and 1.
+---@param ids string[] IDs of elements to peek.
+function Elements:toggle(ids)
+	local elements = itable_filter(self.itable, function(element) return itable_index_of(ids, element.id) ~= nil end)
+	local all_visible = itable_find(elements, function(element) return element.min_visibility ~= 1 end) == nil
+	local to = all_visible and 0 or 1
+	for _, element in ipairs(elements) do element:tween_property('min_visibility', element.min_visibility, to) end
 end
 
 ---@param name string Event name.
@@ -1349,6 +1313,20 @@ function render()
 	update_margins()
 end
 
+--[[ CLASSES ]]
+
+---@class Class
+local Class = {}
+function Class:new(...)
+	local object = setmetatable({}, {__index = self})
+	object:init(...)
+	return object
+end
+function Class:init() end
+function Class:destroy() end
+
+function class(parent) return setmetatable({}, {__index = parent or Class}) end
+
 --[[ ELEMENT ]]
 
 ---@alias ElementProps {enabled?: boolean; ax?: number; ay?: number; bx?: number; by?: number; ignores_menu?: boolean; anchor_id?: string;}
@@ -1369,7 +1347,9 @@ function Element:init(id, props)
 	self.proximity = 0
 	-- Raw proximity in pixels.
 	self.proximity_raw = infinity
-	---@type number `0-1` factor to force elements visibility.
+	---@type number `0-1` factor to force min visibility. Used for toggling element's permanent visibility.
+	self.min_visibility = 0
+	---@type number `0-1` factor to force a visibility value. Used for flashing, fading out, and other animations
 	self.forced_visibility = nil
 	---@type boolean Render this element even when menu is open.
 	self.ignores_menu = false
@@ -1431,15 +1411,15 @@ function Element:get_visibility()
 			or (persist.image and state.is_image)
 		) then return 1 end
 
-	-- Forced proximity
-	if self.forced_visibility then return self.forced_visibility end
+	-- Forced visibility
+	if self.forced_visibility then return math.max(self.forced_visibility, self.min_visibility) end
 
 	-- Anchor inheritance
 	-- If anchor returns -1, it means all attached elements should force hide.
 	local anchor = self.anchor_id and Elements[self.anchor_id]
 	local anchor_visibility = anchor and anchor:get_visibility() or 0
 
-	return self.forced_visibility or (anchor_visibility == -1 and 0 or math.max(self.proximity, anchor_visibility))
+	return anchor_visibility == -1 and 0 or math.max(self.proximity, anchor_visibility, self.min_visibility)
 end
 
 -- Call method if it exists
@@ -1459,7 +1439,7 @@ function Element:tween(from, to, setter, factor_or_callback, callback)
 		from, to, setter, factor_or_callback,
 		function()
 			self._kill_tween = nil
-			call_me_maybe(callback)
+			if callback then callback() end
 		end
 	)
 end
@@ -1565,7 +1545,7 @@ function Menu:close(immediate, callback)
 			menu.is_closing, menu.stack, menu.current, menu.all, menu.by_id = false, nil, nil, {}, {}
 			menu:disable_key_bindings()
 			Elements:update_proximities()
-			call_me_maybe(callback)
+			if callback then callback() end
 			request_render()
 		end
 
@@ -1617,7 +1597,7 @@ function Menu:init(data, callback, opts)
 	self:tween_property('opacity', 0, 1)
 	self:enable_key_bindings()
 	Elements.curtain:fadein()
-	call_me_maybe(self.opts.on_open)
+	if self.opts.on_open then self.opts.on_open() end
 end
 
 ---@param data MenuData
@@ -1999,7 +1979,7 @@ function Menu:destroy()
 	Element.destroy(self)
 	self:disable_key_bindings()
 	Elements.curtain:fadeout()
-	call_me_maybe(self.opts.on_close)
+	if self.opts.on_close then self.opts.on_close() end
 end
 
 function Menu:add_key_binding(key, name, fn, flags)
@@ -2400,7 +2380,7 @@ end
 
 --[[ Button ]]
 
----@alias ButtonProps {icon: string; on_click: function; anchor_id?: string; active?: boolean; foreground?: string; background?: string; tooltip?: string}
+---@alias ButtonProps {icon: string; on_click: function; anchor_id?: string; active?: boolean; badge?: string|number; foreground?: string; background?: string; tooltip?: string}
 
 ---@class Button : Element
 local Button = class(Element)
@@ -2408,10 +2388,13 @@ local Button = class(Element)
 ---@param id string
 ---@param props ButtonProps
 function Button:new(id, props) return Class.new(self, id, props) --[[@as Button]] end
+---@param id string
+---@param props ButtonProps
 function Button:init(id, props)
 	self.icon = props.icon
 	self.active = props.active
 	self.tooltip = props.tooltip
+	self.badge = props.badge
 	self.foreground = props.foreground or options.foreground
 	self.background = props.background or options.background
 	---@type fun()
@@ -2449,11 +2432,34 @@ function Button:render()
 	-- Tooltip on hover
 	if is_hover and self.tooltip then ass:tooltip(self, self.tooltip) end
 
+	-- Badge
+	local icon_clip
+	if self.badge then
+		local badge_font_size = self.font_size * 0.6
+		local badge_width = text_width_estimate(self.badge, badge_font_size)
+		local width, height = math.ceil(badge_width + (badge_font_size / 7) * 2), math.ceil(badge_font_size * 0.93)
+		local bx, by = self.bx - 1, self.by - 1
+		ass:rect(bx - width, by - height, bx, by, {
+			color = foreground, radius = 2, opacity = visibility,
+			border = self.active and 0 or 1, border_color = background,
+		})
+		ass:txt(bx - width / 2, by - height / 2, 5, self.badge, {
+			size = badge_font_size, color = background, opacity = visibility,
+		})
+
+		local clip_border = math.max(self.font_size / 20, 1)
+		local clip_path = assdraw.ass_new()
+		clip_path:round_rect_cw(
+			math.floor((bx - width) - clip_border), math.floor((by - height) - clip_border), bx, by, 3
+		)
+		icon_clip = '\\iclip(' .. clip_path.scale .. ', ' .. clip_path.text .. ')'
+	end
+
 	-- Icon
 	local x, y = round(self.ax + (self.bx - self.ax) / 2), round(self.ay + (self.by - self.ay) / 2)
 	ass:icon(x, y, self.font_size, self.icon, {
 		color = foreground, border = self.active and 0 or options.text_border, border_color = background,
-		opacity = visibility,
+		opacity = visibility, clip = icon_clip,
 	})
 
 	return ass
@@ -2470,6 +2476,8 @@ local CycleButton = class(Button)
 ---@param id string
 ---@param props CycleButtonProps
 function CycleButton:new(id, props) return Class.new(self, id, props) --[[@as CycleButton]] end
+---@param id string
+---@param props CycleButtonProps
 function CycleButton:init(id, props)
 	self.prop = props.prop
 	self.states = props.states
@@ -2704,6 +2712,7 @@ function Timeline:render()
 
 	local size_min = self:get_effective_size_min()
 	local size = self:get_effective_size()
+	local visibility = self:get_visibility()
 
 	if size < 1 then return end
 
@@ -2721,6 +2730,7 @@ function Timeline:render()
 	-- Foreground & Background bar coordinates
 	local bax, bay, bbx, bby = self.ax, self.by - size - self.top_border, self.bx, self.by
 	local fax, fay, fbx, fby = 0, bay + self.top_border, 0, bby
+	local fcy = fay + (size / 2)
 
 	local line_width = 0
 
@@ -2759,38 +2769,37 @@ function Timeline:render()
 	ass:rect(fax, fay, fbx, fby, {opacity = options.timeline_opacity})
 
 	-- Uncached ranges
+	local buffered_time = nil
 	if state.uncached_ranges then
-		local texture_opts = {size = 80, opacity = 0.4 - (0.2 * text_opacity), align = 3}
-		local texture_char = text_opacity > 0 and 'b' or 'a'
+		local opts = {size = 80, align = 3}
+		local texture_char = visibility > 0 and 'b' or 'a'
 		for _, range in ipairs(state.uncached_ranges) do
+			if not buffered_time and (range[1] > state.time or range[2] > state.time) then
+				buffered_time = range[1] - state.time
+			end
 			local ax = range[1] < 0.5 and bax or math.floor(time_ax + time_width * (range[1] / state.duration))
 			local bx = range[2] > state.duration - 0.5 and bbx or
 				math.ceil(time_ax + time_width * (range[2] / state.duration))
-			texture_opts.color = 'ffffff'
-			ass:texture(ax, fay, bx, fby, texture_char, texture_opts)
-			texture_opts.color = '000000'
-			texture_opts.shift = texture_opts.size / 50
-			ass:texture(ax, fay, bx, fby, texture_char, texture_opts)
+			opts.color, opts.opacity, opts.shift = 'ffffff', 0.4 - (0.2 * visibility), 0
+			ass:texture(ax, fay, bx, fby, texture_char, opts)
+			opts.color, opts.opacity, opts.shift = '000000', 0.6 - (0.2 * visibility), opts.size / 22
+			ass:texture(ax, fay, bx, fby, texture_char, opts)
 		end
 	end
 
 	-- Custom ranges
-	if state.chapter_ranges ~= nil then
-		for i, chapter_range in ipairs(state.chapter_ranges) do
-			for i, range in ipairs(chapter_range.ranges) do
-				local rax = time_ax + time_width * (range['start'].time / state.duration)
-				local rbx = time_ax + time_width * (range['end'].time / state.duration)
-				-- for 1px chapter size, use the whole size of the bar including padding
-				local ray = size <= 1 and bay or fay
-				local rby = size <= 1 and bby or fby
-				ass:rect(rax, ray, rbx, rby, {color = chapter_range.color, opacity = chapter_range.opacity})
-			end
-		end
+	for _, chapter_range in ipairs(state.chapter_ranges) do
+		local rax = time_ax + time_width * (chapter_range['start'].time / state.duration)
+		local rbx = time_ax + time_width * math.min(chapter_range['end'].time / state.duration, 1)
+		-- for 1px chapter size, use the whole size of the bar including padding
+		local ray = size <= 1 and bay or fay
+		local rby = size <= 1 and bby or fby
+		ass:rect(rax, ray, rbx, rby, {color = chapter_range.color, opacity = chapter_range.opacity})
 	end
 
 	-- Chapters
 	local chapters_style = options.timeline_chapters
-	if (chapters_style ~= 'never'
+	if (chapters_style ~= 'never' and options.timeline_chapters_opacity > 0
 		and (state.chapters ~= nil and #state.chapters > 0 or state.ab_loop_a or state.ab_loop_b)
 		) then
 
@@ -2879,38 +2888,39 @@ function Timeline:render()
 		end
 	end
 
+	local function draw_timeline_text(x, y, align, text, opts)
+		opts.color, opts.border_color = options.foreground_text, options.foreground
+		opts.clip = '\\clip(' .. foreground_coordinates .. ')'
+		ass:txt(x, y, align, text, opts)
+		opts.color, opts.border_color = options.background_text, options.background
+		opts.clip = '\\iclip(' .. foreground_coordinates .. ')'
+		ass:txt(x, y, align, text, opts)
+	end
+
 	-- Time values
 	if text_opacity > 0 then
-		local opts = {
-			size = self.font_size, opacity = math.min(options.timeline_opacity + 0.1, 1) * text_opacity, border = 2,
-		}
+		-- Upcoming cache time
+		if buffered_time and buffered_time > 0 and buffered_time < 60 then
+			local x, align = fbx + 5, 4
+			local font_size = self.font_size * 0.8
+			local human = round(buffered_time) .. 's'
+			local width = text_width_estimate(human, font_size)
+			local min_x = bax + 5 + text_width_estimate(state.time_human, self.font_size)
+			local max_x = bbx - 5 - text_width_estimate(state.duration_or_remaining_time_human, self.font_size)
+			if x < min_x then x = min_x elseif x + width > max_x then x, align = max_x, 6 end
+			draw_timeline_text(x, fcy, align, human, {size = font_size, opacity = text_opacity * 0.6, border = 1})
+		end
+
+		local opts = {size = self.font_size, opacity = text_opacity, border = 2}
 
 		-- Elapsed time
 		if state.time_human then
-			local elapsed_x = bax + spacing
-			local elapsed_y = fay + (size / 2)
-			opts.color = options.foreground_text
-			opts.border_color = options.foreground
-			opts.clip = '\\clip(' .. foreground_coordinates .. ')'
-			ass:txt(elapsed_x, elapsed_y, 4, state.time_human, opts)
-			opts.color = options.background_text
-			opts.border_color = options.background
-			opts.clip = '\\iclip(' .. foreground_coordinates .. ')'
-			ass:txt(elapsed_x, elapsed_y, 4, state.time_human, opts)
+			draw_timeline_text(bax + spacing, fcy, 4, state.time_human, opts)
 		end
 
 		-- End time
 		if state.duration_or_remaining_time_human then
-			local end_x = bbx - spacing
-			local end_y = fay + (size / 2)
-			opts.color = options.foreground_text
-			opts.border_color = options.foreground
-			opts.clip = '\\clip(' .. foreground_coordinates .. ')'
-			ass:txt(end_x, end_y, 6, state.duration_or_remaining_time_human, opts)
-			opts.color = options.background_text
-			opts.border_color = options.background
-			opts.clip = '\\iclip(' .. foreground_coordinates .. ')'
-			ass:txt(end_x, end_y, 6, state.duration_or_remaining_time_human, opts)
+			draw_timeline_text(bbx - spacing, fcy, 6, state.duration_or_remaining_time_human, opts)
 		end
 	end
 
@@ -2956,7 +2966,7 @@ end
 
 --[[ TopBarButton ]]
 
----@alias TopBarButtonProps {icon: string; background: string; anchor_id?: string; command: string}
+---@alias TopBarButtonProps {icon: string; background: string; anchor_id?: string; command: string|fun()}
 
 ---@class TopBarButton : Element
 local TopBarButton = class(Element)
@@ -2972,7 +2982,9 @@ function TopBarButton:init(id, props)
 	self.command = props.command
 end
 
-function TopBarButton:on_mbtn_left_down() mp.command(self.command) end
+function TopBarButton:on_mbtn_left_down()
+	mp.command(type(self.command) == 'function' and self.command() or self.command)
+end
 
 function TopBarButton:render()
 	local visibility = self:get_visibility()
@@ -3011,6 +3023,12 @@ function TopBar:init()
 	self.icon_size, self.spacing, self.font_size, self.title_bx = 1, 1, 1, 1
 	self.size_min_override = options.timeline_start_hidden and 0 or nil
 	self.top_border = options.timeline_border
+
+	local function decide_maximized_command()
+		return state.border
+			and (state.fullscreen and 'set fullscreen no;cycle window-maximized' or 'cycle window-maximized')
+			or 'set window-maximized no;cycle fullscreen'
+	end
 
 	-- Order aligns from right to left
 	self.buttons = {
@@ -3076,26 +3094,41 @@ function TopBar:render()
 
 	-- Window title
 	if options.top_bar_title and (state.title or state.has_playlist) then
+		local bg_margin = math.floor((self.size - self.font_size) / 4)
+		local padding = self.font_size / 2
+		local title_ax = self.ax + bg_margin
 		local max_bx = self.title_bx - self.spacing
-		local text = state.title or 'n/a'
+
+		-- Playlist position
 		if state.has_playlist then
-			text = string.format('%d/%d - ', state.playlist_pos, state.playlist_count) .. text
+			local text = state.playlist_pos .. '' .. state.playlist_count
+			local formatted_text = '{\\b1}' .. state.playlist_pos .. '{\\b0\\fs' .. self.font_size * 0.9 .. '}/'
+				.. state.playlist_count
+			local bg_bx = round(title_ax + text_length_width_estimate(#text, self.font_size) + padding * 2)
+
+			ass:rect(title_ax, self.ay + bg_margin, bg_bx, self.by - bg_margin, {
+				color = options.foreground, opacity = visibility, radius = 2,
+			})
+			ass:txt(title_ax + (bg_bx - title_ax) / 2, self.ay + (self.size / 2), 5, formatted_text, {
+				size = self.font_size, wrap = 2, color = options.background, opacity = visibility,
+			})
+
+			title_ax = bg_bx + bg_margin
 		end
 
-		-- Background
-		local padding = self.font_size / 2
-		local bg_margin = math.floor((self.size - self.font_size) / 4)
-		local bg_ax = self.ax + bg_margin
-		local bg_bx = math.min(max_bx, self.ax + text_width_estimate(text, self.font_size) + padding * 2)
-		ass:rect(bg_ax, self.ay + bg_margin, bg_bx, self.by - bg_margin, {
-			color = options.background, opacity = visibility * 0.8, radius = 2,
-		})
+		-- Title
+		if max_bx - title_ax > self.font_size * 3 then
+			local text = state.title or 'n/a'
+			local bg_bx = math.min(max_bx, title_ax + text_width_estimate(text, self.font_size) + padding * 2)
 
-		-- Text
-		ass:txt(bg_ax + padding, self.ay + (self.size / 2), 4, text, {
-			size = self.font_size, wrap = 2, color = 'FFFFFF', border = 1, border_color = '000000', opacity = visibility,
-			clip = string.format('\\clip(%d, %d, %d, %d)', self.ax, self.ay, max_bx, self.by),
-		})
+			ass:rect(title_ax, self.ay + bg_margin, bg_bx, self.by - bg_margin, {
+				color = options.background, opacity = visibility * 0.8, radius = 2,
+			})
+			ass:txt(title_ax + padding, self.ay + (self.size / 2), 4, text, {
+				size = self.font_size, wrap = 2, color = options.foreground, border = 1, border_color = options.background,
+				opacity = visibility, clip = string.format('\\clip(%d, %d, %d, %d)', self.ax, self.ay, max_bx, self.by),
+			})
+		end
 	end
 
 	return ass
@@ -3117,18 +3150,20 @@ function Controls:init()
 	Element.init(self, 'controls')
 	---@type ControlItem[]
 	self.controls = {}
+	---@type fun()[]
+	self.disposers = {}
 	self:serialize()
 end
 
 function Controls:serialize()
 	local shorthands = {
 		menu = 'command::script-binding uosc/menu?Menu',
-		subtitles = 'command::script-binding uosc/subtitles?Subtitles',
-		audio = 'command::script-binding uosc/audio?Audio',
+		subtitles = 'command::script-binding uosc/subtitles#sub?Subtitles',
+		audio = 'command::script-binding uosc/audio#audio?Audio',
 		['audio-device'] = 'command::script-binding uosc/audio-device?Audio device',
-		video = 'command::script-binding uosc/video?Video',
+		video = 'command::script-binding uosc/video#video?Video',
 		playlist = 'command::script-binding uosc/playlist?Playlist',
-		chapters = 'command::script-binding uosc/chapters?Chapters',
+		chapters = 'command::script-binding uosc/chapters#chapters?Chapters',
 		['stream-quality'] = 'command::script-binding uosc/stream-quality?Stream quality',
 		['open-file'] = 'command::script-binding uosc/open-file?Open file',
 		['items'] = 'command::script-binding uosc/items?Playlist/Files',
@@ -3181,6 +3216,9 @@ function Controls:serialize()
 		local tooltip = config_tooltip[2]
 		config = shorthands[config_tooltip[1]]
 			and split(shorthands[config_tooltip[1]], ' *%? *')[1] or config_tooltip[1]
+		local config_badge = split(config, ' *# *')
+		config = config_badge[1]
+		local badge = config_badge[2]
 		local parts = split(config, ' *: *')
 		local kind, params = parts[1], itable_slice(parts, 2)
 
@@ -3199,8 +3237,7 @@ function Controls:serialize()
 		elseif kind == 'command' then
 			if #params ~= 2 then
 				mp.error(string.format(
-					'command button needs 2 parameters, %d received: %s',
-					#params, table.concat(params, '/')
+					'command button needs 2 parameters, %d received: %s', #params, table.concat(params, '/')
 				))
 			else
 				local element = Button:new('control_' .. i, {
@@ -3208,10 +3245,12 @@ function Controls:serialize()
 					anchor_id = 'controls',
 					on_click = function() mp.command(params[2]) end,
 					tooltip = tooltip,
+					count_prop = 'sub',
 				})
 				self.controls[#self.controls + 1] = {
 					kind = kind, element = element, sizing = 'static', scale = 1, ratio = 1,
 				}
+				if badge then self:register_badge_updater(badge, element) end
 			end
 		elseif kind == 'cycle' then
 			if #params ~= 3 then
@@ -3240,6 +3279,7 @@ function Controls:serialize()
 				self.controls[#self.controls + 1] = {
 					kind = kind, element = element, sizing = 'static', scale = 1, ratio = 1,
 				}
+				if badge then self:register_badge_updater(badge, element) end
 			end
 		elseif kind == 'speed' then
 			if not Elements.speed then
@@ -3263,8 +3303,30 @@ function Controls:clean_controls()
 	for _, control in ipairs(self.controls) do
 		if control.element then Elements:remove(control.element) end
 	end
+	for _, disposer in ipairs(self.disposers) do disposer() end
 	self.controls = {}
 	request_render()
+end
+
+---@param prop string
+---@param element Element An element that supports `badge` property.
+function Controls:register_badge_updater(prop, element)
+	local observable_name, serializer = prop, nil
+	if itable_index_of({'sub', 'audio', 'video'}, prop) then
+		observable_name = 'track-list'
+		serializer = function(value)
+			local count = 0
+			for _, track in ipairs(value) do if track.type == prop then count = count + 1 end end
+			return count
+		end
+		serializer = function(value) return value and (type(value) == 'table' and #value or tostring(value)) or nil end
+	end
+	local function handler(_, value)
+		element.badge = serializer(value)
+		request_render()
+	end
+	mp.observe_property(observable_name, 'native', handler)
+	self.disposers[#self.disposers + 1] = function() mp.unobserve_property(handler) end
 end
 
 function Controls:get_visibility()
@@ -4096,7 +4158,6 @@ function update_title(title_template)
 	set_state('title', mp.command_native({'expand-text', title_template}))
 end
 mp.register_event('file-loaded', function()
-	serialize_chapters()
 	update_title(mp.get_property_native('title'))
 end)
 mp.register_event('end-file ', function() set_state('title', nil) end)
@@ -4132,7 +4193,7 @@ end)
 mp.observe_property('chapter-list', 'native', function(_, chapters)
 	set_state('has_chapter', #chapters > 0)
 	Elements:trigger('dispositions')
-	serialize_chapters()
+	serialize_chapters(chapters)
 end)
 mp.observe_property('border', 'bool', create_state_setter('border'))
 mp.observe_property('ab-loop-a', 'number', create_state_setter('ab_loop_a'))
@@ -4178,7 +4239,9 @@ mp.observe_property('demuxer-cache-state', 'native', function(prop, cache_state)
 				else
 					if last_uncached[2] > cached[1] then last_uncached[2] = cached[1] end
 				end
-				uncached_ranges[#uncached_ranges + 1] = {cached[2], state.duration}
+				if state.duration - cached[2] > 0.5 then
+					uncached_ranges[#uncached_ranges + 1] = {cached[2], state.duration}
+				end
 			end
 		end
 	end
@@ -4189,10 +4252,10 @@ mp.observe_property('estimated-display-fps', 'native', update_render_delay)
 
 -- KEY BINDABLE FEATURES
 
-mp.add_key_binding(nil, 'peek-ui', function() Elements:peek({'timeline', 'controls', 'volume', 'top_bar'}) end)
-mp.add_key_binding(nil, 'peek-timeline', function() Elements:peek({'timeline'}) end)
-mp.add_key_binding(nil, 'peek-volume', function() Elements:peek({'volume'}) end)
-mp.add_key_binding(nil, 'peek-top-bar', function() Elements:peek({'top_bar'}) end)
+mp.add_key_binding(nil, 'toggle-ui', function() Elements:toggle({'timeline', 'controls', 'volume', 'top_bar'}) end)
+mp.add_key_binding(nil, 'toggle-timeline', function() Elements:toggle({'timeline'}) end)
+mp.add_key_binding(nil, 'toggle-volume', function() Elements:toggle({'volume'}) end)
+mp.add_key_binding(nil, 'toggle-top-bar', function() Elements:toggle({'top_bar'}) end)
 mp.add_key_binding(nil, 'toggle-progress', function()
 	local timeline = Elements.timeline
 	if timeline.size_min_override then
@@ -4284,9 +4347,9 @@ mp.add_key_binding(nil, 'chapters', create_self_updating_menu_opener({
 	title = 'Chapters',
 	type = 'chapters',
 	list_prop = 'chapter-list',
-	list_serializer = function(_, _)
+	list_serializer = function(_, chapters)
 		local items = {}
-		local chapters = get_normalized_chapters()
+		chapters = normalize_chapters(chapters)
 		local active_found = false
 
 		for index, chapter in ipairs(chapters) do
