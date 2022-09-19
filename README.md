@@ -13,7 +13,7 @@ Except users of Windows 11 need to put [Segoe Fluent Icons](https://aka.ms/Segoe
 [ffmpeg](https://www.gyan.dev/ffmpeg/builds/#release-builds)
 
 [darsain/uosc](https://github.com/darsain/uosc)  
-[christoph-heinrich/mpv-quality-menu](https://github.com/christoph-heinrich/mpv-quality-menu)
+[christoph-heinrich/mpv-quality-menu](https://github.com/christoph-heinrich/mpv-quality-menu)  
 [po5/thumbfast](https://github.com/po5/thumbfast)
 
 [dexeonify/modernx](https://github.com/dexeonify/mpv-config/blob/main/scripts/modernx.lua)  
