@@ -38,19 +38,19 @@ Except users of Windows 11 need to put [Segoe Fluent Icons](https://aka.ms/Segoe
 
 TBD
 
-```cfg
-# glsl-shader=~~/shaders-toys/Helper/ClipBlack.glsl
-# # glsl-shader=~~/shaders-toys/HLG_to_Y.glsl
-# glsl-shader=~~/shaders-toys/PQ_to_Y.glsl
-# glsl-shader=~~/shaders-toys/Tonemapper/BT2446C.glsl
-# glsl-shader=~~/shaders-toys/Y_to_CV.glsl
-# # glsl-shader=~~/shaders-toys/Tonemapper/Reinhard.glsl
-# # glsl-shader=~~/shaders-toys/Tonemapper/Hable.glsl
-# # glsl-shader=~~/shaders-toys/Tonemapper/ACES_KN_yc.gls
-# # glsl-shader=~~/shaders-toys/Tonemapper/BT2446A.glsl
-# glsl-shader=~~/shaders-toys/CV_to_BT1886.glsl
-# lut=~~/luts/Rec202012-bit_Rec2020-Rec202012-bit_Rec709.cube
-# lut-type=conversion
+```ini
+glsl-shader=~~/shaders-toys/Helper/ClipBlack.glsl
+# glsl-shader=~~/shaders-toys/HLG_to_Y.glsl
+glsl-shader=~~/shaders-toys/PQ_to_Y.glsl
+glsl-shader=~~/shaders-toys/Tonemapper/BT2446C.glsl
+glsl-shader=~~/shaders-toys/Y_to_CV.glsl
+# glsl-shader=~~/shaders-toys/Tonemapper/Reinhard.glsl
+# glsl-shader=~~/shaders-toys/Tonemapper/Hable.glsl
+# glsl-shader=~~/shaders-toys/Tonemapper/ACES_KN_yc.gls
+# glsl-shader=~~/shaders-toys/Tonemapper/BT2446A.glsl
+glsl-shader=~~/shaders-toys/CV_to_BT1886.glsl
+lut=~~/luts/Rec202012-bit_Rec2020-Rec202012-bit_Rec709.cube
+lut-type=conversion
 ```
 
 ### Roadmap
