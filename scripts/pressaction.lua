@@ -45,7 +45,6 @@ function keydown(key_name, key_text, is_mouse)
     keydown_at = now()
     original = get_key_binding(options.bind)
     invert = get_invert(options.action)
-    print(invert)
 end
 
 function keyup(key_name, key_text, is_mouse)
