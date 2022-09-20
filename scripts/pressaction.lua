@@ -1,21 +1,15 @@
 local opt = require('mp.options')
 local options = {
     bind = 'SPACE',
-    action = 'set speed 3; set pause no',
-    invert = 'set speed 1',
+    action = 'set speed 4; set pause no',
     duration = 200
 }
 opt.read_options(options)
 
 local pressed = false
 local keydown_at = 0
-
 local original = 'ignore'
-for i, v in ipairs(mp.get_property_native('input-bindings')) do
-    if v.key == options.bind then
-        original = v.cmd
-    end
-end
+local invert = ''
 
 function now()
     return mp.get_time() * 1000
@@ -25,17 +19,37 @@ function command(command)
     return mp.command(command .. '; show-text ""')
 end
 
+function get_key_binding(key)
+    for _, v in ipairs(mp.get_property_native('input-bindings')) do
+        if v.key == key then
+            return v.cmd
+        end
+    end
+end
+
+function get_invert(action)
+    local invert = ''
+
+    -- todo: follow the action
+    local p = {'speed', 'pause'}
+    for i, command in pairs(p) do
+        local value = mp.get_property(command)
+        local semi = i == #p and '' or ';'
+        invert = invert .. 'set ' .. command .. ' ' .. value .. semi
+    end
+
+    return invert
+end
+
 function keydown(key_name, key_text, is_mouse)
     keydown_at = now()
+    original = get_key_binding(options.bind)
+    invert = get_invert(options.action)
+    print(invert)
 end
 
 function keyup(key_name, key_text, is_mouse)
-    if pressed then
-        command(options.invert)
-    else
-        command(original)
-    end
-
+    command(pressed and invert or original)
     pressed = false
     keydown_at = 0
 end
@@ -48,10 +62,12 @@ function keyrepeat(key_name, key_text, is_mouse)
         return
     end
 
-    if now() - keydown_at > options.duration then
-        pressed = true
-        command(options.action)
+    if now() - keydown_at < options.duration then
+        return
     end
+
+    pressed = true
+    command(options.action)
 end
 
 function event_handler(event, is_mouse, key_name, key_text)
