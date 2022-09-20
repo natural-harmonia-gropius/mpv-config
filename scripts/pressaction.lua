@@ -8,7 +8,7 @@ opt.read_options(options)
 
 local pressed = false
 local keydown_at = 0
-local original = 'ignore'
+local original = ''
 local invert = ''
 
 function now()
@@ -25,6 +25,8 @@ function get_key_binding(key)
             return v.cmd
         end
     end
+
+    return 'ignore'
 end
 
 function get_invert(action)
