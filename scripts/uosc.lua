@@ -151,11 +151,9 @@ local options = {
 	timeline_opacity = 0.9,
 	timeline_border = 1,
 	timeline_step = 5,
-	timeline_chapters = 'lines',
-	timeline_chapters_opacity = 0.4,
-	timeline_chapters_width = 1,
+	timeline_chapters_opacity = 0.8,
 
-	controls = 'menu,gap,subtitles,<has_audio,!audio>audio,<stream>stream-quality,gap,space,speed,space,shuffle,loop-playlist,loop-file,gap,prev,items,next,gap,fullscreen',
+	controls = 'menu,gap,subtitles,<has_many_audio>audio,<stream>stream-quality,gap,space,speed,space,shuffle,loop-playlist,loop-file,gap,prev,items,next,gap,fullscreen',
 	controls_size = 32,
 	controls_size_fullscreen = 40,
 	controls_margin = 8,
@@ -213,8 +211,8 @@ local options = {
 	curtain_opacity = 0.5,
 	stream_quality_options = '4320,2160,1440,1080,720,480,360,240,144',
 	directory_navigation_loops = false,
-	media_types = '3gp,asf,avi,avif,bmp,flac,flv,gif,h264,h265,jpeg,jpg,jxl,m4a,m4v,mid,midi,mkv,mov,mp3,mp4,mp4a,mp4v,mpeg,mpg,oga,ogg,ogm,ogv,opus,png,rmvb,svg,tif,tiff,wav,weba,webm,webp,wma,wmv',
-	subtitle_types = 'aqt,gsub,jss,sub,ttxt,pjs,psb,rt,smi,slt,ssf,srt,ssa,ass,usf,idx,vt',
+	media_types = '3gp,aac,aiff,alac,ape,apng,asf,avi,avif,bmp,dsf,f4v,flac,flv,gif,h264,h265,heic,heif,jfif,jpeg,jpg,jxl,m2ts,m4a,m4v,mid,midi,mka,mkv,mov,mp3,mp4,mp4a,mp4v,mpeg,mpg,oga,ogg,ogm,ogv,opus,png,rm,rmvb,svg,tak,tta,tif,tiff,ts,wav,weba,webm,webp,wma,wmv,wv',
+	subtitle_types = 'aqt,ass,gsub,idx,jss,mks,pgs,pjs,psb,rt,slt,smi,sub,sup,srt,ssa,ssf,ttxt,txt,usf,vt,vtt',
 	font_height_to_letter_width_ratio = 0.5,
 	default_directory = '~/',
 	chapter_ranges = '^op| op$|opening<968638:0.5>.*, ^ed| ed$|^end|ending$<968638:0.5>.*|{eof}, sponsor start<3535a5:.5>sponsor end, segment start<3535a5:0.5>segment end',
@@ -222,8 +220,6 @@ local options = {
 opt.read_options(options, 'uosc')
 -- Normalize values
 options.proximity_out = math.max(options.proximity_out, options.proximity_in + 1)
-options.timeline_chapters = itable_index_of({'dots', 'lines', 'lines-top', 'lines-bottom'}, options.timeline_chapters)
-	and options.timeline_chapters or 'never'
 
 --[[ CONFIG ]]
 
@@ -2798,82 +2794,31 @@ function Timeline:render()
 	end
 
 	-- Chapters
-	local chapters_style = options.timeline_chapters
-	if (chapters_style ~= 'never' and options.timeline_chapters_opacity > 0
-		and (state.chapters ~= nil and #state.chapters > 0 or state.ab_loop_a or state.ab_loop_b)
+	if (options.timeline_chapters_opacity > 0
+		and (#state.chapters > 0 or state.ab_loop_a or state.ab_loop_b)
 		) then
-
-		-- Defaults are for `lines`
-		local dots = false
-		local chapter_width, chapter_opacity = options.timeline_chapters_width, options.timeline_chapters_opacity
-		local chapter_height, chapter_y
-
-		-- Improve visibility on thin timeline
-		if chapters_style == 'dots' then
-			if foreground_size < 3 then
-				chapters_style, chapter_width = 'lines', 3
-				chapter_opacity = math.min(chapter_opacity * 1.5, 1)
-			end
-		else
-			if foreground_size < 6 then
-				chapters_style, chapter_width = 'lines', math.max(chapter_width, 3)
-				chapter_opacity = math.min(chapter_opacity * 1.5, 1)
-			end
-		end
-
-		if chapters_style == 'dots' then
-			dots = true
-			chapter_height = math.min(chapter_width, foreground_size)
-			chapter_y = fay + chapter_height / 2
-		elseif chapters_style == 'lines' then
-			chapter_height = size
-			chapter_y = fay + (chapter_height / 2)
-		elseif chapters_style == 'lines-top' then
-			chapter_height = math.min(self.size_max / 3, size)
-			chapter_y = fay + (chapter_height / 2)
-		elseif chapters_style == 'lines-bottom' then
-			chapter_height = math.min(self.size_max / 3, size)
-			chapter_y = fay + size - (chapter_height / 2)
-		end
-
-		if chapter_height ~= nil then
-			-- for 1px chapter size, use the whole size of the bar including padding
-			chapter_height = size <= 1 and foreground_size or chapter_height
-			local chapter_half_width = chapter_width / 2
-			local chapter_half_height = chapter_height / 2
+		if size ~= nil then
+			local opts = {color = options.foreground, opacity = options.timeline_chapters_opacity}
+			local chapter_width = math.max(4 - foreground_size, 1)
+			local half_width = chapter_width / 2
+			local ay, by = fay, fay + size
 			local function draw_chapter(time)
-				local chapter_x = time_ax + time_width * (time / state.duration)
-				local ax, bx = chapter_x - chapter_half_width, chapter_x + chapter_half_width
-				local opts = {
-					color = options.foreground, opacity = chapter_opacity,
-					clip = dots and '\\iclip(' .. foreground_coordinates .. ')' or nil,
-				}
-
-				if dots then
-					local cx, dx = math.max(ax, fax), math.min(bx, fbx)
-					-- 0.5 because clipping coordinates are rounded
-					if (ax - 0.5) < fax or (bx + 0.5) > fbx then
-						ass:circle(chapter_x, chapter_y, chapter_half_height, opts)
-					end
-					if (dx - cx) > 0 then -- intersection
-						opts.color = options.background
-						opts.clip = '\\clip(' .. foreground_coordinates .. ')'
-						ass:circle(chapter_x, chapter_y, chapter_half_height, opts)
-					end
-				else
-					ax, bx = round(ax), round(bx)
-					local cx, dx = math.max(ax, fax), math.min(bx, fbx)
-					local ay, by = chapter_y - chapter_half_height, chapter_y + chapter_half_height
-					if ax < fax then --left of progress
-						ass:rect(ax, ay, math.min(bx, fax), by, opts)
-					end
-					if bx > fbx then --right of progress
-						ass:rect(math.max(ax, fbx), ay, bx, by, opts)
-					end
-					if (dx - cx) > 0 then --intersection
-						opts.color = options.background
-						ass:rect(cx, ay, dx, by, opts)
-					end
+				if time < 1 or (state.duration - time < 1) then
+					return
+				end
+				local x = time_ax + time_width * (time / state.duration)
+				local ax, bx = round(x - half_width), round(x + half_width)
+				local cx, dx = math.max(ax, fax), math.min(bx, fbx)
+				if ax < fax then --left of progress
+					ass:rect(ax, ay, math.min(bx, fax), by, opts)
+				end
+				if bx > fbx then --right of progress
+					ass:rect(math.max(ax, fbx), ay, bx, by, opts)
+				end
+				if (dx - cx) > 0 then --intersection
+					opts.color = options.background
+					ass:rect(cx, ay, dx, by, opts)
+					opts.color = options.foreground
 				end
 			end
 
@@ -3140,7 +3085,7 @@ end
 -- `ratio` - Width/height ratio of a static or dynamic element.
 -- `ratio_min` Min ratio for 'dynamic' sized element.
 -- `skip` - Whether it should be skipped, determined during layout phase.
----@alias ControlItem {element?: Element; kind: string; sizing: 'space' | 'static' | 'dynamic'; scale: number; ratio?: number; ratio_min?: number; hide: boolean;}
+---@alias ControlItem {element?: Element; kind: string; sizing: 'space' | 'static' | 'dynamic'; scale: number; ratio?: number; ratio_min?: number; hide: boolean; dispositions?: table<string, boolean>}
 
 ---@class Controls : Element
 local Controls = class(Element)
@@ -3148,22 +3093,20 @@ local Controls = class(Element)
 function Controls:new() return Class.new(self) --[[@as Controls]] end
 function Controls:init()
 	Element.init(self, 'controls')
-	---@type ControlItem[]
+	---@type ControlItem[] All control elements serialized from `options.controls`.
 	self.controls = {}
-	---@type fun()[]
-	self.disposers = {}
-	self:serialize()
-end
+	---@type ControlItem[] Only controls that match current dispositions.
+	self.layout = {}
 
-function Controls:serialize()
+	-- Serialize control elements
 	local shorthands = {
 		menu = 'command::script-binding uosc/menu?Menu',
-		subtitles = 'command::script-binding uosc/subtitles#sub?Subtitles',
-		audio = 'command::script-binding uosc/audio#audio?Audio',
+		subtitles = 'command::script-binding uosc/subtitles#sub>0?Subtitles',
+		audio = 'command::script-binding uosc/audio#audio>1?Audio',
 		['audio-device'] = 'command::script-binding uosc/audio-device?Audio device',
-		video = 'command::script-binding uosc/video#video?Video',
+		video = 'command::script-binding uosc/video#video>1?Video',
 		playlist = 'command::script-binding uosc/playlist?Playlist',
-		chapters = 'command::script-binding uosc/chapters#chapters?Chapters',
+		chapters = 'command::script-binding uosc/chapters#chapters>0?Chapters',
 		['stream-quality'] = 'command::script-binding uosc/stream-quality?Stream quality',
 		['open-file'] = 'command::script-binding uosc/open-file?Open file',
 		['items'] = 'command::script-binding uosc/items?Playlist/Files',
@@ -3177,14 +3120,14 @@ function Controls:serialize()
 		fullscreen = 'cycle::fullscreen:no/yes=!?Fullscreen',
 	}
 
-	-- Parse configs
+	-- Parse out disposition/config pairs
 	local items = {}
 	local in_disposition = false
 	local current_item = nil
 	for c in options.controls:gmatch('.') do
 		if not current_item then current_item = {disposition = '', config = ''} end
-		if c == '<' then in_disposition = true
-		elseif c == '>' then in_disposition = false
+		if c == '<' and #current_item.config == 0 then in_disposition = true
+		elseif c == '>' and #current_item.config == 0 then in_disposition = false
 		elseif c == ',' and not in_disposition then
 			items[#items + 1] = current_item
 			current_item = nil
@@ -3194,19 +3137,6 @@ function Controls:serialize()
 		end
 	end
 	items[#items + 1] = current_item
-
-	-- Filter out based on disposition
-	items = itable_filter(items, function(item)
-		if item.disposition == '' then return true end
-		local dispositions = split(item.disposition, ' *, *')
-		for _, disposition in ipairs(dispositions) do
-			local value = disposition:sub(1, 1) ~= '!'
-			local name = not value and disposition:sub(2) or disposition
-			local prop = name:sub(1, 4) == 'has_' and name or 'is_' .. name
-			if state[prop] ~= value then return false end
-		end
-		return true
-	end)
 
 	-- Create controls
 	self.controls = {}
@@ -3222,18 +3152,30 @@ function Controls:serialize()
 		local parts = split(config, ' *: *')
 		local kind, params = parts[1], itable_slice(parts, 2)
 
+		-- Serialize dispositions
+		local dispositions = {}
+		for _, definition in ipairs(split(item.disposition, ' *, *')) do
+			if #definition > 0 then
+				local value = definition:sub(1, 1) ~= '!'
+				local name = not value and definition:sub(2) or definition
+				local prop = name:sub(1, 4) == 'has_' and name or 'is_' .. name
+				dispositions[prop] = value
+			end
+		end
+
 		-- Convert toggles into cycles
 		if kind == 'toggle' then
 			kind = 'cycle'
 			params[#params + 1] = 'no/yes!'
 		end
 
+		-- Create a control element
+		local control = {dispositions = dispositions, kind = kind}
+
 		if kind == 'space' then
-			self.controls[#self.controls + 1] = {kind = kind, sizing = 'space'}
+			control.sizing = 'space'
 		elseif kind == 'gap' then
-			self.controls[#self.controls + 1] = {
-				kind = kind, sizing = 'dynamic', scale = 1, ratio = params[1] or 0.3, ratio_min = 0,
-			}
+			table_assign(control, {sizing = 'dynamic', scale = 1, ratio = params[1] or 0.3, ratio_min = 0})
 		elseif kind == 'command' then
 			if #params ~= 2 then
 				mp.error(string.format(
@@ -3247,9 +3189,7 @@ function Controls:serialize()
 					tooltip = tooltip,
 					count_prop = 'sub',
 				})
-				self.controls[#self.controls + 1] = {
-					kind = kind, element = element, sizing = 'static', scale = 1, ratio = 1,
-				}
+				table_assign(control, {element = element, sizing = 'static', scale = 1, ratio = 1})
 				if badge then self:register_badge_updater(badge, element) end
 			end
 		elseif kind == 'cycle' then
@@ -3276,43 +3216,55 @@ function Controls:serialize()
 				local element = CycleButton:new('control_' .. i, {
 					prop = params[2], anchor_id = 'controls', states = states, tooltip = tooltip,
 				})
-				self.controls[#self.controls + 1] = {
-					kind = kind, element = element, sizing = 'static', scale = 1, ratio = 1,
-				}
+				table_assign(control, {element = element, sizing = 'static', scale = 1, ratio = 1})
 				if badge then self:register_badge_updater(badge, element) end
 			end
 		elseif kind == 'speed' then
 			if not Elements.speed then
 				local element = Speed:new({anchor_id = 'controls'})
-				self.controls[#self.controls + 1] = {
-					kind = kind, element = element,
-					sizing = 'dynamic', scale = params[1] or 1.3, ratio = 3.5, ratio_min = 2,
-				}
+				table_assign(control, {
+					element = element, sizing = 'dynamic', scale = params[1] or 1.3, ratio = 3.5, ratio_min = 2,
+				})
 			else
 				msg.error('there can only be 1 speed slider')
 			end
+		else
+			msg.error('unknown element kind "' .. kind .. '"')
+			break
 		end
+
+		self.controls[#self.controls + 1] = control
+	end
+
+	self:reflow()
+end
+
+function Controls:reflow()
+	-- Populate the layout only with items that match current disposition
+	self.layout = {}
+	for _, control in ipairs(self.controls) do
+		local matches = true
+		for prop, value in pairs(control.dispositions) do
+			if state[prop] ~= value then
+				matches = false
+				break
+			end
+		end
+		if control.element then control.element.enabled = matches end
+		if matches then self.layout[#self.layout + 1] = control end
 	end
 
 	self:update_dimensions()
-	Elements:update_proximities()
 	Elements:trigger('controls_reflow')
 end
 
-function Controls:clean_controls()
-	for _, control in ipairs(self.controls) do
-		if control.element then Elements:remove(control.element) end
-	end
-	for _, disposer in ipairs(self.disposers) do disposer() end
-	self.disposers = {}
-	self.controls = {}
-	request_render()
-end
-
----@param prop string
+---@param badge string
 ---@param element Element An element that supports `badge` property.
-function Controls:register_badge_updater(prop, element)
+function Controls:register_badge_updater(badge, element)
+	local prop_and_limit = split(badge, ' *> *')
+	local prop, limit = prop_and_limit[1], tonumber(prop_and_limit[2] or -1)
 	local observable_name, serializer = prop, nil
+
 	if itable_index_of({'sub', 'audio', 'video'}, prop) then
 		observable_name = 'track-list'
 		serializer = function(value)
@@ -3323,12 +3275,16 @@ function Controls:register_badge_updater(prop, element)
 	else
 		serializer = function(value) return value and (type(value) == 'table' and #value or tostring(value)) or nil end
 	end
+
 	local function handler(_, value)
-		element.badge = serializer(value)
+		local new_value = serializer(value) --[[@as nil|string|integer]]
+		local value_number = tonumber(new_value)
+		if value_number then new_value = value_number > limit and value_number or nil end
+		element.badge = new_value
 		request_render()
 	end
+
 	mp.observe_property(observable_name, 'native', handler)
-	self.disposers[#self.disposers + 1] = function() mp.unobserve_property(handler) end
 end
 
 function Controls:get_visibility()
@@ -3349,19 +3305,19 @@ function Controls:update_dimensions()
 	self.ax, self.ay = window_border + margin, self.by - size
 
 	-- Re-enable all elements
-	for c, control in ipairs(self.controls) do
+	for c, control in ipairs(self.layout) do
 		control.hide = false
 		if control.element then control.element.enabled = true end
 	end
 
 	-- Controls
 	local available_width = self.bx - self.ax
-	local statics_width = (#self.controls - 1) * spacing
+	local statics_width = (#self.layout - 1) * spacing
 	local min_content_width = statics_width
 	local max_dynamics_width, dynamic_units, spaces = 0, 0, 0
 
 	-- Calculate statics_width, min_content_width, and count spaces
-	for c, control in ipairs(self.controls) do
+	for c, control in ipairs(self.layout) do
 		if control.sizing == 'space' then
 			spaces = spaces + 1
 		elseif control.sizing == 'static' then
@@ -3377,10 +3333,10 @@ function Controls:update_dimensions()
 
 	-- Hide & disable elements in the middle until we fit into available width
 	if min_content_width > available_width then
-		local i = math.ceil(#self.controls / 2 + 0.1)
-		for a = 0, #self.controls - 1, 1 do
+		local i = math.ceil(#self.layout / 2 + 0.1)
+		for a = 0, #self.layout - 1, 1 do
 			i = i + (a * (a % 2 == 0 and 1 or -1))
-			local control = self.controls[i]
+			local control = self.layout[i]
 
 			if control.kind ~= 'gap' and control.kind ~= 'space' then
 				control.hide = true
@@ -3405,7 +3361,7 @@ function Controls:update_dimensions()
 	local width_for_dynamics = available_width - statics_width
 	local space_width = (width_for_dynamics - max_dynamics_width) / spaces
 
-	for c, control in ipairs(self.controls) do
+	for c, control in ipairs(self.layout) do
 		if not control.hide then
 			local sizing, element, scale, ratio = control.sizing, control.element, control.scale, control.ratio
 			local width, height = 0, 0
@@ -3427,13 +3383,11 @@ function Controls:update_dimensions()
 		end
 	end
 
+	Elements:update_proximities()
 	request_render()
 end
 
-function Controls:on_dispositions()
-	self:clean_controls()
-	self:serialize()
-end
+function Controls:on_dispositions() self:reflow() end
 function Controls:on_display() self:update_dimensions() end
 function Controls:on_prop_border() self:update_dimensions() end
 function Controls:on_prop_fullormaxed() self:update_dimensions() end
@@ -4172,24 +4126,22 @@ mp.observe_property('duration', 'number', create_state_setter('duration', update
 mp.observe_property('speed', 'number', create_state_setter('speed', update_human_times))
 mp.observe_property('track-list', 'native', function(name, value)
 	-- checks the file dispositions
-	local path = mp.get_property_native('path')
-	local has_audio, has_sub, is_video, is_image = false, false, false, false
+	local is_image = false
+	local types = {sub = 0, audio = 0, video = 0}
 	for _, track in ipairs(value) do
-		if track.type == 'audio' then has_audio = true end
-		if track.type == 'sub' then has_sub = true end
 		if track.type == 'video' then
 			is_image = track.image
-			if not is_image and not track.albumart then
-				is_video = true
-			end
-		end
+			if not is_image and not track.albumart then types.video = types.video + 1 end
+		elseif types[track.type] then types[track.type] = types[track.type] + 1 end
 	end
-	set_state('is_audio', not is_video and has_audio)
+	set_state('is_audio', types.video == 0 and types.audio > 0)
 	set_state('is_image', is_image)
-	set_state('has_audio', has_audio)
-	set_state('has_sub', has_sub)
-	set_state('is_video', is_video)
-	set_state('is_stream', is_protocol(path))
+	set_state('has_audio', types.audio > 0)
+	set_state('has_many_audio', types.audio > 1)
+	set_state('has_sub', types.sub > 0)
+	set_state('has_many_sub', types.sub > 1)
+	set_state('is_video', types.video > 0)
+	set_state('has_many_video', types.video > 1)
 	Elements:trigger('dispositions')
 end)
 mp.observe_property('chapter-list', 'native', function(_, chapters)
@@ -4218,10 +4170,14 @@ mp.observe_property('osd-dimensions', 'native', function(name, val)
 	request_render()
 end)
 mp.observe_property('display-hidpi-scale', 'native', update_display_dimensions)
+mp.observe_property('demuxer-via-network', 'native', create_state_setter('is_stream', function()
+	set_state('uncached_ranges', state.is_stream and state.duration and {0, state.duration} or nil)
+	Elements:trigger('dispositions')
+end))
 mp.observe_property('demuxer-cache-state', 'native', function(prop, cache_state)
 	local cached_ranges = cache_state and cache_state['seekable-ranges'] or {}
 	local uncached_ranges = nil
-	if state.duration and #cached_ranges > 0 then
+	if state.duration and state.is_stream then
 		-- Normalize
 		local ranges = {}
 		for _, range in ipairs(cached_ranges) do
@@ -4232,17 +4188,20 @@ mp.observe_property('demuxer-cache-state', 'native', function(prop, cache_state)
 		end
 		table.sort(ranges, function(a, b) return a[1] < b[1] end)
 		-- Invert cached ranges into uncached ranges, as that's what we're rendering
-		uncached_ranges = {}
+		local inverted_ranges = {{0, state.duration}}
 		for _, cached in pairs(ranges) do
-			local last_uncached = uncached_ranges[#uncached_ranges]
-			if cached[2] - cached[1] > 0.5 then
-				if not last_uncached then
-					if cached[1] > 0.5 then uncached_ranges[#uncached_ranges + 1] = {0, cached[1]} end
-				else
-					if last_uncached[2] > cached[1] then last_uncached[2] = cached[1] end
-				end
-				if state.duration - cached[2] > 0.5 then
-					uncached_ranges[#uncached_ranges + 1] = {cached[2], state.duration}
+			inverted_ranges[#inverted_ranges][2] = cached[1]
+			inverted_ranges[#inverted_ranges + 1] = {cached[2], state.duration}
+		end
+		uncached_ranges = {}
+		local last_range = nil
+		for _, range in ipairs(inverted_ranges) do
+			if last_range and last_range[2] + 0.5 > range[1] then -- fuse ranges
+				last_range[2] = range[2]
+			else
+				if range[2] - range[1] > 0.5 then -- skip short ranges
+					uncached_ranges[#uncached_ranges + 1] = range
+					last_range = range
 				end
 			end
 		end

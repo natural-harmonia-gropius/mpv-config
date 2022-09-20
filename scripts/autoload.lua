@@ -53,11 +53,11 @@ EXTENSIONS_VIDEO = Set {
 }
 
 EXTENSIONS_AUDIO = Set {
-    'mp3', 'wav', 'ogm', 'flac', 'm4a', 'wma', 'ogg', 'opus', 'ape', 'alac', 'dsd', 'dsf', 'dff'
+    'mp3', 'wav', 'ogm', 'flac', 'm4a', 'wma', 'ogg', 'opus', 'alac', 'ape', 'dsd', 'dsf', 'dff'
 }
 
 EXTENSIONS_IMAGES = Set {
-    'jpg', 'jpeg', 'jfif', 'png', 'tif', 'tiff', 'gif', 'webp', 'svg', 'bmp', 'heif', 'heic', 'avif'
+    'jpg', 'jpeg', 'jxr', 'jxl', 'jfif', 'png', 'tif', 'tiff', 'gif', 'webp', 'svg', 'bmp', 'heif', 'heic', 'avif'
 }
 
 EXTENSIONS = Set {}
