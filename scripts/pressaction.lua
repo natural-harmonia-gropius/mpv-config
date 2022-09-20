@@ -11,6 +11,19 @@ local keydown_at = 0
 local original = ''
 local invert = ''
 
+function string:split(sep)
+    local sep, fields = sep or ":", {}
+    local pattern = string.format("([^%s]+)", sep)
+    self:gsub(pattern, function(c)
+        fields[#fields + 1] = c
+    end)
+    return fields
+end
+
+function string:trim()
+    return (self:gsub("^%s*(.-)%s*$", "%1"))
+end
+
 function now()
     return mp.get_time() * 1000
 end
@@ -20,7 +33,7 @@ function command(command)
 end
 
 function get_key_binding(key)
-    for _, v in ipairs(mp.get_property_native('input-bindings')) do
+    for i, v in ipairs(mp.get_property_native('input-bindings')) do
         if v.key == key then
             return v.cmd
         end
@@ -32,11 +45,11 @@ end
 function get_invert(action)
     local invert = ''
 
-    -- todo: follow the action
-    local p = {'speed', 'pause'}
-    for i, command in pairs(p) do
+    local action = action:split(';')
+    for i, v in ipairs(action) do
+        local command = v:trim():split("%s*")[2]
         local value = mp.get_property(command)
-        local semi = i == #p and '' or ';'
+        local semi = i == #action and '' or ';'
         invert = invert .. 'set ' .. command .. ' ' .. value .. semi
     end
 
