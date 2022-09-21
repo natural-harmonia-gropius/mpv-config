@@ -18,6 +18,14 @@ local options = {
     -- Overlay id
     overlay_id = 42,
 
+    -- Thumbnail interval in seconds, set to 0 to disable (warning: high cpu usage)
+    -- Clamped to min_thumbnails and max_thumbnails
+    interval = 6,
+
+    -- Number of thumbnails
+    min_thumbnails = 6,
+    max_thumbnails = 120,
+
     -- Spawn thumbnailer on file load for faster initial thumbnails
     spawn_first = false,
 
@@ -32,16 +40,20 @@ mp.utils = require "mp.utils"
 mp.options = require "mp.options"
 mp.options.read_options(options, "thumbfast")
 
+if options.min_thumbnails < 1 then
+    options.min_thumbnails = 1
+end
+
 local os_name = ""
 
 math.randomseed(os.time())
 local unique = math.random(10000000)
 
 local spawned = false
-local disabled = false
 local can_generate = true
 local network = false
-local interval = 10
+local disabled = false
+local interval = 0
 
 local x = nil
 local y = nil
@@ -204,7 +216,7 @@ local function spawn(time)
     spawned = true
 
     local open_filename = mp.get_property("stream-open-filename")
-    local ytdl = open_filename and mp.get_property_bool("demuxer-via-network", false) and path ~= open_filename
+    local ytdl = open_filename and network and path ~= open_filename
     if ytdl then
         path = open_filename
     end
@@ -293,6 +305,22 @@ local function index_time(index, thumbtime)
     end
 end
 
+local function thumb(w, h, thumbtime, display_time, script)
+    local display_w, display_h = w, h
+    if mp.get_property_number("video-params/rotate", 0) % 180 == 90 then
+        display_w, display_h = h, w
+    end
+
+    if x ~= nil then
+        mp.command_native(
+            {name = "overlay-add", id=options.overlay_id, x=x, y=y, file=options.thumbnail..".bgra", offset=0, fmt="bgra", w=display_w, h=display_h, stride=(4*display_w)}
+        )
+    elseif script then
+        json, err = mp.utils.format_json({width=display_w, height=display_h, x=x, y=y, socket=options.socket, thumbnail=options.thumbnail, overlay_id=options.overlay_id})
+        mp.commandv("script-message-to", script, "thumbfast-render", json)
+    end
+end
+
 local function display_img(w, h, thumbtime, display_time, script, redraw)
     if last_display_time > display_time or disabled then return end
 
@@ -305,9 +333,17 @@ local function display_img(w, h, thumbtime, display_time, script, redraw)
                 can_generate = true
                 return
             end
+
             if thumbtime < 0 then
                 thumbtime = thumbtime + 1
             end
+
+            -- display last successful thumbnail if one exists
+            local info2 = mp.utils.file_info(options.thumbnail..".bgra")
+            if info2 and info2.size == thumb_size then
+                thumb(w, h, thumbtime, display_time, script)
+            end
+
             -- retry up to 5 times
             return mp.add_timeout(0.05, function() display_img(w, h, thumbtime < 0 and thumbtime or -5, display_time, script) end)
         end
@@ -325,32 +361,15 @@ local function display_img(w, h, thumbtime, display_time, script, redraw)
     else
         local info = mp.utils.file_info(options.thumbnail..".bgra")
         if not info or info.size ~= thumb_size then
+            -- still waiting on intial thumbnail
             return mp.add_timeout(0.05, function() display_img(w, h, thumbtime, display_time, script) end)
         end
         if not can_generate then
-            return
+            return thumb(w, h, thumbtime, display_time, script)
         end
     end
 
-    if x ~= nil then
-        local display_w, display_h = w, h
-
-        if mp.get_property_number("video-params/rotate", 0) % 180 == 90 then
-            display_w, display_h = h, w
-        end
-
-        mp.command_native(
-            {name = "overlay-add", id=options.overlay_id, x=x, y=y, file=options.thumbnail..".bgra", offset=0, fmt="bgra", w=display_w, h=display_h, stride=(4*display_w)}
-        )
-    elseif script then
-        local display_w, display_h = w, h
-        if mp.get_property_number("video-params/rotate", 0) % 180 == 90 then
-            display_w, display_h = h, w
-        end
-
-        json, err = mp.utils.format_json({width=display_w, height=display_h, x=x, y=y, socket=options.socket, thumbnail=options.thumbnail, overlay_id=options.overlay_id})
-        mp.commandv("script-message-to", script, "thumbfast-render", json)
-    end
+    thumb(w, h, thumbtime, display_time, script)
 
     can_generate = true
 
@@ -409,6 +428,8 @@ end)
 local function clear()
     last_display_time = mp.get_time()
     can_generate = true
+    last_x = nil
+    last_y = nil
     mp.command_native(
         {name = "overlay-remove", id=options.overlay_id}
     )
@@ -474,7 +495,7 @@ function file_load()
     can_generate = true
     network = mp.get_property_bool("demuxer-via-network", false)
     disabled = (network and not options.network) or (is_audio_file() and not options.audio)
-    interval = math.max(mp.get_property_number("duration", 1) / 120, 6)
+    interval = math.min(math.max(mp.get_property_number("duration", 1) / options.max_thumbnails, options.interval), mp.get_property_number("duration", options.interval * options.min_thumbnails) / options.min_thumbnails)
     if options.spawn_first and not disabled then
         spawn(mp.get_property_number("time-pos", 0))
     end
