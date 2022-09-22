@@ -47,10 +47,10 @@ function get_invert(action)
 
     local action = action:split(';')
     for i, v in ipairs(action) do
-        local command = v:trim():split("%s*")[2]
-        local value = mp.get_property(command)
+        local property = v:trim():split("%s*")[2]
+        local value = mp.get_property(property)
         local semi = i == #action and '' or ';'
-        invert = invert .. 'set ' .. command .. ' ' .. value .. semi
+        invert = invert .. 'set ' .. property .. ' ' .. value .. semi
     end
 
     return invert
