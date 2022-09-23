@@ -73,10 +73,10 @@ function get_invert(action)
         local value = mp.get_property(property)
         local semi = i == #action and "" or ";"
 
-        if not table.has(commands, command) then
-            mp.msg.error("Input command '" .. command .. "' does not support auto restore, please set 'options.invert' manually")
-        else
+        if table.has(commands, command) then
             invert = invert .. prefix .. " " .. "set" .. " " .. property .. " " .. value .. semi
+        else
+            mp.msg.error("Input command '" .. command .. "' does not support auto restore, please set 'options.invert' manually")
         end
     end
     return invert
