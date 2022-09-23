@@ -76,7 +76,7 @@ function get_invert(action)
         if table.has(commands, command) then
             invert = invert .. prefix .. " " .. "set" .. " " .. property .. " " .. value .. semi
         else
-            mp.msg.error("Input command '" .. command .. "' does not support auto restore, please set 'options.invert' manually")
+            mp.msg.error(v:trim() .. "' doesn't support auto restore, please set 'options.invert' manually")
         end
     end
     return invert
