@@ -1,15 +1,32 @@
-local opt = require('mp.options')
+local opt = require("mp.options")
 local options = {
-    bind = 'SPACE',
-    action = 'set speed 4; set pause no',
+    bind = "SPACE",
+    action = "no-osd set speed 4; set pause no",
+    invert = "",
     duration = 200
 }
 opt.read_options(options)
 
 local pressed = false
 local keydown_at = 0
-local original = ''
-local invert = ''
+local original = ""
+local invert = ""
+
+-- https://mpv.io/manual/master/#input-command-prefixes
+local prefixes = {"osd-auto", "no-osd", "osd-bar", "osd-msg", "osd-msg-bar", "raw", "expand-properties", "repeatable",
+                  "async", "sync"}
+
+-- https://mpv.io/manual/master/#list-of-input-commands
+local commands = {"set", "cycle", "add", "multiply"}
+
+function table:has(element)
+    for _, value in ipairs(self) do
+        if value == element then
+            return true
+        end
+    end
+    return false
+end
 
 function string:split(sep)
     local sep, fields = sep or ":", {}
@@ -29,30 +46,39 @@ function now()
 end
 
 function command(command)
-    return mp.command(command .. '; show-text ""')
+    return mp.command(command)
 end
 
 function get_key_binding(key)
-    for i, v in ipairs(mp.get_property_native('input-bindings')) do
+    for _, v in ipairs(mp.get_property_native("input-bindings")) do
         if v.key == key then
             return v.cmd
         end
     end
-
-    return 'ignore'
+    return "ignore"
 end
 
 function get_invert(action)
-    local invert = ''
-
-    local action = action:split(';')
-    for i, v in ipairs(action) do
-        local property = v:trim():split("%s*")[2]
-        local value = mp.get_property(property)
-        local semi = i == #action and '' or ';'
-        invert = invert .. 'set ' .. property .. ' ' .. value .. semi
+    if options.invert ~= "" then
+        return options.invert
     end
 
+    local invert = ""
+    local action = action:split(";")
+    for i, v in ipairs(action) do
+        local subs = v:trim():split("%s*")
+        local prefix = table.has(prefixes, subs[1]) and subs[1] or ""
+        local command = subs[prefix == "" and 1 or 2]
+        local property = subs[prefix == "" and 2 or 3]
+        local value = mp.get_property(property)
+        local semi = i == #action and "" or ";"
+
+        if not table.has(commands, command) then
+            mp.msg.error("Input command '" .. command .. "' does not support auto restore, please set 'options.invert' manually")
+        else
+            invert = invert .. prefix .. " " .. "set" .. " " .. property .. " " .. value .. semi
+        end
+    end
     return invert
 end
 
@@ -85,13 +111,13 @@ function keyrepeat(key_name, key_text, is_mouse)
 end
 
 function event_handler(event, is_mouse, key_name, key_text)
-    if event == 'down' then
+    if event == "down" then
         keydown(key_name, key_text, is_mouse)
-    elseif event == 'up' then
+    elseif event == "up" then
         keyup(key_name, key_text, is_mouse)
-    elseif event == 'press' then
+    elseif event == "press" then
         keypress(key_name, key_text, is_mouse)
-    elseif event == 'repeat' then
+    elseif event == "repeat" then
         keyrepeat(key_name, key_text, is_mouse)
     else
         print(event, key_name, key_text, is_mouse)
