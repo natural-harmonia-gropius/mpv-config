@@ -12,6 +12,7 @@ local options = {
     thumbnail = "",
 
     -- Maximum thumbnail size in pixels (scaled down to fit)
+    -- Values are scaled when hidpi is enabled
     max_height = 200,
     max_width = 200,
 
@@ -48,6 +49,7 @@ local os_name = ""
 
 math.randomseed(os.time())
 local unique = math.random(10000000)
+local init = false
 
 local spawned = false
 local can_generate = true
@@ -132,7 +134,7 @@ local function get_os()
     return str_os_name
 end
 
-local function vf_string(filters)
+local function vf_string(filters, full)
     local vf = ""
     local vf_table = mp.get_property_native("vf")
 
@@ -151,6 +153,10 @@ local function vf_string(filters)
         end
     end
 
+    if full then
+        vf = vf.."scale=w="..effective_w..":h="..effective_h..par..",pad=w="..effective_w..":h="..effective_h..":x=(ow-iw)/2:y=(oh-ih)/2,format=bgra"
+    end
+
     return vf
 end
 
@@ -159,11 +165,13 @@ local function calc_dimensions()
     local height = mp.get_property_number("video-out-params/dh")
     if not width or not height then return end
 
+    local scale = mp.get_property_number("display-hidpi-scale", 1)
+
     if width / height > options.max_width / options.max_height then
-        effective_w = options.max_width
+        effective_w = math.floor(options.max_width * scale + 0.5)
         effective_h = math.floor(height / width * effective_w + 0.5)
     else
-        effective_h = options.max_height
+        effective_h = math.floor(options.max_height * scale + 0.5)
         effective_w = math.floor(width / height * effective_h + 0.5)
     end
 
@@ -214,17 +222,22 @@ local function spawn(time)
             options.socket = "/tmp/thumbfast"
         end
     end
-    -- ensure uniqueness
-    options.socket = options.socket .. unique
 
     if options.thumbnail == "" then
         if os_name == "Windows" then
-            options.thumbnail = mp.command_native({"expand-path", "~/AppData/Local/Temp"}).."\\thumbfast.out"
+            options.thumbnail = os.getenv("TEMP").."\\thumbfast.out"
         elseif os_name == "Mac" then
             options.thumbnail = "/tmp/thumbfast.out"
         else
             options.thumbnail = "/tmp/thumbfast.out"
         end
+    end
+
+    if not init then
+        -- ensure uniqueness
+        options.socket = options.socket .. unique
+        options.thumbnail = options.thumbnail .. unique
+        init = true
     end
 
     os.remove(options.thumbnail)
@@ -236,14 +249,14 @@ local function spawn(time)
 
     mp.command_native_async(
         {name = "subprocess", playback_only = true, args = {
-            "mpv", path, "--no-config", "--msg-level=all=no", "--idle", "--pause",
+            "mpv", path, "--no-config", "--msg-level=all=no", "--idle", "--pause", "--keep-open=always",
             "--edition="..(mp.get_property_number("edition") or "auto"), "--vid="..(mp.get_property_number("vid") or "auto"), "--no-sub", "--no-audio",
             "--input-ipc-server="..options.socket,
             "--start="..time, "--hr-seek=no",
             "--ytdl-format=worst", "--demuxer-readahead-secs=0", "--demuxer-max-bytes=128KiB",
             "--dither=no", "--vd-lavc-skiploopfilter=all", "--vd-lavc-software-fallback=1", "--vd-lavc-fast",
             "--tone-mapping="..(mp.get_property_number("tone-mapping") or "auto"), "--tone-mapping-param="..(mp.get_property_number("tone-mapping-param") or "default"), "--hdr-compute-peak=no",
-            "--vf="..vf_string(filters_all).."scale=w="..effective_w..":h="..effective_h..par..",pad=w="..effective_w..":h="..effective_h..":x=(ow-iw)/2:y=(oh-ih)/2,format=bgra",
+            "--vf="..vf_string(filters_all, true),
             "--video-rotate="..last_rotate,
             "--ovc=rawvideo", "--of=image2", "--ofopts=update=1", "--o="..options.thumbnail
         }},
@@ -439,7 +452,7 @@ local function watch_changes()
             end
             local vf_runtime = vf_string(filters_runtime)
             if vf_runtime ~= last_vf_runtime then
-                run("vf set "..vf_string(filters_all).."scale=w="..effective_w..":h="..effective_h..":force_original_aspect_ratio=decrease,pad=w="..effective_w..":h="..effective_h..":x=(ow-iw)/2:y=(oh-ih)/2,format=bgra")
+                run("vf set "..vf_string(filters_all, true))
                 last_vf_runtime = vf_runtime
             end
         end
@@ -479,6 +492,7 @@ local function file_load()
     if options.spawn_first then spawn(mp.get_property_number("time-pos", 0)) end
 end
 
+mp.observe_property("display-hidpi-scale", "native", watch_changes)
 mp.observe_property("video-out-params", "native", watch_changes)
 mp.observe_property("vf", "native", watch_changes)
 mp.observe_property("vid", "native", sync_changes)
