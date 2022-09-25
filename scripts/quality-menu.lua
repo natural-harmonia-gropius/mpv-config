@@ -14,6 +14,7 @@ local mp = require 'mp'
 local utils = require 'mp.utils'
 local msg = require 'mp.msg'
 local assdraw = require 'mp.assdraw'
+local opt = require('mp.options')
 
 local opts = {
     --key bindings
@@ -119,7 +120,7 @@ local opts = {
     sort_video = 'height,fps,tbr,size,format_id',
     sort_audio = 'asr,tbr,size,format_id',
 }
-(require 'mp.options').read_options(opts, "quality-menu")
+opt.read_options(opts, "quality-menu")
 opts.quality_strings = utils.parse_json(opts.quality_strings)
 
 -- special thanks to reload.lua (https://github.com/4e6/mpv-reload/)
@@ -784,6 +785,8 @@ end)
 
 -- check if uosc is running
 mp.register_script_message('uosc-version', function(version)
-	uosc = true
+    version = tonumber((version:gsub('%.', '')))
+---@diagnostic disable-next-line: cast-local-type
+    uosc = version and version >= 400
 end)
 mp.commandv('script-message-to', 'uosc', 'get-version', mp.get_script_name())
