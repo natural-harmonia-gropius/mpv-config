@@ -1,5 +1,5 @@
---[[ uosc 4.0.1 - 2022-Sep-24 | https://github.com/tomasklaen/uosc ]]
-local uosc_version = '4.0.1'
+--[[ uosc 4.1.0 - 2022-Sep-28 | https://github.com/tomasklaen/uosc ]]
+local uosc_version = '4.1.0'
 
 local assdraw = require('mp.assdraw')
 local opt = require('mp.options')
@@ -161,7 +161,7 @@ local defaults = {
 	timeline_step = 5,
 	timeline_chapters_opacity = 0.8,
 
-	controls = 'menu,gap,subtitles,<has_many_audio>audio,<stream>stream-quality,gap,space,speed,space,shuffle,loop-playlist,loop-file,gap,prev,items,next,gap,fullscreen',
+	controls = 'menu,gap,subtitles,<has_many_audio>audio,<has_many_video>video,<stream>stream-quality,gap,space,speed,space,shuffle,loop-playlist,loop-file,gap,prev,items,next,gap,fullscreen',
 	controls_size = 32,
 	controls_size_fullscreen = 40,
 	controls_margin = 8,
@@ -242,6 +242,38 @@ if options.autoload then mp.commandv('set', 'keep-open-pause', 'no') end
 
 --[[ CONFIG ]]
 
+local function create_default_menu()
+	return {
+		{title = 'Open file', value = 'script-binding uosc/open-file'},
+		{title = 'Playlist', value = 'script-binding uosc/playlist'},
+		{title = 'Chapters', value = 'script-binding uosc/chapters'},
+		{title = 'Subtitle tracks', value = 'script-binding uosc/subtitles'},
+		{title = 'Audio tracks', value = 'script-binding uosc/audio'},
+		{title = 'Stream quality', value = 'script-binding uosc/stream-quality'},
+		{title = 'Navigation', items = {
+			{title = 'Next', hint = 'playlist or file', value = 'script-binding uosc/next'},
+			{title = 'Prev', hint = 'playlist or file', value = 'script-binding uosc/prev'},
+			{title = 'Delete file & Next', value = 'script-binding uosc/delete-file-next'},
+			{title = 'Delete file & Prev', value = 'script-binding uosc/delete-file-prev'},
+			{title = 'Delete file & Quit', value = 'script-binding uosc/delete-file-quit'},
+		},},
+		{title = 'Utils', items = {
+			{title = 'Load subtitles', value = 'script-binding uosc/load-subtitles'},
+			{title = 'Aspect ratio', items = {
+				{title = 'Default', value = 'set video-aspect-override "-1"'},
+				{title = '16:9', value = 'set video-aspect-override "16:9"'},
+				{title = '4:3', value = 'set video-aspect-override "4:3"'},
+				{title = '2.35:1', value = 'set video-aspect-override "2.35:1"'},
+			},},
+			{title = 'Audio devices', value = 'script-binding uosc/audio-device'},
+			{title = 'Screenshot', value = 'async screenshot'},
+			{title = 'Show in directory', value = 'script-binding uosc/show-in-directory'},
+			{title = 'Open config folder', value = 'script-binding uosc/open-config-directory'},
+		},},
+		{title = 'Quit', value = 'quit'},
+	}
+end
+
 local config = {
 	version = uosc_version,
 	-- sets max rendering frequency in case the
@@ -259,7 +291,7 @@ local config = {
 		local input_conf_meta, meta_error = utils.file_info(input_conf_path)
 
 		-- File doesn't exist
-		if not input_conf_meta or not input_conf_meta.is_file then return end
+		if not input_conf_meta or not input_conf_meta.is_file then return create_default_menu() end
 
 		local main_menu = {items = {}, items_by_command = {}}
 		local by_id = {}
@@ -310,35 +342,7 @@ local config = {
 			return main_menu.items
 		else
 			-- Default context menu
-			return {
-				{title = 'Open file', value = 'script-binding uosc/open-file'},
-				{title = 'Playlist', value = 'script-binding uosc/playlist'},
-				{title = 'Chapters', value = 'script-binding uosc/chapters'},
-				{title = 'Subtitle tracks', value = 'script-binding uosc/subtitles'},
-				{title = 'Audio tracks', value = 'script-binding uosc/audio'},
-				{title = 'Stream quality', value = 'script-binding uosc/stream-quality'},
-				{title = 'Navigation', items = {
-					{title = 'Next', hint = 'playlist or file', value = 'script-binding uosc/next'},
-					{title = 'Prev', hint = 'playlist or file', value = 'script-binding uosc/prev'},
-					{title = 'Delete file & Next', value = 'script-binding uosc/delete-file-next'},
-					{title = 'Delete file & Prev', value = 'script-binding uosc/delete-file-prev'},
-					{title = 'Delete file & Quit', value = 'script-binding uosc/delete-file-quit'},
-				},},
-				{title = 'Utils', items = {
-					{title = 'Load subtitles', value = 'script-binding uosc/load-subtitles'},
-					{title = 'Aspect ratio', items = {
-						{title = 'Default', value = 'set video-aspect-override "-1"'},
-						{title = '16:9', value = 'set video-aspect-override "16:9"'},
-						{title = '4:3', value = 'set video-aspect-override "4:3"'},
-						{title = '2.35:1', value = 'set video-aspect-override "2.35:1"'},
-					},},
-					{title = 'Audio devices', value = 'script-binding uosc/audio-device'},
-					{title = 'Screenshot', value = 'async screenshot'},
-					{title = 'Show in directory', value = 'script-binding uosc/show-in-directory'},
-					{title = 'Open config folder', value = 'script-binding uosc/open-config-directory'},
-				},},
-				{title = 'Quit', value = 'quit'},
-			}
+			return create_default_menu()
 		end
 	end)(),
 	chapter_ranges = (function()
@@ -412,6 +416,7 @@ local state = {
 	volume = nil,
 	volume_max = nil,
 	mute = nil,
+	is_idle = false,
 	is_video = false,
 	is_audio = false, -- true if file is audio only (mp3, etc)
 	is_image = false,
@@ -882,8 +887,6 @@ function serialize_chapter_ranges(normalized_chapters)
 							start = chapter.time,
 							['end'] = next_chapter and next_chapter.time or infinity,
 						}, config.chapter_ranges[meta.name])
-						chapter.is_range_point = true
-						if next_chapter then next_chapter.is_range_point = true end
 					end
 				end
 			end
@@ -892,7 +895,7 @@ function serialize_chapter_ranges(normalized_chapters)
 		-- Sponsor blocks
 		if config.chapter_ranges.ads then
 			local id = chapter.lowercase_title:match('segment start *%(([%w]%w-)%)')
-			if id then
+			if id then -- ad range from sponsorblock
 				for j = i + 1, #chapters, 1 do
 					local end_chapter = chapters[j]
 					local end_match = end_chapter.lowercase_title:match('segment end *%(' .. id .. '%)')
@@ -902,10 +905,17 @@ function serialize_chapter_ranges(normalized_chapters)
 							start = chapter.time, ['end'] = end_chapter.time,
 						}, config.chapter_ranges.ads)
 						ranges[#ranges + 1], sponsor_ranges[#sponsor_ranges + 1] = range, range
-						chapter.is_range_point, end_chapter.is_range_point, end_chapter.is_end_only = true, true, true
+						end_chapter.is_end_only = true
 						break
 					end
-				end
+				end -- single chapter for ad
+			elseif not chapter.is_end_only and
+				(chapter.lowercase_title:find('%[sponsorblock%]:') or chapter.lowercase_title:find('^sponsors?')) then
+				local next_chapter = chapters[i + 1]
+				ranges[#ranges + 1] = table_assign({
+					start = chapter.time,
+					['end'] = next_chapter and next_chapter.time or infinity,
+				}, config.chapter_ranges.ads)
 			end
 		end
 	end
@@ -1456,6 +1466,7 @@ function Element:get_visibility()
 			or (persist.paused and state.pause)
 			or (persist.video and state.is_video)
 			or (persist.image and state.is_image)
+			or (persist.idle and state.is_idle)
 		) then return 1 end
 
 	-- Forced visibility
@@ -2260,7 +2271,7 @@ function Speed:get_visibility()
 	-- We force inherit, because I want to see speed value when peeking timeline
 	local this_visibility = Element.get_visibility(self)
 	return Elements.timeline.proximity_raw ~= 0
-		and math.max(Elements.timeline.proximity, this_visibility) or this_visibility
+		and math.max(Elements.timeline:get_visibility(), this_visibility) or this_visibility
 end
 
 function Speed:on_coordinates()
@@ -2736,11 +2747,15 @@ function Timeline:update_dimensions()
 end
 
 function Timeline:get_time_at_x(x)
-	-- line width 1 for timeline_style=bar so mouse input can go all the way from 0 to 1 progress
-	local line_width = (options.timeline_style == 'line' and self:get_effective_line_width() or 1)
-	local time_width = self.width - line_width
-	local progress_x = x - self.ax - line_width / 2
-	local progress = clamp(0, progress_x / time_width, 1)
+	local line_width = (options.timeline_style == 'line' and self:get_effective_line_width() - 1 or 0)
+	local time_width = self.width - line_width - 1
+	local fax = (time_width) * state.time / state.duration
+	local fbx = fax + line_width
+	-- time starts 0.5 pixels in
+	x = x - self.ax - 0.5
+	if x > fbx then x = x - line_width
+	elseif x > fax then x = fax end
+	local progress = clamp(0, x / time_width, 1)
 	return state.duration * progress
 end
 
@@ -2792,21 +2807,18 @@ function Timeline:render()
 	local fax, fay, fbx, fby = 0, bay + self.top_border, 0, bby
 	local fcy = fay + (size / 2)
 
-	local time_x = bax + self.width * progress
-	local line_width, past_x_adjustment, future_x_adjustment = 0, 1, 1
+	local line_width = 0
 
 	if is_line then
 		local minimized_fraction = 1 - math.min((size - size_min) / ((self.size_max - size_min) / 8), 1)
-		local width_normal = self:get_effective_line_width()
+		local line_width_max = self:get_effective_line_width()
 		local max_min_width_delta = size_min > 0
-			and width_normal - width_normal * options.timeline_line_width_minimized_scale
+			and line_width_max - line_width_max * options.timeline_line_width_minimized_scale
 			or 0
-		line_width = width_normal - (max_min_width_delta * minimized_fraction)
+		line_width = line_width_max - (max_min_width_delta * minimized_fraction)
 		fax = bax + (self.width - line_width) * progress
 		fbx = fax + line_width
-		local past_time_width, future_time_width = time_x - bax, bbx - time_x
-		past_x_adjustment = (past_time_width - (time_x - fax)) / past_time_width
-		future_x_adjustment = (future_time_width - (fbx - time_x)) / future_time_width
+		line_width = line_width - 1
 	else
 		fax, fbx = bax, bax + self.width * progress
 	end
@@ -2814,10 +2826,14 @@ function Timeline:render()
 	local foreground_size = fby - fay
 	local foreground_coordinates = round(fax) .. ',' .. fay .. ',' .. round(fbx) .. ',' .. fby -- for clipping
 
-	-- line_x_adjustment: adjusts x coordinate so that it never lies inside of the line
-	-- it's as if line cuts the timeline and squeezes itself into the cut
-	local lxa = line_width == 0 and function(x) return x end or function(x)
-		return x < time_x and bax + (x - bax) * past_x_adjustment or bbx - (bbx - x) * future_x_adjustment
+	-- time starts 0.5 pixels in
+	local time_ax = bax + 0.5
+	local time_width = self.width - line_width - 1
+
+	-- time to x: calculates x coordinate so that it never lies inside of the line
+	local function t2x(time)
+		local x = time_ax + time_width * time / state.duration
+		return time <= state.time and x or x + line_width
 	end
 
 	-- Background
@@ -2844,9 +2860,8 @@ function Timeline:render()
 			if not buffered_time and (range[1] > state.time or range[2] > state.time) then
 				buffered_time = range[1] - state.time
 			end
-			local ax = range[1] < 0.5 and bax or math.floor(lxa(bax + self.width * (range[1] / state.duration)))
-			local bx = range[2] > state.duration - 0.5 and bbx or
-				math.ceil(lxa(bax + self.width * (range[2] / state.duration)))
+			local ax = range[1] < 0.5 and bax or math.floor(t2x(range[1]))
+			local bx = range[2] > state.duration - 0.5 and bbx or math.ceil(t2x(range[2]))
 			opts.color, opts.opacity, opts.anchor_x = 'ffffff', 0.4 - (0.2 * visibility), bax
 			ass:texture(ax, fay, bx, fby, texture_char, opts)
 			opts.color, opts.opacity, opts.anchor_x = '000000', 0.6 - (0.2 * visibility), bax + offset
@@ -2856,9 +2871,9 @@ function Timeline:render()
 
 	-- Custom ranges
 	for _, chapter_range in ipairs(state.chapter_ranges) do
-		local rax = chapter_range.start < 0.1 and 0 or lxa(bax + self.width * (chapter_range.start / state.duration))
+		local rax = chapter_range.start < 0.1 and bax or t2x(chapter_range.start)
 		local rbx = chapter_range['end'] > state.duration - 0.1 and bbx
-			or lxa(bax + self.width * math.min(chapter_range['end'] / state.duration, 1))
+			or t2x(math.min(chapter_range['end'], state.duration))
 		ass:rect(rax, fay, rbx, fby, {color = chapter_range.color, opacity = chapter_range.opacity})
 	end
 
@@ -2875,7 +2890,7 @@ function Timeline:render()
 				if time < 1 or (state.duration - time < 1) then
 					return
 				end
-				local x = bax + line_width / 2 + (self.width - line_width) * (time / state.duration)
+				local x = t2x(time)
 				local ax, bx = round(x - half_width), round(x + half_width)
 				local cx, dx = math.max(ax, fax), math.min(bx, fbx)
 				if ax < fax then --left of progress
@@ -2893,7 +2908,7 @@ function Timeline:render()
 
 			if state.chapters ~= nil then
 				for i, chapter in ipairs(state.chapters) do
-					if not chapter.is_range_point then draw_chapter(chapter.time) end
+					draw_chapter(chapter.time)
 				end
 			end
 
@@ -4223,7 +4238,7 @@ end)
 mp.observe_property('playback-time', 'number', create_state_setter('time', function()
 	-- Create a file-end event that triggers right before file ends
 	file_end_timer:kill()
-	if state.duration and state.time then
+	if state.duration and state.time and not state.pause then
 		local remaining = (state.duration - state.time) / state.speed
 		if remaining < 5 then
 			local timeout = remaining - 0.02
@@ -4285,7 +4300,10 @@ mp.observe_property('playlist-count', 'number', function(_, value)
 end)
 mp.observe_property('fullscreen', 'bool', create_state_setter('fullscreen', update_fullormaxed))
 mp.observe_property('window-maximized', 'bool', create_state_setter('maximized', update_fullormaxed))
-mp.observe_property('idle-active', 'bool', create_state_setter('idle'))
+mp.observe_property('idle-active', 'bool', function(_, idle)
+	set_state('is_idle', idle)
+	Elements:trigger('dispositions')
+end)
 mp.observe_property('pause', 'bool', create_state_setter('pause', function() file_end_timer:kill() end))
 mp.observe_property('volume', 'number', create_state_setter('volume'))
 mp.observe_property('volume-max', 'number', create_state_setter('volume_max'))
@@ -4718,5 +4736,6 @@ mp.register_script_message('thumbfast-info', function(json)
 		msg.error('thumbfast-info: received json didn\'t produce a table with thumbnail information')
 	else
 		thumbnail = data
+		request_render()
 	end
 end)
