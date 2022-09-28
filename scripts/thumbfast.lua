@@ -195,6 +195,11 @@ local function info()
     mp.commandv("script-message", "thumbfast-info", json)
 end
 
+local function remove_thumbnail_files()
+    os.remove(options.thumbnail)
+    os.remove(options.thumbnail..".bgra")
+end
+
 local function spawn(time)
     if disabled then return end
 
@@ -240,8 +245,7 @@ local function spawn(time)
         init = true
     end
 
-    os.remove(options.thumbnail)
-    os.remove(options.thumbnail..".bgra")
+    remove_thumbnail_files()
 
     calc_dimensions()
 
@@ -254,9 +258,9 @@ local function spawn(time)
             "--input-ipc-server="..options.socket,
             "--start="..time, "--hr-seek=no",
             "--ytdl-format=worst", "--demuxer-readahead-secs=0", "--demuxer-max-bytes=128KiB",
-            "--dither=no", "--vd-lavc-skiploopfilter=all", "--vd-lavc-software-fallback=1", "--vd-lavc-fast",
-            "--tone-mapping="..(mp.get_property_number("tone-mapping") or "auto"), "--tone-mapping-param="..(mp.get_property_number("tone-mapping-param") or "default"), "--hdr-compute-peak=no",
+            "--vd-lavc-skiploopfilter=all", "--vd-lavc-software-fallback=1", "--vd-lavc-fast",
             "--vf="..vf_string(filters_all, true),
+            "--sws-allow-zimg=no", "--sws-fast=yes", "--sws-scaler=fast-bilinear",
             "--video-rotate="..last_rotate,
             "--ovc=rawvideo", "--of=image2", "--ofopts=update=1", "--o="..options.thumbnail
         }},
@@ -492,6 +496,12 @@ local function file_load()
     if options.spawn_first then spawn(mp.get_property_number("time-pos", 0)) end
 end
 
+local function shutdown()
+    run("quit")
+    remove_thumbnail_files()
+    os.remove(options.socket)
+end
+
 mp.observe_property("display-hidpi-scale", "native", watch_changes)
 mp.observe_property("video-out-params", "native", watch_changes)
 mp.observe_property("vf", "native", watch_changes)
@@ -502,3 +512,4 @@ mp.register_script_message("thumb", thumb)
 mp.register_script_message("clear", clear)
 
 mp.register_event("file-loaded", file_load)
+mp.register_event("shutdown", shutdown)
