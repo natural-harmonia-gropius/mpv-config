@@ -2,7 +2,8 @@
 
 Personal portable_config for MPV player, The aim is to use it right out of the box.
 
-Except users of Windows 11 need to put [Segoe Fluent Icons](https://aka.ms/SegoeFluentIcons) into fonts folder to use my modified uosc.
+Except users of Windows 11 need to put [Segoe Fluent Icons](https://aka.ms/SegoeFluentIcons) into fonts folder to use my [modified uosc](https://github.com/Natural-Harmonia-Gropius/uosc).  
+Also [Segoe UI Variable](https://aka.ms/SegoeUIVariable) that need to be added manually.
 
 ## TL;DR
 
@@ -12,7 +13,7 @@ Except users of Windows 11 need to put [Segoe Fluent Icons](https://aka.ms/Segoe
 [python](https://www.python.org/downloads)  
 [ffmpeg](https://www.gyan.dev/ffmpeg/builds/#release-builds)
 
-[darsain/uosc](https://github.com/darsain/uosc)  
+[tomasklaen/uosc](https://github.com/darsain/uosc)  
 [christoph-heinrich/mpv-quality-menu](https://github.com/christoph-heinrich/mpv-quality-menu)  
 [po5/thumbfast](https://github.com/po5/thumbfast)
 
