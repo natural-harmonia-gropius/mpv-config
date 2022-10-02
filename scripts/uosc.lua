@@ -1,5 +1,5 @@
---[[ uosc 4.1.0 - 2022-Sep-28 | https://github.com/tomasklaen/uosc ]]
-local uosc_version = '4.1.0'
+--[[ uosc 4.2.0 - 2022-Oct-02 | https://github.com/tomasklaen/uosc ]]
+local uosc_version = '4.2.0'
 
 local assdraw = require('mp.assdraw')
 local opt = require('mp.options')
@@ -161,7 +161,7 @@ local defaults = {
 	timeline_step = 5,
 	timeline_chapters_opacity = 0.8,
 
-	controls = 'menu,gap,subtitles,<has_many_audio>audio,<has_many_video>video,<stream>stream-quality,gap,space,speed,space,shuffle,loop-playlist,loop-file,gap,prev,items,next,gap,fullscreen',
+	controls = 'menu,gap,subtitles,<has_many_audio>audio,<has_many_video>video,<has_many_edition>editions,<stream>stream-quality,gap,space,speed,space,shuffle,loop-playlist,loop-file,gap,prev,items,next,gap,fullscreen',
 	controls_size = 32,
 	controls_size_fullscreen = 40,
 	controls_margin = 8,
@@ -266,6 +266,7 @@ local function create_default_menu()
 				{title = '2.35:1', value = 'set video-aspect-override "2.35:1"'},
 			},},
 			{title = 'Audio devices', value = 'script-binding uosc/audio-device'},
+			{title = 'Editions', value = 'script-binding uosc/editions'},
 			{title = 'Screenshot', value = 'async screenshot'},
 			{title = 'Show in directory', value = 'script-binding uosc/show-in-directory'},
 			{title = 'Open config folder', value = 'script-binding uosc/open-config-directory'},
@@ -860,7 +861,7 @@ function serialize_chapter_ranges(normalized_chapters)
 	local simple_ranges = {
 		{name = 'openings', patterns = {'^op ', '^op$', ' op$', 'opening$'}, requires_next_chapter = true},
 		{name = 'intros', patterns = {'^intro$'}, requires_next_chapter = true},
-		{name = 'endings', patterns = {'^ed ', '^ed$', ' ed$', 'ending$'}},
+		{name = 'endings', patterns = {'^ed ', '^ed$', ' ed$', 'ending$', 'closing$'}},
 		{name = 'outros', patterns = {'^outro$'}},
 	}
 	local sponsor_ranges = {}
@@ -1006,7 +1007,7 @@ end
 function ass_mt:txt(x, y, align, value, opts)
 	local border_size = opts.border or 0
 	local shadow_size = opts.shadow or 0
-	local tags = '\\pos(' .. x .. ',' .. y .. ')\\an' .. align .. '\\blur0'
+	local tags = '\\pos(' .. x .. ',' .. y .. ')\\rDefault\\an' .. align .. '\\blur0'
 	-- font
 	tags = tags .. '\\fn' .. (opts.font or config.font)
 	-- font size
@@ -1063,7 +1064,7 @@ end
 function ass_mt:rect(ax, ay, bx, by, opts)
 	opts = opts or {}
 	local border_size = opts.border or 0
-	local tags = '\\pos(0,0)\\blur0'
+	local tags = '\\pos(0,0)\\rDefault\\blur0'
 	-- border
 	tags = tags .. '\\bord' .. border_size
 	-- colors
@@ -1560,7 +1561,7 @@ menu.close()
 ---@alias MenuData {type?: string; title?: string; hint?: string; keep_open?: boolean; separator?: boolean; items?: MenuDataItem[]; selected_index?: integer;}
 ---@alias MenuDataItem MenuDataValue|MenuData
 ---@alias MenuDataValue {title?: string; hint?: string; icon?: string; value: any; bold?: boolean; italic?: boolean; muted?: boolean; active?: boolean; keep_open?: boolean; separator?: boolean;}
----@alias MenuOptions {blurred?: boolean; on_open?: fun(), on_close?: fun()}
+---@alias MenuOptions {mouse_nav?: boolean; on_open?: fun(), on_close?: fun()}
 
 -- Internal data structure created from `Menu`.
 ---@alias MenuStack {id?: string; type?: string; title?: string; hint?: string; selected_index?: number; keep_open?: boolean; separator?: boolean; items: MenuStackItem[]; parent_menu?: MenuStack; active?: boolean; width: number; height: number; top: number; scroll_y: number; scroll_height: number; title_length: number; title_width: number; hint_length: number; hint_width: number; max_width: number; is_root?: boolean;}
@@ -1633,6 +1634,7 @@ function Menu:init(data, callback, opts)
 	self.callback = callback
 	self.opts = opts or {}
 	self.offset_x = 0 -- Used for submenu transition animation.
+	self.mouse_nav = self.opts.mouse_nav -- Stops pre-selecting items
 	self.item_height = nil
 	self.item_spacing = 1
 	self.item_padding = nil
@@ -1656,12 +1658,10 @@ function Menu:init(data, callback, opts)
 
 	self:update(data)
 
-	if self.opts.blurred then
+	if self.mouse_nav then
 		if self.current then self.current.selected_index = nil end
 	else
-		for _, menu in ipairs(self.all) do
-			self:scroll_to_index(menu.selected_index, menu)
-		end
+		for _, menu in ipairs(self.all) do self:scroll_to_index(menu.selected_index, menu) end
 	end
 
 	self:tween_property('opacity', 0, 1)
@@ -1723,9 +1723,7 @@ function Menu:update(data)
 			menu.items[i] = item
 		end
 
-		if menu.is_root then
-			menu.selected_index = menu_data.selected_index or first_active_index or (#menu.items > 0 and 1 or nil)
-		end
+		if menu.is_root then menu.selected_index = menu_data.selected_index or first_active_index end
 
 		-- Retain old state
 		local old_menu = self.by_id[menu.is_root and '__root__' or menu.id]
@@ -1737,12 +1735,8 @@ function Menu:update(data)
 
 	self.root, self.all, self.by_id = new_root, new_all, new_by_id
 	self.current = self.by_id[old_current_id] or self.root
-	local current_selected_index = self.current.selected_index
 
 	self:update_content_dimensions()
-	-- `update_content_dimensions()` triggers `select_item_below_cursor()`
-	-- so we need to remember and re-apply `selected_index`.
-	self.current.selected_index = current_selected_index
 	self:reset_navigation()
 end
 
@@ -1797,7 +1791,7 @@ function Menu:update_dimensions()
 		menu.height = math.min(content_height - self.item_spacing, max_height)
 		menu.top = round(math.max((display.height - menu.height) / 2, title_height * 1.5))
 		menu.scroll_height = math.max(content_height - menu.height - self.item_spacing, 0)
-		self:scroll_to(menu.scroll_y, menu) -- re-applies scroll limits
+		self:scroll_to(menu.scroll_y, menu) -- clamps scroll_y to scroll limits
 	end
 
 	local ax = round((display.width - self.current.width) / 2) + self.offset_x
@@ -1808,8 +1802,12 @@ function Menu:reset_navigation()
 	local menu = self.current
 
 	-- Reset indexes and scroll
-	self:select_index(menu.selected_index or (menu.items and #menu.items > 0 and 1 or nil))
-	self:scroll_to(menu.scroll_y)
+	self:scroll_to(menu.scroll_y) -- clamps scroll_y to scroll limits
+	if self.mouse_nav then
+		self:select_item_below_cursor()
+	else
+		self:select_index((menu.items and #menu.items > 0) and clamp(1, menu.selected_index or 1, #menu.items) or nil)
+	end
 
 	-- Walk up the parent menu chain and activate items that lead to current menu
 	local parent = menu.parent_menu
@@ -2011,6 +2009,7 @@ function Menu:on_global_mbtn_left_down()
 end
 
 function Menu:on_global_mouse_move()
+	self.mouse_nav = true
 	if self.proximity_raw == 0 then self:select_item_below_cursor()
 	else self.current.selected_index = nil end
 	request_render()
@@ -2062,23 +2061,23 @@ end
 function Menu:enable_key_bindings()
 	-- The `mp.set_key_bindings()` method would be easier here, but that
 	-- doesn't support 'repeatable' flag, so we are stuck with this monster.
-	self:add_key_binding('up', 'menu-prev1', self:create_action('prev'), 'repeatable')
-	self:add_key_binding('down', 'menu-next1', self:create_action('next'), 'repeatable')
-	self:add_key_binding('left', 'menu-back1', self:create_action('back'))
-	self:add_key_binding('right', 'menu-select1', self:create_action('open_selected_item_preselect'))
-	self:add_key_binding('shift+right', 'menu-select-soft1', self:create_action('open_selected_item_soft'))
-	self:add_key_binding('shift+mbtn_left', 'menu-select-soft', self:create_action('open_selected_item_soft'))
-	self:add_key_binding('mbtn_back', 'menu-back-alt3', self:create_action('back'))
-	self:add_key_binding('bs', 'menu-back-alt4', self:create_action('back'))
-	self:add_key_binding('enter', 'menu-select-alt3', self:create_action('open_selected_item_preselect'))
-	self:add_key_binding('kp_enter', 'menu-select-alt4', self:create_action('open_selected_item_preselect'))
-	self:add_key_binding('shift+enter', 'menu-select-alt5', self:create_action('open_selected_item_soft'))
-	self:add_key_binding('shift+kp_enter', 'menu-select-alt6', self:create_action('open_selected_item_soft'))
-	self:add_key_binding('esc', 'menu-close', self:create_action('close'))
-	self:add_key_binding('pgup', 'menu-page-up', self:create_action('on_pgup'))
-	self:add_key_binding('pgdwn', 'menu-page-down', self:create_action('on_pgdwn'))
-	self:add_key_binding('home', 'menu-home', self:create_action('on_home'))
-	self:add_key_binding('end', 'menu-end', self:create_action('on_end'))
+	self:add_key_binding('up', 'menu-prev1', self:create_key_action('prev'), 'repeatable')
+	self:add_key_binding('down', 'menu-next1', self:create_key_action('next'), 'repeatable')
+	self:add_key_binding('left', 'menu-back1', self:create_key_action('back'))
+	self:add_key_binding('right', 'menu-select1', self:create_key_action('open_selected_item_preselect'))
+	self:add_key_binding('shift+right', 'menu-select-soft1', self:create_key_action('open_selected_item_soft'))
+	self:add_key_binding('shift+mbtn_left', 'menu-select-soft', self:create_key_action('open_selected_item_soft'))
+	self:add_key_binding('mbtn_back', 'menu-back-alt3', self:create_key_action('back'))
+	self:add_key_binding('bs', 'menu-back-alt4', self:create_key_action('back'))
+	self:add_key_binding('enter', 'menu-select-alt3', self:create_key_action('open_selected_item_preselect'))
+	self:add_key_binding('kp_enter', 'menu-select-alt4', self:create_key_action('open_selected_item_preselect'))
+	self:add_key_binding('shift+enter', 'menu-select-alt5', self:create_key_action('open_selected_item_soft'))
+	self:add_key_binding('shift+kp_enter', 'menu-select-alt6', self:create_key_action('open_selected_item_soft'))
+	self:add_key_binding('esc', 'menu-close', self:create_key_action('close'))
+	self:add_key_binding('pgup', 'menu-page-up', self:create_key_action('on_pgup'))
+	self:add_key_binding('pgdwn', 'menu-page-down', self:create_key_action('on_pgdwn'))
+	self:add_key_binding('home', 'menu-home', self:create_key_action('on_home'))
+	self:add_key_binding('end', 'menu-end', self:create_key_action('on_end'))
 end
 
 function Menu:disable_key_bindings()
@@ -2086,8 +2085,11 @@ function Menu:disable_key_bindings()
 	self.key_bindings = {}
 end
 
-function Menu:create_action(name)
-	return function(...) self:maybe(name, ...) end
+function Menu:create_key_action(name)
+	return function(...)
+		self.mouse_nav = false
+		self:maybe(name, ...)
+	end
 end
 
 function Menu:render()
@@ -2267,13 +2269,6 @@ function Speed:init(props)
 	self.dragging = nil
 end
 
-function Speed:get_visibility()
-	-- We force inherit, because I want to see speed value when peeking timeline
-	local this_visibility = Element.get_visibility(self)
-	return Elements.timeline.proximity_raw ~= 0
-		and math.max(Elements.timeline:get_visibility(), this_visibility) or this_visibility
-end
-
 function Speed:on_coordinates()
 	self.height, self.width = self.by - self.ay, self.bx - self.ax
 	self.notch_spacing = self.width / (self.notches + 1)
@@ -2416,7 +2411,7 @@ function Speed:render()
 
 	-- Center guide
 	ass:new_event()
-	ass:append('{\\blur0\\bord1\\shad0\\1c&H' .. options.foreground .. '\\3c&H' .. options.background .. '}')
+	ass:append('{\\rDefault\\blur0\\bord1\\shad0\\1c&H' .. options.foreground .. '\\3c&H' .. options.background .. '}')
 	ass:opacity(opacity)
 	ass:pos(0, 0)
 	ass:draw_start()
@@ -2427,7 +2422,7 @@ function Speed:render()
 
 	-- Speed value
 	local speed_text = (round(state.speed * 100) / 100) .. 'x'
-	ass:txt(half_x, ay, 8, speed_text, {
+	ass:txt(half_x, ay + (notch_ay_big - ay) / 2, 5, speed_text, {
 		size = self.font_size, color = options.background_text,
 		border = options.text_border, border_color = options.background, opacity = opacity,
 	})
@@ -2697,6 +2692,7 @@ function Timeline:new() return Class.new(self) --[[@as Timeline]] end
 function Timeline:init()
 	Element.init(self, 'timeline')
 	self.pressed = false
+	self.obstructed = false
 	self.size_max = 0
 	self.size_min = 0
 	self.size_min_override = options.timeline_start_hidden and 0 or nil
@@ -2713,7 +2709,7 @@ function Timeline:get_visibility()
 end
 
 function Timeline:decide_enabled()
-	self.enabled = state.duration and state.duration > 0 and state.time
+	self.enabled = not self.obstructed and state.duration and state.duration > 0 and state.time
 end
 
 function Timeline:get_effective_size_min()
@@ -2744,6 +2740,12 @@ function Timeline:update_dimensions()
 	self.bx = display.width - Elements.window_border.size
 	self.by = display.height - Elements.window_border.size
 	self.width = self.bx - self.ax
+
+	-- Disable if not enough space
+	local available_space = display.height - Elements.window_border.size * 2
+	if Elements.top_bar.enabled then available_space = available_space - Elements.top_bar.size end
+	self.obstructed = available_space < self.size_max + 10
+	self:decide_enabled()
 end
 
 function Timeline:get_time_at_x(x)
@@ -2839,7 +2841,7 @@ function Timeline:render()
 	-- Background
 	ass:new_event()
 	ass:pos(0, 0)
-	ass:append('{\\blur0\\bord0\\1c&H' .. options.background .. '}')
+	ass:append('{\\rDefault\\blur0\\bord0\\1c&H' .. options.background .. '}')
 	ass:opacity(math.max(options.timeline_opacity - 0.1, 0))
 	ass:draw_start()
 	ass:rect_cw(bax, bay, fax, bby) --left of progress
@@ -2887,7 +2889,7 @@ function Timeline:render()
 			local half_width = chapter_width / 2
 			local ay, by = fay, fay + size
 			local function draw_chapter(time)
-				if time < 1 or (state.duration - time < 1) then
+				if time < 1 then
 					return
 				end
 				local x = t2x(time)
@@ -3211,24 +3213,25 @@ function Controls:init()
 
 	-- Serialize control elements
 	local shorthands = {
-		menu = 'command::script-binding uosc/menu-blurred?Menu',
-		subtitles = 'command::script-binding uosc/subtitles#sub>0?Subtitles',
-		audio = 'command::script-binding uosc/audio#audio>1?Audio',
+		['menu'] = 'command::script-binding uosc/menu-blurred?Menu',
+		['subtitles'] = 'command::script-binding uosc/subtitles#sub>0?Subtitles',
+		['audio'] = 'command::script-binding uosc/audio#audio>1?Audio',
 		['audio-device'] = 'command::script-binding uosc/audio-device?Audio device',
-		video = 'command::script-binding uosc/video#video>1?Video',
-		playlist = 'command::script-binding uosc/playlist?Playlist',
-		chapters = 'command::script-binding uosc/chapters#chapters>0?Chapters',
+		['video'] = 'command::script-binding uosc/video#video>1?Video',
+		['playlist'] = 'command::script-binding uosc/playlist?Playlist',
+		['chapters'] = 'command::script-binding uosc/chapters#chapters>0?Chapters',
+		['editions'] = 'command::script-binding uosc/editions#editions>1?Editions',
 		['stream-quality'] = 'command::script-binding uosc/stream-quality?Stream quality',
 		['open-file'] = 'command::script-binding uosc/open-file?Open file',
-		['items'] = 'command::script-binding uosc/items?Playlist/Files',
-		prev = 'command::script-binding uosc/prev?Previous',
-		next = 'command::script-binding uosc/next?Next',
-		first = 'command::script-binding uosc/first?First',
-		last = 'command::script-binding uosc/last?Last',
+		['items'] = 'command::script-binding uosc/items?Playlist/Files',
+		['prev'] = 'command::script-binding uosc/prev?Previous',
+		['next'] = 'command::script-binding uosc/next?Next',
+		['first'] = 'command::script-binding uosc/first?First',
+		['last'] = 'command::script-binding uosc/last?Last',
 		['loop-playlist'] = 'cycle::loop-playlist:no/inf!?Loop playlist',
 		['loop-file'] = 'cycle::loop-file:no/inf!?Loop file',
-		shuffle = 'toggle::shuffle?Shuffle',
-		fullscreen = 'cycle::fullscreen:no/yes=!?Fullscreen',
+		['shuffle'] = 'toggle::shuffle?Shuffle',
+		['fullscreen'] = 'cycle::fullscreen:no/yes=!?Fullscreen',
 	}
 
 	-- Parse out disposition/config pairs
@@ -3374,7 +3377,7 @@ end
 function Controls:register_badge_updater(badge, element)
 	local prop_and_limit = split(badge, ' *> *')
 	local prop, limit = prop_and_limit[1], tonumber(prop_and_limit[2] or -1)
-	local observable_name, serializer = prop, nil
+	local observable_name, serializer, is_external_prop = prop, nil, false
 
 	if itable_index_of({'sub', 'audio', 'video'}, prop) then
 		observable_name = 'track-list'
@@ -3384,6 +3387,7 @@ function Controls:register_badge_updater(badge, element)
 			return count
 		end
 	else
+		if prop:sub(1, 1) == '@' then prop, is_external_prop = prop:sub(2), true end
 		serializer = function(value) return value and (type(value) == 'table' and #value or tostring(value)) or nil end
 	end
 
@@ -3395,7 +3399,8 @@ function Controls:register_badge_updater(badge, element)
 		request_render()
 	end
 
-	mp.observe_property(observable_name, 'native', handler)
+	if is_external_prop then element['on_external_prop_' .. prop] = function(_, value) handler(prop, value) end
+	else mp.observe_property(observable_name, 'native', handler) end
 end
 
 function Controls:get_visibility()
@@ -3410,16 +3415,24 @@ function Controls:update_dimensions()
 	local spacing = options.controls_spacing
 	local margin = options.controls_margin
 
+	-- Disable when not enough space
+	local available_space = display.height - Elements.window_border.size * 2
+	if Elements.top_bar.enabled then available_space = available_space - Elements.top_bar.size end
+	if Elements.timeline.enabled then available_space = available_space - Elements.timeline.size_max end
+	self.enabled = available_space > size + 10
+
+	-- Reset hide/enabled flags
+	for c, control in ipairs(self.layout) do
+		control.hide = false
+		if control.element then control.element.enabled = self.enabled end
+	end
+
+	if not self.enabled then return end
+
 	-- Container
 	self.bx = display.width - window_border - margin
 	self.by = (Elements.timeline.enabled and Elements.timeline.ay or display.height - window_border) - margin
 	self.ax, self.ay = window_border + margin, self.by - size
-
-	-- Re-enable all elements
-	for c, control in ipairs(self.layout) do
-		control.hide = false
-		if control.element then control.element.enabled = true end
-	end
 
 	-- Controls
 	local available_width = self.bx - self.ax
@@ -3658,7 +3671,7 @@ function VolumeSlider:render()
 
 	-- Background
 	ass:new_event()
-	ass:append('{\\blur0\\bord0\\1c&H' .. options.background ..
+	ass:append('{\\rDefault\\blur0\\bord0\\1c&H' .. options.background ..
 		'\\iclip(' .. fg_path.scale .. ', ' .. fg_path.text .. ')}')
 	ass:opacity(math.max(options.volume_opacity - 0.1, 0), visibility)
 	ass:pos(0, 0)
@@ -3668,7 +3681,7 @@ function VolumeSlider:render()
 
 	-- Foreground
 	ass:new_event()
-	ass:append('{\\blur0\\bord0\\1c&H' .. options.foreground .. '}')
+	ass:append('{\\rDefault\\blur0\\bord0\\1c&H' .. options.foreground .. '}')
 	ass:opacity(options.volume_opacity, visibility)
 	ass:pos(0, 0)
 	ass:draw_start()
@@ -3725,7 +3738,8 @@ function Volume:update_dimensions()
 	local width = state.fullormaxed and options.volume_size_fullscreen or options.volume_size
 	local controls, timeline, top_bar = Elements.controls, Elements.timeline, Elements.top_bar
 	local min_y = top_bar.enabled and top_bar.by or 0
-	local max_y = (controls and controls.enabled and controls.ay) or (timeline.enabled and timeline.ay) or 0
+	local max_y = (controls and controls.enabled and controls.ay) or (timeline.enabled and timeline.ay)
+		or display.height - top_bar.size
 	local available_height = max_y - min_y
 	local max_height = available_height * 0.8
 	local height = round(math.min(width * 8, max_height))
@@ -3735,6 +3749,7 @@ function Volume:update_dimensions()
 	self.ay = min_y + round((available_height - height) / 2)
 	self.bx = round(self.ax + width)
 	self.by = round(self.ay + height)
+	self.mute.enabled, self.slider.enabled = self.enabled, self.enabled
 	self.mute:set_coordinates(self.ax, self.by - round(width * 0.8), self.bx, self.by)
 	self.slider:set_coordinates(self.ax, self.ay, self.bx, self.mute.ay)
 end
@@ -3770,8 +3785,8 @@ end
 
 WindowBorder:new()
 PauseIndicator:new()
-Timeline:new()
 TopBar:new()
+Timeline:new()
 if options.controls and options.controls ~= 'never' then Controls:new() end
 if itable_index_of({'left', 'right'}, options.volume) then Volume:new() end
 Curtain:new()
@@ -3779,7 +3794,7 @@ Curtain:new()
 --[[ MENUS ]]
 
 ---@param data MenuData
----@param opts? {submenu?: string; blurred?: boolean}
+---@param opts? {submenu?: string; mouse_nav?: boolean}
 function open_command_menu(data, opts)
 	local menu = Menu:open(data, function(value)
 		if type(value) == 'string' then
@@ -3793,35 +3808,35 @@ function open_command_menu(data, opts)
 	return menu
 end
 
----@param opts? {submenu?: string; blurred?: boolean}
+---@param opts? {submenu?: string; mouse_nav?: boolean}
 function toggle_menu_with_items(opts)
 	if Menu:is_open('menu') then Menu:close()
 	else open_command_menu({type = 'menu', items = config.menu_items}, opts) end
 end
 
----@param options {type: string; title: string; list_prop: string; list_serializer: fun(name: string, value: any): MenuDataItem[]; active_prop?: string; on_active_prop: fun(name: string, value: any, menu: Menu): integer; on_select: fun(value: any)}
+---@param options {type: string; title: string; list_prop: string; active_prop?: string; serializer: fun(list: any, active: any): MenuDataItem[]; on_select: fun(value: any)}
 function create_self_updating_menu_opener(options)
 	return function()
 		if Menu:is_open(options.type) then Menu:close() return end
+		local list = mp.get_property_native(options.list_prop)
+		local active = options.active_prop and mp.get_property_native(options.active_prop) or nil
 		local menu
 
-		-- Update active index and playlist content on playlist changes
-		local ignore_initial_prop = true
+		local function update() menu:update_items(options.serializer(list, active)) end
+
+		local ignore_initial_list = true
 		local function handle_list_prop_change(name, value)
-			if ignore_initial_prop then ignore_initial_prop = false
-			else menu:update_items(options.list_serializer(name, value)) end
+			if ignore_initial_list then ignore_initial_list = false
+			else list = value update() end
 		end
 
 		local ignore_initial_active = true
 		local function handle_active_prop_change(name, value)
 			if ignore_initial_active then ignore_initial_active = false
-			else options.on_active_prop(name, value, menu) end
+			else active = value update() end
 		end
 
-		local initial_items, selected_index = options.list_serializer(
-			options.list_prop,
-			mp.get_property_native(options.list_prop)
-		)
+		local initial_items, selected_index = options.serializer(list, active)
 
 		-- Items and active_index are set in the handle_prop_change callback, since adding
 		-- a property observer triggers its handler immediately, we just let that initialize the items.
@@ -3843,14 +3858,8 @@ function create_self_updating_menu_opener(options)
 end
 
 function create_select_tracklist_type_menu_opener(menu_title, track_type, track_prop, load_command)
-	local function serialize_tracklist(_, tracklist)
+	local function serialize_tracklist(tracklist)
 		local items = {}
-
-		if load_command then
-			items[#items + 1] = {
-				title = 'Load', bold = true, italic = true, hint = 'open file', value = '{load}', separator = true,
-			}
-		end
 
 		local first_item_index = #items + 1
 		local active_index = nil
@@ -3900,6 +3909,12 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
 			end
 		end
 
+		if load_command then
+			items[#items + 1] = {
+				title = 'Load', bold = true, italic = true, hint = 'open file', value = '{load}', separator = true,
+			}
+		end
+
 		return items, active_index or first_item_index
 	end
 
@@ -3920,7 +3935,7 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
 		title = menu_title,
 		type = track_type,
 		list_prop = 'track-list',
-		list_serializer = serialize_tracklist,
+		serializer = serialize_tracklist,
 		on_select = selection_handler,
 	})
 end
@@ -4280,6 +4295,10 @@ mp.observe_property('track-list', 'native', function(name, value)
 	set_state('has_many_video', types.video > 1)
 	Elements:trigger('dispositions')
 end)
+mp.observe_property('editions', 'number', function(_, editions)
+	if editions then set_state('has_many_edition', editions > 1) end
+	Elements:trigger('dispositions')
+end)
 mp.observe_property('chapter-list', 'native', function(_, chapters)
 	local chapters, chapter_ranges = serialize_chapters(chapters), {}
 	if chapters then chapters, chapter_ranges = serialize_chapter_ranges(chapters) end
@@ -4367,9 +4386,6 @@ mp.observe_property('estimated-display-fps', 'native', update_render_delay)
 -- KEY BINDABLE FEATURES
 
 mp.add_key_binding(nil, 'toggle-ui', function() Elements:toggle({'timeline', 'controls', 'volume', 'top_bar'}) end)
-mp.add_key_binding(nil, 'toggle-timeline', function() Elements:toggle({'timeline'}) end)
-mp.add_key_binding(nil, 'toggle-volume', function() Elements:toggle({'volume'}) end)
-mp.add_key_binding(nil, 'toggle-top-bar', function() Elements:toggle({'top_bar'}) end)
 mp.add_key_binding(nil, 'toggle-progress', function()
 	local timeline = Elements.timeline
 	if timeline.size_min_override then
@@ -4399,7 +4415,7 @@ mp.add_key_binding(nil, 'decide-pause-indicator', function()
 	Elements.pause_indicator:decide()
 end)
 mp.add_key_binding(nil, 'menu', function() toggle_menu_with_items() end)
-mp.add_key_binding(nil, 'menu-blurred', function() toggle_menu_with_items({blurred = true}) end)
+mp.add_key_binding(nil, 'menu-blurred', function() toggle_menu_with_items({mouse_nav = true}) end)
 local track_loaders = {
 	{name = 'subtitles', prop = 'sub', allowed_types = config.subtitle_types},
 	{name = 'audio', prop = 'audio', allowed_types = config.media_types},
@@ -4442,7 +4458,7 @@ mp.add_key_binding(nil, 'playlist', create_self_updating_menu_opener({
 	title = 'Playlist',
 	type = 'playlist',
 	list_prop = 'playlist',
-	list_serializer = function(_, playlist)
+	serializer = function(playlist)
 		local items = {}
 		for index, item in ipairs(playlist) do
 			local is_url = item.filename:find('://')
@@ -4462,44 +4478,40 @@ mp.add_key_binding(nil, 'chapters', create_self_updating_menu_opener({
 	title = 'Chapters',
 	type = 'chapters',
 	list_prop = 'chapter-list',
-	list_serializer = function(_, chapters)
+	active_prop = 'chapter',
+	serializer = function(chapters, current_chapter)
 		local items = {}
 		chapters = normalize_chapters(chapters)
-		for _, chapter in ipairs(chapters) do
-			local item = {
+		for index, chapter in ipairs(chapters) do
+			items[index] = {
 				title = chapter.title or '',
 				hint = mp.format_time(chapter.time),
-				value = chapter.time,
+				value = index,
+				active = index - 1 == current_chapter,
 			}
-			items[#items + 1] = item
-		end
-		if not state.time then return items end
-		for index = #items, 1, -1 do
-			if state.time >= items[index].value then
-				items[index].active = true
-				break
-			end
 		end
 		return items
 	end,
-	active_prop = 'playback-time',
-	on_active_prop = function(_, playback_time, menu)
-		-- Select first chapter from the end with time lower
-		-- than current playing position.
-		local position = playback_time
-		if not position then
-			menu:deactivate_items()
-			return
+	on_select = function(index) mp.commandv('set', 'chapter', tostring(index - 1)) end,
+}))
+mp.add_key_binding(nil, 'editions', create_self_updating_menu_opener({
+	title = 'Editions',
+	type = 'editions',
+	list_prop = 'edition-list',
+	active_prop = 'current-edition',
+	serializer = function(editions, current_id)
+		local items = {}
+		for _, edition in ipairs(editions or {}) do
+			items[#items + 1] = {
+				title = edition.title or 'Edition',
+				hint = tostring(edition.id + 1),
+				value = edition.id,
+				active = edition.id == current_id,
+			}
 		end
-		local items = menu.current.items
-		for index = #items, 1, -1 do
-			if position >= items[index].value then
-				menu:activate_unique_index(index)
-				return
-			end
-		end
+		return items
 	end,
-	on_select = function(time) mp.commandv('seek', tostring(time), 'absolute') end,
+	on_select = function(id) mp.commandv('set', 'edition', id) end,
 }))
 mp.add_key_binding(nil, 'show-in-directory', function()
 	-- Ignore URLs
@@ -4662,11 +4674,11 @@ mp.add_key_binding(nil, 'audio-device', create_self_updating_menu_opener({
 	title = 'Audio devices',
 	type = 'audio-device-list',
 	list_prop = 'audio-device-list',
-	list_serializer = function(_, audio_device_list)
-		local current_device = mp.get_property('audio-device') or 'auto'
+	active_prop = 'audio-device',
+	serializer = function(audio_device_list, current_device)
+		current_device = current_device or 'auto'
 		local ao = mp.get_property('current-ao') or ''
 		local items = {}
-		local active_index = nil
 		for _, device in ipairs(audio_device_list) do
 			if device.name == 'auto' or string.match(device.name, '^' .. ao) then
 				local hint = string.match(device.name, ao .. '/(.+)')
@@ -4674,12 +4686,12 @@ mp.add_key_binding(nil, 'audio-device', create_self_updating_menu_opener({
 				items[#items + 1] = {
 					title = device.description,
 					hint = hint,
+					active = device.name == current_device,
 					value = device.name,
 				}
-				if device.name == current_device then active_index = #items end
 			end
 		end
-		return items, active_index
+		return items
 	end,
 	on_select = function(name) mp.commandv('set', 'audio-device', name) end,
 }))
@@ -4739,3 +4751,7 @@ mp.register_script_message('thumbfast-info', function(json)
 		request_render()
 	end
 end)
+mp.register_script_message('set', function(name, value)
+	Elements:trigger('external_prop_' .. name, utils.parse_json(value))
+end)
+mp.register_script_message('toggle-elements', function(elements) Elements:toggle(split(elements, ' *, *')) end)
