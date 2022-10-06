@@ -1,14 +1,12 @@
--- quality-menu.lua
+-- quality-menu 2.7.0 - 2022-Oct-02
+-- https://github.com/christoph-heinrich/mpv-quality-menu
 --
 -- Change the stream video and audio quality on the fly.
 --
 -- Usage:
 -- add bindings to input.conf:
--- Ctrl+f   script-message-to quality_menu video_formats_toggle
--- Alt+f    script-message-to quality_menu audio_formats_toggle
---
--- Displays a menu that lets you switch to different ytdl-format settings while
--- you're in the middle of a video (just like you were using the web player).
+-- Ctrl+f script-binding quality_menu/video_formats_toggle
+-- Alt+f  script-binding quality_menu/audio_formats_toggle
 
 local mp = require 'mp'
 local utils = require 'mp.utils'
@@ -365,6 +363,19 @@ local function process_json(json)
     return vres, ares , vfmt, afmt
 end
 
+local function get_url()
+    local path = mp.get_property("path")
+    path = string.gsub(path, "ytdl://", "") -- Strip possible ytdl:// prefix.
+
+    local function is_url(s)
+        -- adapted the regex from https://stackoverflow.com/questions/3809401/what-is-a-good-regular-expression-to-match-a-url
+        return nil ~= string.match(path, "^[%w]-://[-a-zA-Z0-9@:%._\\+~#=]+%.[a-zA-Z0-9()][a-zA-Z0-9()]?[a-zA-Z0-9()]?[a-zA-Z0-9()]?[a-zA-Z0-9()]?[a-zA-Z0-9()]?[-a-zA-Z0-9()@:%_\\+.~#?&/=]*")
+    end
+
+    return is_url(path) and path or nil
+end
+
+local uosc = false
 local url_data={}
 local function process_json_string(url, json)
     local json, err = utils.parse_json(json)
@@ -381,6 +392,10 @@ local function process_json_string(url, json)
 
     local vres, ares , vfmt, afmt = process_json(json)
     url_data[url] = {voptions=vres, aoptions=ares, vfmt=vfmt, afmt=afmt}
+    if uosc and get_url() == url then
+        mp.commandv('script-message-to', 'uosc', 'set', 'vformats', #vres)
+        mp.commandv('script-message-to', 'uosc', 'set', 'aformats', #ares)
+    end
     return vres, ares , vfmt, afmt
 end
 
@@ -428,20 +443,8 @@ local function download_formats(url)
     return vres, ares , vfmt, afmt
 end
 
-local function get_url()
-    local path = mp.get_property("path")
-    path = string.gsub(path, "ytdl://", "") -- Strip possible ytdl:// prefix.
-
-    local function is_url(s)
-        -- adapted the regex from https://stackoverflow.com/questions/3809401/what-is-a-good-regular-expression-to-match-a-url
-        return nil ~= string.match(path, "^[%w]-://[-a-zA-Z0-9@:%._\\+~#=]+%.[a-zA-Z0-9()][a-zA-Z0-9()]?[a-zA-Z0-9()]?[a-zA-Z0-9()]?[a-zA-Z0-9()]?[a-zA-Z0-9()]?[-a-zA-Z0-9()@:%_\\+.~#?&/=]*")
-    end
-
-    return is_url(path) and path or nil
-end
-
 local function send_formats_to(type, url, script_name, options, format_id)
-    mp.commandv('script-message-to', script_name, type .. '_formats', url, utils.format_json(options), format_id)
+    mp.commandv('script-message-to', script_name, type .. '_formats', url, utils.format_json(options or {}), format_id or '')
 end
 
 local queue_callback_video = {}
@@ -506,7 +509,6 @@ local function set_format(url, vfmt, afmt)
     end
 end
 
-local uosc = false
 local destroyer = nil
 local function show_menu(isvideo)
 
@@ -728,6 +730,16 @@ local function file_start()
     if not new_path then return end
 
     local data = url_data[new_path]
+
+    if uosc then
+        if data then
+            mp.commandv('script-message-to', 'uosc', 'set', 'vformats', #data.voptions)
+            mp.commandv('script-message-to', 'uosc', 'set', 'aformats', #data.aoptions)
+        else
+            mp.commandv('script-message-to', 'uosc', 'set', 'vformats', 0)
+            mp.commandv('script-message-to', 'uosc', 'set', 'aformats', 0)
+        end
+    end
 
     if opts.reset_format and path and new_path ~= path then
         if data then
