@@ -494,7 +494,7 @@ local function watch_changes()
     last_par = par
 end
 
-local watch_changes_debounce = debounce(watch_changes, 1000)
+local watch_changes_debounce = debounce(watch_changes, 500)
 
 local function sync_changes(prop, val)
     if not spawned or val == nil then return end
