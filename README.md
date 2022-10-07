@@ -15,7 +15,7 @@ Also [Segoe UI Variable](https://aka.ms/SegoeUIVariable) that need to be added m
 
 [tomasklaen/uosc](https://github.com/darsain/uosc)  
 [christoph-heinrich/mpv-quality-menu](https://github.com/christoph-heinrich/mpv-quality-menu)  
-[po5/thumbfast](https://github.com/po5/thumbfast)
+[po5/thumbfast](https://github.com/po5/thumbfast)  
 [mpv-player/TOOLS/lua](https://github.com/mpv-player/mpv/tree/master/TOOLS/lua)
 
 [dexeonify/modernx&Thumbnailer](https://github.com/dexeonify/mpv-config/tree/main/scripts)
