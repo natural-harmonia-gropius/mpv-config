@@ -100,7 +100,10 @@ function On:bind()
         local commands = queue_string:split(separator)
 
         for index, value in ipairs(commands) do
-            command(self.on[value])
+            local cmd = self.on[value]
+            if cmd and cmd ~= "" then
+                command(cmd)
+            end
         end
 
         self.queue = {}
@@ -116,7 +119,7 @@ end
 local input_conf = mp.get_property_native("input-conf")
 local input_conf_path = mp.command_native({ "expand-path", input_conf == "" and "~~/input.conf" or input_conf })
 local input_conf_meta, meta_error = utils.file_info(input_conf_path)
-if not input_conf_meta or not input_conf_meta.is_file then return end  -- File doesn"t exist
+if not input_conf_meta or not input_conf_meta.is_file then return end -- File doesn"t exist
 
 local t = {}
 for line in io.lines(input_conf_path) do
