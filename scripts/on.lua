@@ -1,3 +1,7 @@
+local msg = require("mp.msg")
+local opt = require("mp.options")
+local utils = require("mp.utils")
+
 local function debounce(func, wait)
     func = type(func) == "function" and func or function() end
     wait = type(wait) == "number" and wait / 1000 or 0
@@ -47,6 +51,10 @@ function table:join(separator)
     return result
 end
 
+function string:trim()
+    return (self:gsub("^%s*(.-)%s*$", "%1"))
+end
+
 function string:replace(pattern, replacement)
     local result, n = self:gsub(pattern, replacement)
     return result
@@ -62,7 +70,7 @@ end
 
 local On = {}
 
-function On:new(key, on, duration)
+function On:new(key, on)
     local Instance = {}
     setmetatable(Instance, self);
     self.__index = self;
@@ -70,7 +78,7 @@ function On:new(key, on, duration)
     Instance.key = key
     Instance.name = "@" .. key
     Instance.on = on or {}
-    Instance.duration = duration or 200
+    Instance.duration = 200
     Instance.queue = {}
 
     return Instance
@@ -105,10 +113,26 @@ function On:unbind()
     mp.remove_key_binding(self.name)
 end
 
-local on = On:new("MBTN_LEFT", {
-    click = "cycle pause",
-    double_click = "cycle fullscreen",
-    press = "show-text pressed",
-    release = "show-text released",
-})
-on:bind()
+local input_conf = mp.get_property_native("input-conf")
+local input_conf_path = mp.command_native({ "expand-path", input_conf == "" and "~~/input.conf" or input_conf })
+local input_conf_meta, meta_error = utils.file_info(input_conf_path)
+if not input_conf_meta or not input_conf_meta.is_file then return end  -- File doesn"t exist
+
+local t = {}
+for line in io.lines(input_conf_path) do
+    line = line:trim()
+    if line ~= "" then
+        local key, cmd, on = line:match("%s*([%S]+)%s+(.-)%s+#@%s*(.-)%s*$")
+        if on and on ~= "" then
+            if t[key] == nil then
+                t[key] = {}
+            end
+
+            t[key][on] = cmd
+        end
+    end
+end
+for key, value in pairs(t) do
+    local on = On:new(key, value)
+    on:bind()
+end
