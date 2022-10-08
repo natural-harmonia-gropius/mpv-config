@@ -48,7 +48,8 @@ function table:join(separator)
 end
 
 function string:replace(pattern, replacement)
-    return self:gsub(pattern, replacement)
+    local result, n = self:gsub(pattern, replacement)
+    return result
 end
 
 function string:split(separator)
