@@ -83,6 +83,8 @@ end
 
 function keydown(key_name, key_text, is_mouse)
     keydown_at = now()
+    original = get_key_binding(options.bind)
+    invert = get_invert(options.action)
 end
 
 function keyup(key_name, key_text, is_mouse)
@@ -120,9 +122,6 @@ function event_handler(event, is_mouse, key_name, key_text)
         print(event, key_name, key_text, is_mouse)
     end
 end
-
-original = get_key_binding(options.bind)
-invert = get_invert(options.action)
 
 mp.add_forced_key_binding(options.bind, nil, function(e)
     event_handler(e.event, e.is_mouse, e.key_name, e.key_text)
