@@ -170,6 +170,10 @@ function On:unbind()
 end
 
 function bind(key, on)
+    if bind_map[key] then
+        bind_map[key]:unbind()
+    end
+
     if type(on) == "string" then
         on = utils.parse_json(on)
     end
