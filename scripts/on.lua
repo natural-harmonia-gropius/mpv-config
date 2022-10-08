@@ -87,11 +87,14 @@ function target:bind()
                 command(self.release)
             end
         elseif length == 2 then
-            -- down, up
-            command(self.click)
-
-            -- up, down
-            -- TODO
+            if last.event == "down" then
+                -- up, down
+                command(self.release)
+                command(self.press)
+            elseif last.event == "up" then
+                -- down, up
+                command(self.click)
+            end
         elseif length == 3 then
             if last.event == "down" then
                 -- down, up, down
@@ -103,10 +106,15 @@ function target:bind()
                 command(self.click)
             end
         elseif length == 4 then
-            -- down, up, down, up
-            command(self.double_click)
-            -- up, down, up, down
-            -- TODO
+            if last.event == "down" then
+                -- up, down, up, down
+                command(self.release)
+                command(self.click)
+                command(self.press)
+            elseif last.event == "up" then
+                -- down, up, down, up
+                command(self.double_click)
+            end
         end
 
         self.queue = {}
