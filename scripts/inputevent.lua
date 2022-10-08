@@ -111,9 +111,9 @@ function string:split(separator)
     return fields
 end
 
-local On = {}
+local InputEvent = {}
 
-function On:new(key, on)
+function InputEvent:new(key, on)
     local Instance = {}
     setmetatable(Instance, self);
     self.__index = self;
@@ -121,18 +121,18 @@ function On:new(key, on)
     Instance.key = key
     Instance.name = "@" .. key
     Instance.on = on or {}
-    Instance.duration = options.duration
     Instance.queue = {}
+    Instance.duration = options.duration
 
     return Instance
 end
 
-function On:handler(e)
+function InputEvent:handler(e)
     self.queue = table.push(self.queue, e.event)
     self.exec()
 end
 
-function On:bind()
+function InputEvent:bind()
     self.exec = debounce(function()
         local separator = ","
         local queue_string = table.join(self.queue, separator)
@@ -165,7 +165,7 @@ function On:bind()
     mp.add_forced_key_binding(self.key, self.name, function(e) self:handler(e) end, { complex = true })
 end
 
-function On:unbind()
+function InputEvent:unbind()
     mp.remove_key_binding(self.name)
 end
 
@@ -178,7 +178,7 @@ function bind(key, on)
         on = utils.parse_json(on)
     end
 
-    bind_map[key] = On:new(key, on)
+    bind_map[key] = InputEvent:new(key, on)
     bind_map[key]:bind()
 end
 
