@@ -2,6 +2,11 @@ local msg = require("mp.msg")
 local opt = require("mp.options")
 local utils = require("mp.utils")
 
+local options = {
+    duration = 200
+}
+opt.read_options(options)
+
 -- https://mpv.io/manual/master/#input-command-prefixes
 local prefixes = { "osd-auto", "no-osd", "osd-bar", "osd-msg", "osd-msg-bar", "raw", "expand-properties", "repeatable",
     "async", "sync" }
@@ -50,7 +55,7 @@ function get_invert(action)
         if table.has(commands, command) then
             invert = invert .. prefix .. " set " .. property .. " " .. value .. semi
         else
-            mp.msg.error("\"" .. v:trim() .. "\" doesn't support auto restore.")
+            msg.error("\"" .. v:trim() .. "\" doesn't support auto restore.")
         end
     end
     return invert
@@ -114,7 +119,7 @@ function On:new(key, on)
     Instance.key = key
     Instance.name = "@" .. key
     Instance.on = on or {}
-    Instance.duration = 200
+    Instance.duration = options.duration
     Instance.queue = {}
 
     return Instance
