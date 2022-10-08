@@ -25,8 +25,8 @@ function command(command)
     return mp.command(command)
 end
 
-function table:append(source)
-    self[#self + 1] = source
+function table:push(element)
+    self[#self + 1] = element
     return self
 end
 
@@ -53,7 +53,7 @@ function target:handler(e)
         event = e.event,
         at = now()
     }
-    self.queue = table.append(self.queue, queue_item)
+    self.queue = table.push(self.queue, queue_item)
     self.exec()
 end
 
@@ -87,8 +87,14 @@ function target:bind()
                 command(self.release)
             end
         elseif length == 2 then
+            -- down, up
             command(self.click)
+        elseif length == 3 then
+            -- down, up, down
+            command(self.click)
+            command(self.press)
         elseif length == 4 then
+            -- down, up, down, up
             command(self.double_click)
         end
 
