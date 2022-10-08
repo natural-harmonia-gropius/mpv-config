@@ -42,7 +42,7 @@ function table:join(separator)
     for i, v in ipairs(self) do
         local value = type(v) == "string" and v or tostring(v)
         local semi = i == #self and "" or separator
-        result = result .. value..semi
+        result = result .. value .. semi
     end
     return result
 end
@@ -60,24 +60,28 @@ function string:split(separator)
     return fields
 end
 
-local target = {
-    name = "",
-    key = "MBTN_LEFT",
-    click = "cycle pause",
-    double_click = "cycle fullscreen",
-    press = "show-text pressed",
-    release = "show-text released",
-    duration = 200,
-    queue = {},
-}
+local On = {}
 
-function target:handler(e)
+function On:new(key, on, duration)
+    local Instance = {}
+    setmetatable(Instance, self);
+    self.__index = self;
+
+    Instance.key = key
+    Instance.name = "@" .. key
+    Instance.on = on or {}
+    Instance.duration = duration or 200
+    Instance.queue = {}
+
+    return Instance
+end
+
+function On:handler(e)
     self.queue = table.push(self.queue, e.event)
     self.exec()
 end
 
-function target:bind()
-    self.name = self.name or ("@" .. self.key)
+function On:bind()
     self.exec = debounce(function()
         local separator = ","
         local queue_string = table.join(self.queue, separator)
@@ -88,7 +92,7 @@ function target:bind()
         local commands = queue_string:split(separator)
 
         for index, value in ipairs(commands) do
-            command(self[value])
+            command(self.on[value])
         end
 
         self.queue = {}
@@ -97,8 +101,14 @@ function target:bind()
     mp.add_forced_key_binding(self.key, self.name, function(e) self:handler(e) end, { complex = true })
 end
 
-function target:unbind()
+function On:unbind()
     mp.remove_key_binding(self.name)
 end
 
-target:bind()
+local on = On:new("MBTN_LEFT", {
+    click = "cycle pause",
+    double_click = "cycle fullscreen",
+    press = "show-text pressed",
+    release = "show-text released",
+})
+on:bind()
