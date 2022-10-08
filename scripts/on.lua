@@ -89,6 +89,9 @@ function target:bind()
         elseif length == 2 then
             -- down, up
             command(self.click)
+
+            -- up, down
+            -- TODO
         elseif length == 3 then
             if last.event == "down" then
                 -- down, up, down
@@ -102,6 +105,8 @@ function target:bind()
         elseif length == 4 then
             -- down, up, down, up
             command(self.double_click)
+            -- up, down, up, down
+            -- TODO
         end
 
         self.queue = {}
