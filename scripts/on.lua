@@ -90,9 +90,15 @@ function target:bind()
             -- down, up
             command(self.click)
         elseif length == 3 then
-            -- down, up, down
-            command(self.click)
-            command(self.press)
+            if last.event == "down" then
+                -- down, up, down
+                command(self.click)
+                command(self.press)
+            elseif last.event == "up" then
+                -- up, down, up
+                command(self.release)
+                command(self.click)
+            end
         elseif length == 4 then
             -- down, up, down, up
             command(self.double_click)
