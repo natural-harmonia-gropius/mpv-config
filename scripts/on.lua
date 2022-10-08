@@ -70,7 +70,7 @@ end
 
 local On = {}
 
-function On:new(key, on)
+function On:new(key, on, duration)
     local Instance = {}
     setmetatable(Instance, self);
     self.__index = self;
@@ -78,7 +78,7 @@ function On:new(key, on)
     Instance.key = key
     Instance.name = "@" .. key
     Instance.on = on or {}
-    Instance.duration = 200
+    Instance.duration = duration or 200
     Instance.queue = {}
 
     return Instance
