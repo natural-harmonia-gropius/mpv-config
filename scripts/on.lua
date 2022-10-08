@@ -37,6 +37,16 @@ function table:assign(source)
     return self
 end
 
+function table:join(separator)
+    local result = ""
+    for i, v in ipairs(self) do
+        local value = type(v) == "string" and v or tostring(v)
+        local semi = i == #self and "" or separator
+        result = result .. value..semi
+    end
+    return result
+end
+
 local target = {
     name = "",
     key = "MBTN_LEFT",
@@ -49,72 +59,36 @@ local target = {
 }
 
 function target:handler(e)
-    local queue_item = {
-        event = e.event,
-        at = now()
-    }
-    self.queue = table.push(self.queue, queue_item)
+    self.queue = table.push(self.queue, e.event)
     self.exec()
 end
 
 function target:bind()
     self.name = self.name or ("@" .. self.key)
     self.exec = debounce(function()
-        function dump(o)
-            if type(o) == 'table' then
-                local s = '{ '
-                for k, v in pairs(o) do
-                    if type(k) ~= 'number' then k = '"' .. k .. '"' end
-                    s = s .. '[' .. k .. '] = ' .. dump(v) .. ','
-                end
-                return s .. '} '
-            end
-            return tostring(o)
-        end
+        local queue = table.join(self.queue, ",")
 
-        local queue = self.queue
-        local length = #queue
-        local last = queue[length]
-        local lantency = now() - last.at
-        local str = dump(queue)
-
-        print("lantency:", lantency, "length:", length, "toString:", str)
-
-        if length == 1 then
-            if last.event == "down" then
-                command(self.press)
-            elseif last.event == "up" then
-                command(self.release)
-            end
-        elseif length == 2 then
-            if last.event == "down" then
-                -- up, down
-                command(self.release)
-                command(self.press)
-            elseif last.event == "up" then
-                -- down, up
-                command(self.click)
-            end
-        elseif length == 3 then
-            if last.event == "down" then
-                -- down, up, down
-                command(self.click)
-                command(self.press)
-            elseif last.event == "up" then
-                -- up, down, up
-                command(self.release)
-                command(self.click)
-            end
-        elseif length == 4 then
-            if last.event == "down" then
-                -- up, down, up, down
-                command(self.release)
-                command(self.click)
-                command(self.press)
-            elseif last.event == "up" then
-                -- down, up, down, up
-                command(self.double_click)
-            end
+        if queue == "down" then
+            command(self.press)
+        elseif queue == "up" then
+            command(self.release)
+        elseif queue == "down,up" then
+            command(self.click)
+        elseif queue == "down,up,down,up" then
+            command(self.double_click)
+        elseif queue == "up,down" then
+            command(self.release)
+            command(self.press)
+        elseif queue == "down,up,down" then
+            command(self.click)
+            command(self.press)
+        elseif queue == "up,down,up" then
+            command(self.release)
+            command(self.click)
+        elseif queue == "up,down,up,down" then
+            command(self.release)
+            command(self.click)
+            command(self.press)
         end
 
         self.queue = {}
