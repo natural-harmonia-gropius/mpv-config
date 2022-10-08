@@ -13,11 +13,11 @@ local original = ""
 local invert = ""
 
 -- https://mpv.io/manual/master/#input-command-prefixes
-local prefixes = {"osd-auto", "no-osd", "osd-bar", "osd-msg", "osd-msg-bar", "raw", "expand-properties", "repeatable",
-                  "async", "sync"}
+local prefixes = { "osd-auto", "no-osd", "osd-bar", "osd-msg", "osd-msg-bar", "raw", "expand-properties", "repeatable",
+    "async", "sync" }
 
 -- https://mpv.io/manual/master/#list-of-input-commands
-local commands = {"set", "cycle", "add", "multiply"}
+local commands = { "set", "cycle", "add", "multiply" }
 
 function table:has(element)
     for _, value in ipairs(self) do
@@ -28,12 +28,11 @@ function table:has(element)
     return false
 end
 
-function string:split(sep)
-    local sep, fields = sep or ":", {}
-    local pattern = string.format("([^%s]+)", sep)
-    self:gsub(pattern, function(c)
-        fields[#fields + 1] = c
-    end)
+function string:split(separator)
+    local fields = {}
+    local separator = separator or ":"
+    local pattern = string.format("([^%s]+)", separator)
+    local copy = self:gsub(pattern, function(c) fields[#fields + 1] = c end)
     return fields
 end
 
@@ -84,8 +83,6 @@ end
 
 function keydown(key_name, key_text, is_mouse)
     keydown_at = now()
-    original = get_key_binding(options.bind)
-    invert = get_invert(options.action)
 end
 
 function keyup(key_name, key_text, is_mouse)
@@ -124,8 +121,9 @@ function event_handler(event, is_mouse, key_name, key_text)
     end
 end
 
+original = get_key_binding(options.bind)
+invert = get_invert(options.action)
+
 mp.add_forced_key_binding(options.bind, nil, function(e)
     event_handler(e.event, e.is_mouse, e.key_name, e.key_text)
-end, {
-    complex = true
-})
+end, { complex = true })
