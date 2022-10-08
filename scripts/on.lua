@@ -7,6 +7,8 @@ local options = {
 }
 opt.read_options(options)
 
+local bind_map = {}
+
 -- https://mpv.io/manual/master/#input-command-prefixes
 local prefixes = { "osd-auto", "no-osd", "osd-bar", "osd-msg", "osd-msg-bar", "raw", "expand-properties", "repeatable",
     "async", "sync" }
@@ -167,26 +169,42 @@ function On:unbind()
     mp.remove_key_binding(self.name)
 end
 
-local input_conf = mp.get_property_native("input-conf")
-local input_conf_path = mp.command_native({ "expand-path", input_conf == "" and "~~/input.conf" or input_conf })
-local input_conf_meta, meta_error = utils.file_info(input_conf_path)
-if not input_conf_meta or not input_conf_meta.is_file then return end -- File doesn"t exist
+function bind(key, on)
+    -- TODO: Is "on" a "table"?
+    bind_map[key] = On:new(key, on)
+    bind_map[key]:bind()
+end
 
-local t = {}
-for line in io.lines(input_conf_path) do
-    line = line:trim()
-    if line ~= "" then
-        local key, cmd, on = line:match("%s*([%S]+)%s+(.-)%s+#@%s*(.-)%s*$")
-        if on and on ~= "" then
-            if t[key] == nil then
-                t[key] = {}
+function bind_from_input_conf()
+    local input_conf = mp.get_property_native("input-conf")
+    local input_conf_path = mp.command_native({ "expand-path", input_conf == "" and "~~/input.conf" or input_conf })
+    local input_conf_meta, meta_error = utils.file_info(input_conf_path)
+    if not input_conf_meta or not input_conf_meta.is_file then return end -- File doesn"t exist
+
+    local parsed = {}
+    for line in io.lines(input_conf_path) do
+        line = line:trim()
+        if line ~= "" then
+            local key, cmd, on = line:match("%s*([%S]+)%s+(.-)%s+#@%s*(.-)%s*$")
+            if on and on ~= "" then
+                if parsed[key] == nil then
+                    parsed[key] = {}
+                end
+
+                parsed[key][on] = cmd
             end
-
-            t[key][on] = cmd
         end
     end
+    for key, on in pairs(parsed) do
+        bind(key, on)
+    end
 end
-for key, value in pairs(t) do
-    local on = On:new(key, value)
-    on:bind()
+
+function unbind(key)
+    bind_map[key]:unbind()
 end
+
+bind_from_input_conf()
+
+mp.register_script_message("bind", bind)
+mp.register_script_message("unbind", unbind)
