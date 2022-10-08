@@ -2,6 +2,13 @@ local msg = require("mp.msg")
 local opt = require("mp.options")
 local utils = require("mp.utils")
 
+-- https://mpv.io/manual/master/#input-command-prefixes
+local prefixes = { "osd-auto", "no-osd", "osd-bar", "osd-msg", "osd-msg-bar", "raw", "expand-properties", "repeatable",
+    "async", "sync" }
+
+-- https://mpv.io/manual/master/#list-of-input-commands
+local commands = { "set", "cycle", "add", "multiply" }
+
 local function debounce(func, wait)
     func = type(func) == "function" and func or function() end
     wait = type(wait) == "number" and wait / 1000 or 0
@@ -27,6 +34,35 @@ end
 
 function command(command)
     return mp.command(command)
+end
+
+function get_invert(action)
+    local invert = ""
+    local action = action:split(";")
+    for i, v in ipairs(action) do
+        local subs = v:trim():split("%s*")
+        local prefix = table.has(prefixes, subs[1]) and subs[1] or ""
+        local command = subs[prefix == "" and 1 or 2]
+        local property = subs[prefix == "" and 2 or 3]
+        local value = mp.get_property(property)
+        local semi = i == #action and "" or ";"
+
+        if table.has(commands, command) then
+            invert = invert .. prefix .. " set " .. property .. " " .. value .. semi
+        else
+            mp.msg.error("\"" .. v:trim() .. "\" doesn't support auto restore.")
+        end
+    end
+    return invert
+end
+
+function table:has(element)
+    for _, value in ipairs(self) do
+        if value == element then
+            return true
+        end
+    end
+    return false
 end
 
 function table:push(element)
@@ -100,6 +136,16 @@ function On:bind()
         local commands = queue_string:split(separator)
 
         for index, value in ipairs(commands) do
+            local auto_restore = self.on["release"] == "ignore"
+
+            if value == "press" and auto_restore then
+                self.on["release-auto"] = get_invert(self.on["press"])
+            end
+
+            if value == "release" and auto_restore then
+                value = "release-auto"
+            end
+
             local cmd = self.on[value]
             if cmd and cmd ~= "" then
                 command(cmd)
