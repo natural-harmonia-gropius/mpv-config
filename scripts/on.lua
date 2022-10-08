@@ -170,7 +170,10 @@ function On:unbind()
 end
 
 function bind(key, on)
-    -- TODO: Is "on" a "table"?
+    if type(on) == "string" then
+        on = utils.parse_json(on)
+    end
+
     bind_map[key] = On:new(key, on)
     bind_map[key]:bind()
 end
