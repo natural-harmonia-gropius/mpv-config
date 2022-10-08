@@ -47,6 +47,18 @@ function table:join(separator)
     return result
 end
 
+function string:replace(pattern, replacement)
+    return self:gsub(pattern, replacement)
+end
+
+function string:split(separator)
+    local fields = {}
+    local separator = separator or ":"
+    local pattern = string.format("([^%s]+)", separator)
+    local copy = self:gsub(pattern, function(c) fields[#fields + 1] = c end)
+    return fields
+end
+
 local target = {
     name = "",
     key = "MBTN_LEFT",
@@ -66,29 +78,16 @@ end
 function target:bind()
     self.name = self.name or ("@" .. self.key)
     self.exec = debounce(function()
-        local queue = table.join(self.queue, ",")
+        local separator = ","
+        local queue_string = table.join(self.queue, separator)
+        queue_string = queue_string:replace("down,up,down,up", "double_click")
+        queue_string = queue_string:replace("down,up", "click")
+        queue_string = queue_string:replace("down", "press")
+        queue_string = queue_string:replace("up", "release")
+        local commands = queue_string:split(separator)
 
-        if queue == "down" then
-            command(self.press)
-        elseif queue == "up" then
-            command(self.release)
-        elseif queue == "down,up" then
-            command(self.click)
-        elseif queue == "down,up,down,up" then
-            command(self.double_click)
-        elseif queue == "up,down" then
-            command(self.release)
-            command(self.press)
-        elseif queue == "down,up,down" then
-            command(self.click)
-            command(self.press)
-        elseif queue == "up,down,up" then
-            command(self.release)
-            command(self.click)
-        elseif queue == "up,down,up,down" then
-            command(self.release)
-            command(self.click)
-            command(self.press)
+        for index, value in ipairs(commands) do
+            command(self[value])
         end
 
         self.queue = {}
