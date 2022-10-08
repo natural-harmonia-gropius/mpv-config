@@ -128,8 +128,24 @@ function InputEvent:new(key, on)
 end
 
 function InputEvent:handler(e)
-    self.queue = table.push(self.queue, e.event)
+    local event = e.event
+
+    -- TODO: How press works?
+    -- press (the latter if key up/down can't be tracked).
+    if event == "repeat" then
+        self:emit(event)
+        return
+    end
+
+    self.queue = table.push(self.queue, event)
     self.exec()
+end
+
+function InputEvent:emit(event)
+    local cmd = self.on[event]
+    if cmd and cmd ~= "" then
+        command(cmd)
+    end
 end
 
 function InputEvent:bind()
@@ -142,21 +158,18 @@ function InputEvent:bind()
         queue_string = queue_string:replace("up", "release")
         local commands = queue_string:split(separator)
 
-        for index, value in ipairs(commands) do
+        for index, event in ipairs(commands) do
             local auto_restore = self.on["release"] == "ignore"
 
-            if value == "press" and auto_restore then
+            if event == "press" and auto_restore then
                 self.on["release-auto"] = get_invert(self.on["press"])
             end
 
-            if value == "release" and auto_restore then
-                value = "release-auto"
+            if event == "release" and auto_restore then
+                event = "release-auto"
             end
 
-            local cmd = self.on[value]
-            if cmd and cmd ~= "" then
-                command(cmd)
-            end
+            self:emit(event)
         end
 
         self.queue = {}
@@ -192,13 +205,13 @@ function bind_from_input_conf()
     for line in io.lines(input_conf_path) do
         line = line:trim()
         if line ~= "" then
-            local key, cmd, on = line:match("%s*([%S]+)%s+(.-)%s+#@%s*(.-)%s*$")
-            if on and on ~= "" then
+            local key, cmd, event = line:match("%s*([%S]+)%s+(.-)%s+#@%s*(.-)%s*$")
+            if event and event ~= "" then
                 if parsed[key] == nil then
                     parsed[key] = {}
                 end
 
-                parsed[key][on] = cmd
+                parsed[key][event] = cmd
             end
         end
     end
