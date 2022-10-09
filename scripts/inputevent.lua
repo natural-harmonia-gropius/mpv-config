@@ -3,7 +3,6 @@ local utils = require("mp.utils")
 local bind_map = {}
 
 local event_pattern = {
-    -- { from = "press", to = "click" },
     { from = "down,up", to = "click" },
     { from = "click,click,click", to = "triple-click" },
     { from = "click,click", to = "double-click" },
@@ -139,7 +138,6 @@ function InputEvent:new(key, on)
     Instance.name = "@" .. key
     Instance.on = on or {}
     Instance.queue = {}
-    Instance.immediate = { "repeat" }
     Instance.duration = mp.get_property_number("input-doubleclick-time", 300)
     Instance.queue_max = false or
         (Instance.on["triple-click"] and { length = 6, event = "triple-click" }) or
@@ -151,12 +149,8 @@ function InputEvent:new(key, on)
 end
 
 function InputEvent:emit(event)
-    if event == "press" then
-        table.push(self.immediate, "up")
-
-        if self.on["release"] == "ignore" then
-            self.on["release-auto"] = get_invert(self.on["press"])
-        end
+    if event == "press" and self.on["release"] == "ignore" then
+        self.on["release-auto"] = get_invert(self.on["press"])
     end
 
     if event == "release" and self.on[event] == "ignore" then
@@ -172,27 +166,27 @@ end
 function InputEvent:handler(e)
     local event = e.event
 
-    local is_press = event == "press"
-    local is_queue_max = event == "up" and #self.queue + 1 == self.queue_max.length
-    local in_immediate = table.has(self.immediate, event)
-    local immediate = in_immediate or is_queue_max or is_press
-    if immediate then
-        if is_press then
-            event = "click"
-        end
-
-        if is_queue_max then
-            self.queue = {}
-            event = self.queue_max.event
-        end
-
-        if event == "up" and in_immediate then
-            self.immediate = table.remove(self.immediate, event)
-            event = "release"
-        end
-
+    if event == "repeat" then
         self:emit(event)
         return
+    end
+
+    if event == "press" then
+        self:emit("click")
+        return
+    end
+
+    if event == "up" then
+        if #self.queue == 0 then
+            self:emit("release")
+            return
+        end
+
+        if #self.queue + 1 == self.queue_max.length then
+            self.queue = {}
+            self:emit(self.queue_max.event)
+            return
+        end
     end
 
     self.queue = table.push(self.queue, event)
