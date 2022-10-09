@@ -4,8 +4,9 @@ local bind_map = {}
 
 local event_pattern = {
     { from = "press", to = "click" },
-    { from = "down,up,down,up", to = "double_click" },
     { from = "down,up", to = "click" },
+    -- { from = "click,click,click", to = "triple-click" },
+    { from = "click,click", to = "double-click" },
     { from = "down", to = "press" },
     { from = "up", to = "release" },
 }
