@@ -9,6 +9,13 @@ opt.read_options(options)
 
 local bind_map = {}
 
+local event_pattern = {
+    { from = "down,up,down,up", to = "double_click" },
+    { from = "down,up", to = "click" },
+    { from = "down", to = "press" },
+    { from = "up", to = "release" },
+}
+
 -- https://mpv.io/manual/master/#input-command-prefixes
 local prefixes = { "osd-auto", "no-osd", "osd-bar", "osd-msg", "osd-msg-bar", "raw", "expand-properties", "repeatable",
     "async", "sync" }
@@ -151,13 +158,13 @@ end
 function InputEvent:bind()
     self.exec = debounce(function()
         local separator = ","
-        local queue_string = table.join(self.queue, separator)
-        queue_string = queue_string:replace("down,up,down,up", "double_click")
-        queue_string = queue_string:replace("down,up", "click")
-        queue_string = queue_string:replace("down", "press")
-        queue_string = queue_string:replace("up", "release")
-        local commands = queue_string:split(separator)
 
+        local queue_string = table.join(self.queue, separator)
+        for _, v in ipairs(event_pattern) do
+            queue_string = queue_string:replace(v.from, v.to)
+        end
+
+        local commands = queue_string:split(separator)
         for index, event in ipairs(commands) do
             local auto_restore = self.on["release"] == "ignore"
 
