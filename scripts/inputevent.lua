@@ -159,7 +159,7 @@ function InputEvent:bind()
         end
 
         local commands = queue_string:split(separator)
-        for index, event in ipairs(commands) do
+        for _, event in ipairs(commands) do
             local auto_restore = self.on["release"] == "ignore"
 
             if event == "press" and auto_restore then
