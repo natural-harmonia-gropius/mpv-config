@@ -145,23 +145,6 @@ function InputEvent:new(key, on)
     return Instance
 end
 
-function InputEvent:handler(e)
-    local event = e.event
-
-    if table.has(self.immediate, event) then
-        if event == "up" then
-            self.immediate = table.remove(self.immediate, event)
-            event = "release"
-        end
-
-        self:emit(event)
-        return
-    end
-
-    self.queue = table.push(self.queue, event)
-    self.exec_debounced()
-end
-
 function InputEvent:emit(event)
     if event == "press" then
         table.push(self.immediate, "up")
@@ -179,6 +162,23 @@ function InputEvent:emit(event)
     if cmd and cmd ~= "" then
         command(cmd)
     end
+end
+
+function InputEvent:handler(e)
+    local event = e.event
+
+    if table.has(self.immediate, event) then
+        if event == "up" then
+            self.immediate = table.remove(self.immediate, event)
+            event = "release"
+        end
+
+        self:emit(event)
+        return
+    end
+
+    self.queue = table.push(self.queue, event)
+    self.exec_debounced()
 end
 
 function InputEvent:exec()
