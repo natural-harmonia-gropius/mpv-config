@@ -257,8 +257,6 @@ function unbind(key)
     bind_map[key]:unbind()
 end
 
-bind_from_input_conf()
-
 mp.observe_property("input-doubleclick-time", "native", function(_, new_duration)
     for _, on in pairs(bind_map) do
         on:rebind({ duration = new_duration })
@@ -267,3 +265,5 @@ end)
 
 mp.register_script_message("bind", bind)
 mp.register_script_message("unbind", unbind)
+
+bind_from_input_conf()
