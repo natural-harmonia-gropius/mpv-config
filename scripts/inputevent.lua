@@ -10,11 +10,14 @@ opt.read_options(options)
 local bind_map = {}
 
 local event_pattern = {
+    { from = "press", to = "click" },
     { from = "down,up,down,up", to = "double_click" },
     { from = "down,up", to = "click" },
     { from = "down", to = "press" },
     { from = "up", to = "release" },
 }
+
+local event_immediate = { "repeat" }
 
 -- https://mpv.io/manual/master/#input-command-prefixes
 local prefixes = { "osd-auto", "no-osd", "osd-bar", "osd-msg", "osd-msg-bar", "raw", "expand-properties", "repeatable",
@@ -137,9 +140,7 @@ end
 function InputEvent:handler(e)
     local event = e.event
 
-    -- TODO: How press works?
-    -- press (the latter if key up/down can't be tracked).
-    if event == "repeat" then
+    if table.has(event_immediate, event) then
         self:emit(event)
         return
     end
