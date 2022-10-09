@@ -159,7 +159,7 @@ function InputEvent:handler(e)
     end
 
     self.queue = table.push(self.queue, event)
-    self.exec()
+    self.exec_debounced()
 end
 
 function InputEvent:emit(event)
@@ -181,23 +181,24 @@ function InputEvent:emit(event)
     end
 end
 
+function InputEvent:exec()
+    local separator = ","
+
+    local queue_string = table.join(self.queue, separator)
+    for _, v in ipairs(event_pattern) do
+        queue_string = queue_string:replace(v.from, v.to)
+    end
+
+    local commands = queue_string:split(separator)
+    for _, event in ipairs(commands) do
+        self:emit(event)
+    end
+
+    self.queue = {}
+end
+
 function InputEvent:bind()
-    self.exec = debounce(function()
-        local separator = ","
-
-        local queue_string = table.join(self.queue, separator)
-        for _, v in ipairs(event_pattern) do
-            queue_string = queue_string:replace(v.from, v.to)
-        end
-
-        local commands = queue_string:split(separator)
-        for _, event in ipairs(commands) do
-            self:emit(event)
-        end
-
-        self.queue = {}
-    end, self.duration)
-
+    self.exec_debounced = debounce(function() self:exec() end, self.duration)
     mp.add_forced_key_binding(self.key, self.name, function(e) self:handler(e) end, { complex = true })
 end
 
