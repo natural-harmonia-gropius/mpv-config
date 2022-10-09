@@ -11,8 +11,6 @@ local event_pattern = {
     { from = "up", to = "release" },
 }
 
-local event_immediate = { "repeat" }
-
 -- https://mpv.io/manual/master/#input-command-prefixes
 local prefixes = { "osd-auto", "no-osd", "osd-bar", "osd-msg", "osd-msg-bar", "raw", "expand-properties", "repeatable",
     "async", "sync" }
@@ -82,6 +80,20 @@ function table:push(element)
     return self
 end
 
+function table:filter(filter)
+    local nt = {}
+    for _, value in ipairs(self) do
+        if (filter(value)) then
+            table.push(nt, value)
+        end
+    end
+    return nt
+end
+
+function table:remove(element)
+    return table.filter(self, function(v) return v ~= element end)
+end
+
 function table:assign(source)
     for key, value in pairs(source) do
         self[key] = value
@@ -127,6 +139,7 @@ function InputEvent:new(key, on)
     Instance.name = "@" .. key
     Instance.on = on or {}
     Instance.queue = {}
+    Instance.immediate = { "repeat" }
     Instance.duration = mp.get_property_number("input-doubleclick-time", 300)
 
     return Instance
@@ -135,7 +148,12 @@ end
 function InputEvent:handler(e)
     local event = e.event
 
-    if table.has(event_immediate, event) then
+    if table.has(self.immediate, event) then
+        if event == "up" then
+            self.immediate = table.remove(self.immediate, event)
+            event = "release"
+        end
+
         self:emit(event)
         return
     end
@@ -145,6 +163,18 @@ function InputEvent:handler(e)
 end
 
 function InputEvent:emit(event)
+    if event == "press" then
+        table.push(self.immediate, "up")
+
+        if self.on["release"] == "ignore" then
+            self.on["release-auto"] = get_invert(self.on["press"])
+        end
+    end
+
+    if event == "release" and self.on[event] == "ignore" then
+        event = "release-auto"
+    end
+
     local cmd = self.on[event]
     if cmd and cmd ~= "" then
         command(cmd)
@@ -162,16 +192,6 @@ function InputEvent:bind()
 
         local commands = queue_string:split(separator)
         for _, event in ipairs(commands) do
-            local auto_restore = self.on["release"] == "ignore"
-
-            if event == "press" and auto_restore then
-                self.on["release-auto"] = get_invert(self.on["press"])
-            end
-
-            if event == "release" and auto_restore then
-                event = "release-auto"
-            end
-
             self:emit(event)
         end
 
