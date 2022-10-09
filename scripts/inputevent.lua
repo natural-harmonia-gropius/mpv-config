@@ -199,7 +199,7 @@ function InputEvent:handler(e)
     self.exec_debounced()
 end
 
-function InputEvent:exec()
+function InputEvent:parse()
     local separator = ","
 
     local queue_string = table.join(self.queue, separator)
@@ -209,8 +209,13 @@ function InputEvent:exec()
         end
     end
 
-    local commands = queue_string:split(separator)
-    for _, event in ipairs(commands) do
+    self.queue = queue_string:split(separator)
+end
+
+function InputEvent:exec()
+    self:parse()
+
+    for _, event in ipairs(self.queue) do
         self:emit(event)
     end
 
