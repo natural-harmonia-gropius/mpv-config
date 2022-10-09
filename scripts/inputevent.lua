@@ -175,7 +175,7 @@ function InputEvent:handler(e)
     local is_press = event == "press"
     local is_queue_max = event == "up" and #self.queue + 1 == self.queue_max.length
     local in_immediate = table.has(self.immediate, event)
-    local immediate = in_immediate or is_queue_max
+    local immediate = in_immediate or is_queue_max or is_press
     if immediate then
         if is_press then
             event = "click"
