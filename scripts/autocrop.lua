@@ -61,8 +61,8 @@ suppress_osd: bool - Whether the OSD shouldn't be used when filters
     are applied and removed.
 --]]
 
-require "mp.msg"
-require 'mp.options'
+local msg = require("mp.msg")
+local opt = require("mp.options")
 
 local options = {
     auto = true,
@@ -74,7 +74,7 @@ local options = {
     suppress_osd = false,
     keybind = "C",
 }
-read_options(options)
+opt.read_options(options)
 
 local label_prefix = mp.get_script_name()
 local labels = {
@@ -87,7 +87,7 @@ local timers = {
     detect_crop = nil
 }
 
-local command_prefix = options.suppress_osd and 'no-osd' or ''
+local command_prefix = options.suppress_osd and "no-osd" or ""
 
 function is_filter_present(label)
     local filters = mp.get_property_native("vf")
@@ -109,13 +109,13 @@ function is_enough_time(seconds)
 end
 
 function is_cropable(time_needed)
-    if mp.get_property_native('current-tracks/video/image') ~= false then
-        mp.msg.warn("autocrop only works for videos.")
+    if mp.get_property_native("current-tracks/video/image") ~= false then
+        msg.warn("autocrop only works for videos.")
         return false
     end
 
     if not is_enough_time(time_needed) then
-        mp.msg.warn("Not enough time to detect crop.")
+        msg.warn("Not enough time to detect crop.")
         return false
     end
 
@@ -124,7 +124,7 @@ end
 
 function remove_filter(label)
     if is_filter_present(label) then
-        mp.command(string.format('%s vf remove @%s', command_prefix, label))
+        mp.command(string.format("%s vf remove @%s", command_prefix, label))
         return true
     end
     return false
@@ -159,7 +159,7 @@ function detect_crop()
 
     mp.command(
         string.format(
-            '%s vf pre @%s:cropdetect=limit=%s:round=%d:reset=0',
+            "%s vf pre @%s:cropdetect=limit=%s:round=%d:reset=0",
             command_prefix, labels.cropdetect, limit, round
         )
     )
@@ -196,9 +196,9 @@ function detect_end()
             y = cropdetect_metadata["lavfi.cropdetect.y"],
         }
     else
-        mp.msg.error("No crop data.")
-        mp.msg.info("Was the cropdetect filter successfully inserted?")
-        mp.msg.info("Does your version of ffmpeg/libav support AVFrame metadata?")
+        msg.error("No crop data.")
+        msg.info("Was the cropdetect filter successfully inserted?")
+        msg.info("Does your version of ffmpeg/libav support AVFrame metadata?")
         return
     end
 
@@ -218,8 +218,8 @@ function detect_end()
             max_h = height
         }
     else
-        mp.msg.error("Got empty crop data.")
-        mp.msg.info("You might need to increase detect_seconds.")
+        msg.error("Got empty crop data.")
+        msg.info("You might need to increase detect_seconds.")
         return
     end
 
@@ -236,7 +236,7 @@ function apply_crop(meta)
         or meta.y > 0
 
     if not is_effective then
-        mp.msg.info("No area detected for cropping.")
+        msg.info("No area detected for cropping.")
         return
     end
 
@@ -246,8 +246,8 @@ function apply_crop(meta)
         or meta.h < meta.min_h
 
     if is_excessive then
-        mp.msg.info("The area to be cropped is too large.")
-        mp.msg.info("You might need to decrease detect_min_ratio.")
+        msg.info("The area to be cropped is too large.")
+        msg.info("You might need to decrease detect_min_ratio.")
         return
     end
 
@@ -320,7 +320,7 @@ function on_toggle()
 
     -- Detecting => Leave it.
     if timers.detect_crop then
-        mp.msg.warn("Already cropdetecting!")
+        msg.warn("Already cropdetecting!")
         return
     end
 
