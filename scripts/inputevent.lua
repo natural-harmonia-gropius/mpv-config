@@ -184,6 +184,15 @@ function InputEvent:unbind()
     mp.remove_key_binding(self.name)
 end
 
+function InputEvent:rebind(diff)
+    if type(diff) == "table" then
+        self = table.assign(self, diff)
+    end
+
+    self:unbind()
+    self:bind()
+end
+
 function bind(key, on)
     if bind_map[key] then
         bind_map[key]:unbind()
@@ -229,10 +238,8 @@ end
 bind_from_input_conf()
 
 mp.observe_property("input-doubleclick-time", "native", function(_, new_duration)
-    for key, on in pairs(bind_map) do
-        on.duration = new_duration
-        on:unbind()
-        on:bind()
+    for _, on in pairs(bind_map) do
+        on:rebind({ duration = new_duration })
     end
 end)
 
