@@ -1,11 +1,4 @@
-local msg = require("mp.msg")
-local opt = require("mp.options")
 local utils = require("mp.utils")
-
-local options = {
-    duration = 200
-}
-opt.read_options(options)
 
 local bind_map = {}
 
@@ -67,7 +60,7 @@ function get_invert(action)
         if table.has(commands, command) then
             invert = invert .. prefix .. " set " .. property .. " " .. value .. semi
         else
-            msg.error("\"" .. v:trim() .. "\" doesn't support auto restore.")
+            mp.msg.error("\"" .. v:trim() .. "\" doesn't support auto restore.")
         end
     end
     return invert
@@ -132,7 +125,7 @@ function InputEvent:new(key, on)
     Instance.name = "@" .. key
     Instance.on = on or {}
     Instance.queue = {}
-    Instance.duration = options.duration
+    Instance.duration = mp.get_property_number("input-doubleclick-time", 300)
 
     return Instance
 end
