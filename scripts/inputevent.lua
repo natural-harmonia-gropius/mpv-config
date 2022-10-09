@@ -227,7 +227,7 @@ end
 
 bind_from_input_conf()
 
-mp.observe_property("input-doubleclick-time", "native", function (_, new_duration)
+mp.observe_property("input-doubleclick-time", "native", function(_, new_duration)
     for key, on in pairs(bind_map) do
         on.duration = new_duration
         on:unbind()
