@@ -51,7 +51,8 @@ function get_invert(action)
     local invert = ""
     local action = action:split(";")
     for i, v in ipairs(action) do
-        local subs = v:trim():split("%s*")
+        local trimed = v:trim()
+        local subs = trimed:split("%s*")
         local prefix = table.has(prefixes, subs[1]) and subs[1] or ""
         local command = subs[prefix == "" and 1 or 2]
         local property = subs[prefix == "" and 2 or 3]
@@ -61,7 +62,7 @@ function get_invert(action)
         if table.has(commands, command) then
             invert = invert .. prefix .. " set " .. property .. " " .. value .. semi
         else
-            mp.msg.error("\"" .. v:trim() .. "\" doesn't support auto restore.")
+            mp.msg.error("\"" .. trimed .. "\" doesn't support auto restore.")
         end
     end
     return invert
