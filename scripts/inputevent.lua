@@ -44,17 +44,17 @@ function command(command)
     return mp.command(command)
 end
 
-function get_invert(action)
+function command_invert(command)
     local invert = ""
-    local action = action:split(";")
-    for i, v in ipairs(action) do
+    local command_list = command:split(";")
+    for i, v in ipairs(command_list) do
         local trimed = v:trim()
         local subs = trimed:split("%s*")
         local prefix = table.has(prefixes, subs[1]) and subs[1] or ""
         local command = subs[prefix == "" and 1 or 2]
         local property = subs[prefix == "" and 2 or 3]
         local value = mp.get_property(property)
-        local semi = i == #action and "" or ";"
+        local semi = i == #command_list and "" or ";"
 
         if table.has(commands, command) then
             invert = invert .. prefix .. " set " .. property .. " " .. value .. semi
@@ -63,6 +63,18 @@ function get_invert(action)
         end
     end
     return invert
+end
+
+function table:push(element)
+    self[#self + 1] = element
+    return self
+end
+
+function table:assign(source)
+    for key, value in pairs(source) do
+        self[key] = value
+    end
+    return self
 end
 
 function table:has(element)
@@ -74,16 +86,11 @@ function table:has(element)
     return false
 end
 
-function table:push(element)
-    self[#self + 1] = element
-    return self
-end
-
 function table:filter(filter)
     local nt = {}
     for _, value in ipairs(self) do
         if (filter(value)) then
-            table.push(nt, value)
+            nt = table.push(nt, value)
         end
     end
     return nt
@@ -91,13 +98,6 @@ end
 
 function table:remove(element)
     return table.filter(self, function(v) return v ~= element end)
-end
-
-function table:assign(source)
-    for key, value in pairs(source) do
-        self[key] = value
-    end
-    return self
 end
 
 function table:join(separator)
@@ -139,6 +139,7 @@ function InputEvent:new(key, on)
     Instance.on = on or {}
     Instance.queue = {}
     Instance.duration = mp.get_property_number("input-doubleclick-time", 300)
+    -- TODO: ugly
     Instance.queue_max = false or
         (Instance.on["triple-click"] and { length = 6, event = "triple-click" }) or
         (Instance.on["double-click"] and { length = 4, event = "double-click" }) or
@@ -150,7 +151,7 @@ end
 
 function InputEvent:emit(event)
     if event == "press" and self.on["release"] == "ignore" then
-        self.on["release-auto"] = get_invert(self.on["press"])
+        self.on["release-auto"] = command_invert(self.on["press"])
     end
 
     if event == "release" and self.on[event] == "ignore" then
