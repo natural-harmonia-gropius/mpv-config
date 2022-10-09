@@ -262,7 +262,6 @@ function bind_from_input_conf()
                 if parsed[key] == nil then
                     parsed[key] = {}
                 end
-
                 parsed[key][event] = cmd
             end
         end
