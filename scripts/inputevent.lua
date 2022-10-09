@@ -3,9 +3,9 @@ local utils = require("mp.utils")
 local bind_map = {}
 
 local event_pattern = {
-    { from = "press", to = "click" },
+    -- { from = "press", to = "click" },
     { from = "down,up", to = "click" },
-    -- { from = "click,click,click", to = "triple-click" },
+    { from = "click,click,click", to = "triple-click" },
     { from = "click,click", to = "double-click" },
     { from = "down", to = "press" },
     { from = "up", to = "release" },
@@ -141,6 +141,11 @@ function InputEvent:new(key, on)
     Instance.queue = {}
     Instance.immediate = { "repeat" }
     Instance.duration = mp.get_property_number("input-doubleclick-time", 300)
+    Instance.queue_max = false or
+        (Instance.on["triple-click"] and { length = 6, event = "triple-click" }) or
+        (Instance.on["double-click"] and { length = 4, event = "double-click" }) or
+        (Instance.on["click"] and { length = 2, event = "click" }) or
+        0
 
     return Instance
 end
@@ -167,8 +172,21 @@ end
 function InputEvent:handler(e)
     local event = e.event
 
-    if table.has(self.immediate, event) then
-        if event == "up" then
+    local is_press = event == "press"
+    local is_queue_max = #self.queue + 1 == self.queue_max.length
+    local in_immediate = table.has(self.immediate, event)
+    local immediate = in_immediate or is_queue_max
+    if immediate then
+        if is_press then
+            event = "click"
+        end
+
+        if is_queue_max then
+            self.queue = {}
+            event = self.queue_max.event
+        end
+
+        if event == "up" and in_immediate then
             self.immediate = table.remove(self.immediate, event)
             event = "release"
         end
@@ -186,7 +204,9 @@ function InputEvent:exec()
 
     local queue_string = table.join(self.queue, separator)
     for _, v in ipairs(event_pattern) do
-        queue_string = queue_string:replace(v.from, v.to)
+        if self.on[v.to] then
+            queue_string = queue_string:replace(v.from, v.to)
+        end
     end
 
     local commands = queue_string:split(separator)
