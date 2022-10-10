@@ -6,7 +6,8 @@
 -- SPACE  no-osd set speed 4; set pause no  #@press
 -- SPACE  ignore                            #@release
 
-
+mp.msg.warn("Deprecated! Please use inputevent.lua instead.")
+mp.msg.warn("https://github.com/Natural-Harmonia-Gropius/InputEvent")
 
 local opt = require("mp.options")
 local options = {
