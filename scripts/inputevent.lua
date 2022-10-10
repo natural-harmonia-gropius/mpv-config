@@ -165,7 +165,8 @@ function InputEvent:emit(event)
 end
 
 function InputEvent:handler(event)
-    --  TODO: abort when drag
+    -- TODO: abort when drag
+    -- down,up,down,"drag"
     -- if event == "drag" then
     --     self.queue = { "drag" }
     --     return
