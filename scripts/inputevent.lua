@@ -167,6 +167,7 @@ end
 function InputEvent:handler(event)
     -- TODO: abort when drag
     -- down,up,down,"drag"
+    -- exec down,up  remove down  queue = drag
     -- if event == "drag" then
     --     self.queue = { "drag" }
     --     return
