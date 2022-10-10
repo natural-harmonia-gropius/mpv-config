@@ -169,6 +169,8 @@ function InputEvent:handler(event)
     -- down,up,down,"drag"
     -- exec down,up  remove down  queue = drag
     -- if event == "drag" then
+    --     self.queue = table.filter(self.queue, function (i) return i ~= #self.queue end)
+    --     self:exec()
     --     self.queue = { "drag" }
     --     return
     -- end
