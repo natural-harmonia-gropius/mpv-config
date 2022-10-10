@@ -139,7 +139,6 @@ function InputEvent:new(key, on)
     Instance.on = on or {}
     Instance.queue = {}
     Instance.duration = mp.get_property_number("input-doubleclick-time", 300)
-    -- TODO: ugly
     Instance.queue_max = false or
         (Instance.on["triple-click"] and { length = 6, event = "triple-click" }) or
         (Instance.on["double-click"] and { length = 4, event = "double-click" }) or
@@ -165,16 +164,6 @@ function InputEvent:emit(event)
 end
 
 function InputEvent:handler(event)
-    -- TODO: abort when drag
-    -- down,up,down,"drag"
-    -- exec down,up  remove down  queue = drag
-    -- if event == "drag" then
-    --     self.queue = table.filter(self.queue, function (i) return i ~= #self.queue end)
-    --     self:exec()
-    --     self.queue = { "drag" }
-    --     return
-    -- end
-
     if event == "repeat" then
         self:emit(event)
         return
@@ -190,11 +179,6 @@ function InputEvent:handler(event)
             self:emit("release")
             return
         end
-
-        -- if #self.queue == 1 and self.queue[1] == "drag" then
-        --     self.queue = {}
-        --     return
-        -- end
 
         if #self.queue + 1 == self.queue_max.length then
             self.queue = {}
@@ -298,27 +282,3 @@ mp.register_script_message("bind", bind)
 mp.register_script_message("unbind", unbind)
 
 bind_from_input_conf()
-
--- doc this
-
--- feat
--- expand string for command
-    -- local expanded = mp.command_native({'expand-text', "set trc ${video-params/gamma} ; set 2"})
-    -- expanded = expanded:replace(";", "_")
-    -- print(expanded)
-
-    -- can do c ? a : b in conf now
-    -- can set trc and primary as same as video
-    -- for safe, not allow \;
-
--- usage
-    -- doubleclick M_LEFT fullscrren without pause
-    -- press SPACE to speedup / flash uosc ui
-    -- press RIGHT fast forward
-    -- press LEFT fast rewind
-    -- press DOWN mute
-    -- press UP make volume 100
-
--- issue
-    -- press or click while dragging
-    -- make sure this works fine with default conf
