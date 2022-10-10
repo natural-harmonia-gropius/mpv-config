@@ -164,8 +164,12 @@ function InputEvent:emit(event)
     end
 end
 
-function InputEvent:handler(e)
-    local event = e.event
+function InputEvent:handler(event)
+    --  TODO: abort when drag
+    -- if event == "drag" then
+    --     self.queue = { "drag" }
+    --     return
+    -- end
 
     if event == "repeat" then
         self:emit(event)
@@ -183,6 +187,11 @@ function InputEvent:handler(e)
             return
         end
 
+        -- if #self.queue == 1 and self.queue[1] == "drag" then
+        --     self.queue = {}
+        --     return
+        -- end
+
         if #self.queue + 1 == self.queue_max.length then
             self.queue = {}
             self:emit(self.queue_max.event)
@@ -194,7 +203,11 @@ function InputEvent:handler(e)
     self.exec_debounced()
 end
 
-function InputEvent:parse()
+function InputEvent:exec()
+    if self.queue == 0 then
+        return
+    end
+
     local separator = ","
 
     local queue_string = table.join(self.queue, separator)
@@ -205,11 +218,6 @@ function InputEvent:parse()
     end
 
     self.queue = queue_string:split(separator)
-end
-
-function InputEvent:exec()
-    self:parse()
-
     for _, event in ipairs(self.queue) do
         self:emit(event)
     end
@@ -219,7 +227,7 @@ end
 
 function InputEvent:bind()
     self.exec_debounced = debounce(function() self:exec() end, self.duration)
-    mp.add_forced_key_binding(self.key, self.name, function(e) self:handler(e) end, { complex = true })
+    mp.add_forced_key_binding(self.key, self.name, function(e) self:handler(e.event) end, { complex = true })
 end
 
 function InputEvent:unbind()
@@ -286,3 +294,27 @@ mp.register_script_message("bind", bind)
 mp.register_script_message("unbind", unbind)
 
 bind_from_input_conf()
+
+-- doc this
+
+-- feat
+-- expand string for command
+    -- local expanded = mp.command_native({'expand-text', "set trc ${video-params/gamma} ; set 2"})
+    -- expanded = expanded:replace(";", "_")
+    -- print(expanded)
+
+    -- can do c ? a : b in conf now
+    -- can set trc and primary as same as video
+    -- for safe, not allow \;
+
+-- usage
+    -- doubleclick M_LEFT fullscrren without pause
+    -- press SPACE to speedup / flash uosc ui
+    -- press RIGHT fast forward
+    -- press LEFT fast rewind
+    -- press DOWN mute
+    -- press UP make volume 100
+
+-- issue
+    -- press or click while dragging
+    -- make sure this works fine with default conf
