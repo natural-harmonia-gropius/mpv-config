@@ -4,8 +4,8 @@ local bind_map = {}
 
 local event_pattern = {
     { from = "down,up", to = "click" },
-    { from = "click,click,click", to = "triple-click" },
-    { from = "click,click", to = "double-click" },
+    { from = "click,click,click", to = "triple_click" },
+    { from = "click,click", to = "double_click" },
     { from = "down", to = "press" },
     { from = "up", to = "release" },
 }
@@ -140,8 +140,8 @@ function InputEvent:new(key, on)
     Instance.queue = {}
     Instance.duration = mp.get_property_number("input-doubleclick-time", 300)
     Instance.queue_max = false or
-        (Instance.on["triple-click"] and { length = 6, event = "triple-click" }) or
-        (Instance.on["double-click"] and { length = 4, event = "double-click" }) or
+        (Instance.on["triple_click"] and { length = 6, event = "triple_click" }) or
+        (Instance.on["double_click"] and { length = 4, event = "double_click" }) or
         (Instance.on["click"] and { length = 2, event = "click" }) or
         0
 
