@@ -88,8 +88,8 @@ end
 
 function table:filter(filter)
     local nt = {}
-    for _, value in ipairs(self) do
-        if (filter(value)) then
+    for index, value in ipairs(self) do
+        if (filter(index, value)) then
             nt = table.push(nt, value)
         end
     end
@@ -97,7 +97,7 @@ function table:filter(filter)
 end
 
 function table:remove(element)
-    return table.filter(self, function(v) return v ~= element end)
+    return table.filter(self, function(i, v) return v ~= element end)
 end
 
 function table:join(separator)
