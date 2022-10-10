@@ -3,11 +3,13 @@ local utils = require("mp.utils")
 local bind_map = {}
 
 local event_pattern = {
-    { from = "down,up", to = "click" },
-    { from = "click,click,click", to = "triple_click" },
-    { from = "click,click", to = "double_click" },
-    { from = "down", to = "press" },
-    { from = "up", to = "release" },
+    { to = "penta_click", from = "down,up,down,up,down,up,down,up,down,up", length = 10 },
+    { to = "quatra_click", from = "down,up,down,up,down,up,down,up", length = 8 },
+    { to = "triple_click", from = "down,up,down,up,down,up", length = 6 },
+    { to = "double_click", from = "down,up,down,up", length = 4 },
+    { to = "click", from = "down,up", length = 2 },
+    { to = "press", from = "down", length = 1 },
+    { to = "release", from = "up", length = 1 },
 }
 
 -- https://mpv.io/manual/master/#input-command-prefixes
@@ -139,11 +141,14 @@ function InputEvent:new(key, on)
     Instance.on = on or {}
     Instance.queue = {}
     Instance.duration = mp.get_property_number("input-doubleclick-time", 300)
-    Instance.queue_max = false or
-        (Instance.on["triple_click"] and { length = 6, event = "triple_click" }) or
-        (Instance.on["double_click"] and { length = 4, event = "double_click" }) or
-        (Instance.on["click"] and { length = 2, event = "click" }) or
-        0
+    Instance.queue_max = 0
+
+    for _, event in ipairs(event_pattern) do
+        if Instance.on[event.to] and event.length > 1 then
+            Instance.queue_max = { event = event.to, length = event.length }
+            break
+        end
+    end
 
     return Instance
 end
