@@ -259,12 +259,19 @@ function bind_from_input_conf()
     for line in io.lines(input_conf_path) do
         line = line:trim()
         if line ~= "" then
-            local key, cmd, event = line:match("%s*([%S]+)%s+(.-)%s+#@%s*(.-)%s*$")
-            if event and event ~= "" then
-                if parsed[key] == nil then
-                    parsed[key] = {}
+            local key, cmd, comment = line:match("%s*([%S]+)%s+(.-)%s+#%s*(.-)%s*$")
+            if comment then
+                local comments = comment:split("#")
+                local events = table.filter(comments, function (i, v) return v:match("^@") end)
+                if events and #events > 0 then
+                    local event = events[1]:match("^@(.*)"):trim()
+                    if event and event ~= "" then
+                        if parsed[key] == nil then
+                            parsed[key] = {}
+                        end
+                        parsed[key][event] = cmd
+                    end
                 end
-                parsed[key][event] = cmd
             end
         end
     end
