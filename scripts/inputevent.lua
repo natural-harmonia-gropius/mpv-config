@@ -61,7 +61,7 @@ function command_invert(command)
         if table.has(commands, command) then
             invert = invert .. prefix .. " set " .. property .. " " .. value .. semi
         else
-            mp.msg.error("\"" .. trimed .. "\" doesn't support auto restore.")
+            mp.msg.warn("\"" .. trimed .. "\" doesn't support auto restore.")
         end
     end
     return invert
@@ -175,7 +175,8 @@ function InputEvent:handler(event)
     end
 
     if event == "press" then
-        self:emit("click")
+        self:handler("down")
+        self:handler("up")
         return
     end
 
