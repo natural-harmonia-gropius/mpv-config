@@ -160,7 +160,6 @@ local defaults = {
 	timeline_border = 1,
 	timeline_step = 5,
 	timeline_chapters_opacity = 0.8,
-	timeline_drag_seek_keyframes = false,
 
 	controls = 'menu,gap,subtitles,<has_many_audio>audio,<has_many_video>video,<has_many_edition>editions,<stream>stream-quality,gap,space,speed,space,shuffle,loop-playlist,loop-file,gap,prev,items,next,gap,fullscreen',
 	controls_size = 32,
@@ -206,7 +205,9 @@ local defaults = {
 	ui_scale = 1,
 	font_scale = 1,
 	text_border = 1.2,
-	pause_on_click_shorter_than = 0,
+	pause_on_click_shorter_than = 0, -- deprecated by below
+	click_threshold = 0,
+	click_command = 'cycle pause; script-binding uosc/flash-pause-indicator',
 	flash_duration = 1000,
 	proximity_in = 40,
 	proximity_out = 120,
@@ -234,6 +235,10 @@ opt.read_options(options, 'uosc')
 -- Normalize values
 options.proximity_out = math.max(options.proximity_out, options.proximity_in + 1)
 if options.chapter_ranges:sub(1, 4) == '^op|' then options.chapter_ranges = defaults.chapter_ranges end
+if options.pause_on_click_shorter_than > 0 and options.click_threshold == 0 then
+	msg.warn('`pause_on_click_shorter_than` is deprecated. Use `click_threshold` and `click_command` instead.')
+	options.click_threshold = options.pause_on_click_shorter_than
+end
 -- Ensure required environment configuration
 if options.autoload then mp.commandv('set', 'keep-open-pause', 'no') end
 -- Color shorthands
@@ -447,6 +452,7 @@ local state = {
 	hidpi_scale = 1,
 }
 local thumbnail = {width = 0, height = 0, disabled = false}
+local external = {} -- Properties set by external scripts
 
 --[[ HELPERS ]]
 
@@ -2539,12 +2545,14 @@ function CycleButton:init(id, props)
 	self.current_state_index = 1
 	self.on_click = function()
 		local new_state = self.states[self.current_state_index + 1] or self.states[1]
-		if is_state_prop then
-			local new_value = new_state.value
-			if itable_index_of({'yes', 'no'}, new_state.value) then new_value = new_value == 'yes' end
+		local new_value = new_state.value
+		if self.owner then
+			mp.commandv('script-message-to', self.owner, 'set', self.prop, new_value)
+		elseif is_state_prop then
+			if itable_index_of({'yes', 'no'}, new_value) then new_value = new_value == 'yes' end
 			set_state(self.prop, new_value)
 		else
-			mp.set_property(self.prop, new_state.value)
+			mp.set_property(self.prop, new_value)
 		end
 	end
 
@@ -2557,9 +2565,14 @@ function CycleButton:init(id, props)
 		request_render()
 	end
 
-	-- Built in state props
-	if is_state_prop then
+	local prop_parts = split(self.prop, '@')
+	if #prop_parts == 2 then -- External prop with a script owner
+		self.prop, self.owner = prop_parts[1], prop_parts[2]
+		self['on_external_prop_' .. self.prop] = function(_, value) self.handle_change(self.prop, value) end
+		self.handle_change(self.prop, external[self.prop])
+	elseif is_state_prop then -- uosc's state props
 		self['on_prop_' .. self.prop] = function(self, value) self.handle_change(self.prop, value) end
+		self.handle_change(self.prop, state[self.prop])
 	else
 		mp.observe_property(self.prop, 'string', self.handle_change)
 	end
@@ -2798,7 +2811,9 @@ end
 
 ---@param fast? boolean
 function Timeline:set_from_cursor(fast)
-	mp.commandv('seek', self:get_time_at_x(cursor.x), fast and 'absolute+keyframes' or 'absolute+exact')
+	if state.time and state.duration then
+		mp.commandv('seek', self:get_time_at_x(cursor.x), fast and 'absolute+keyframes' or 'absolute+exact')
+	end
 end
 function Timeline:clear_thumbnail() mp.commandv('script-message-to', 'thumbfast', 'clear') end
 
@@ -2812,13 +2827,25 @@ function Timeline:on_prop_border() self:update_dimensions() end
 function Timeline:on_prop_fullormaxed() self:update_dimensions() end
 function Timeline:on_display() self:update_dimensions() end
 function Timeline:on_mouse_leave() self:clear_thumbnail() end
-function Timeline:on_global_mbtn_left_up() self.pressed = false end
+function Timeline:on_global_mbtn_left_up()
+	self.pressed = false
+	self:clear_thumbnail()
+end
 function Timeline:on_global_mouse_leave()
 	self.pressed = false
 	self:clear_thumbnail()
 end
+
+Timeline.seek_timer = mp.add_timeout(0.05, function() Elements.timeline:set_from_cursor() end)
+Timeline.seek_timer:kill()
 function Timeline:on_global_mouse_move()
-	if self.pressed then self:set_from_cursor(options.timeline_drag_seek_keyframes) end
+	if self.pressed then
+		if self.width / state.duration < 10 then
+			self:set_from_cursor(true)
+			self.seek_timer:kill()
+			self.seek_timer:resume()
+		else self:set_from_cursor() end
+	end
 end
 function Timeline:on_wheel_up() mp.commandv('seek', options.timeline_step) end
 function Timeline:on_wheel_down() mp.commandv('seek', -options.timeline_step) end
@@ -3211,12 +3238,12 @@ function TopBar:render()
 			local font_size = self.font_size * 0.8
 			local height = font_size * 1.5
 			local text = '└ ' .. state.current_chapter.index .. ': ' .. state.current_chapter.title
-			local ax, by = title_ax + padding / 2, title_ay + height
+			local by = title_ay + height
 			local bx = math.min(max_bx, title_ax + text_width_estimate(text, font_size) + padding * 2)
-			ass:rect(ax, title_ay, bx, by, {
+			ass:rect(title_ax, title_ay, bx, by, {
 				color = bg, opacity = visibility * options.top_bar_title_opacity, radius = 2,
 			})
-			ass:txt(ax + padding, title_ay + height / 2, 4, '{\\i1}' .. text .. '{\\i0}', {
+			ass:txt(title_ax + padding, title_ay + height / 2, 4, '{\\i1}' .. text .. '{\\i0}', {
 				size = font_size, wrap = 2, color = bgt, border = 1, border_color = bg, opacity = visibility * 0.8,
 				clip = string.format('\\clip(%d, %d, %d, %d)', title_ax, title_ay, bx, by),
 			})
@@ -3421,7 +3448,9 @@ function Controls:register_badge_updater(badge, element)
 			return count
 		end
 	else
-		if prop:sub(1, 1) == '@' then prop, is_external_prop = prop:sub(2), true end
+		local parts = split(prop, '@')
+		-- Support both new `prop@owner` and old `@prop` syntaxes
+		if #parts > 1 then prop, is_external_prop = parts[1] ~= '' and parts[1] or parts[2], true end
 		serializer = function(value) return value and (type(value) == 'table' and #value or tostring(value)) or nil end
 	end
 
@@ -4135,24 +4164,17 @@ function set_state(name, value)
 	Elements:trigger('prop_' .. name, value)
 end
 
-function update_cursor_position()
-	cursor.x, cursor.y = mp.get_mouse_pos()
-
+function update_cursor_position(x, y)
 	-- mpv reports initial mouse position on linux as (0, 0), which always
 	-- displays the top bar, so we hardcode cursor position as infinity until
 	-- we receive a first real mouse move event with coordinates other than 0,0.
 	if not state.first_real_mouse_move_received then
-		if cursor.x > 0 and cursor.y > 0 then
-			state.first_real_mouse_move_received = true
-		else
-			cursor.x = infinity
-			cursor.y = infinity
-		end
+		if x > 0 and y > 0 then state.first_real_mouse_move_received = true
+		else x, y = infinity, infinity end
 	end
 
 	-- add 0.5 to be in the middle of the pixel
-	cursor.x = (cursor.x + 0.5) / display.scale_x
-	cursor.y = (cursor.y + 0.5) / display.scale_y
+	cursor.x, cursor.y = (x + 0.5) / display.scale_x, (y + 0.5) / display.scale_y
 
 	Elements:update_proximities()
 	request_render()
@@ -4174,21 +4196,14 @@ function handle_mouse_leave()
 	Elements:trigger('global_mouse_leave')
 end
 
-function handle_mouse_enter()
+function handle_mouse_enter(x, y)
 	cursor.hidden = false
-	update_cursor_position()
+	update_cursor_position(x, y)
 	Elements:trigger('global_mouse_enter')
 end
 
-function handle_mouse_move()
-	-- Handle case when we are in cursor hidden state but not left the actual
-	-- window (i.e. when autohide simulates mouse_leave).
-	if cursor.hidden then
-		handle_mouse_enter()
-		return
-	end
-
-	update_cursor_position()
+function handle_mouse_move(x, y)
+	update_cursor_position(x, y)
 	Elements:proximity_trigger('mouse_move')
 	request_render()
 
@@ -4239,40 +4254,48 @@ function observe_display_fps(name, fps)
 	end
 end
 
---[[ HOOKS]]
-
--- Mouse movement key binds
-local mouse_keybinds = {
-	{'mouse_move', handle_mouse_move},
-	{'mouse_leave', handle_mouse_leave},
-	{'mouse_enter', handle_mouse_enter},
-}
-if options.pause_on_click_shorter_than > 0 then
-	-- Cycles pause when click is shorter than `options.pause_on_click_shorter_than`
-	-- while filtering out double clicks.
-	local duration_seconds = options.pause_on_click_shorter_than / 1000
-	local last_down_event
-	local click_timer = mp.add_timeout(duration_seconds, function() mp.command('cycle pause') end)
-	click_timer:kill()
-	mouse_keybinds[#mouse_keybinds + 1] = {'mbtn_left', function()
-		if mp.get_time() - last_down_event < duration_seconds then click_timer:resume() end
-	end, function()
-		if click_timer:is_enabled() then
-			click_timer:kill()
-			last_down_event = 0
-		else
-			last_down_event = mp.get_time()
-		end
-	end,
-	}
+function select_current_chapter()
+	local current_chapter
+	if state.time and state.chapters then
+		_, current_chapter = itable_find(state.chapters, function(c) return state.time >= c.time end, true)
+	end
+	set_state('current_chapter', current_chapter)
 end
-mp.set_key_bindings(mouse_keybinds, 'mouse_movement', 'force')
-mp.enable_key_bindings('mouse_movement', 'allow-vo-dragging+allow-hide-cursor')
 
+--[[ HOOKS ]]
+
+-- Click detection
+if options.click_threshold > 0 then
+	-- Executes custom command for clicks shorter than `options.click_threshold`
+	-- while filtering out double clicks.
+	local click_time = options.click_threshold / 1000
+	local doubleclick_time = mp.get_property_native('input-doubleclick-time') / 1000
+	local last_down, last_up = 0, 0
+	local click_timer = mp.add_timeout(math.max(click_time, doubleclick_time), function()
+		local delta = last_up - last_down
+		if delta > 0 and delta < click_time and delta > 0.02 then mp.command(options.click_command) end
+	end)
+	click_timer:kill()
+	mp.set_key_bindings({{'mbtn_left',
+		function() last_up = mp.get_time() end,
+		function()
+			last_down = mp.get_time()
+			if click_timer:is_enabled() then click_timer:kill() else click_timer:resume() end
+		end,
+	},}, 'mouse_movement', 'force')
+	mp.enable_key_bindings('mouse_movement', 'allow-vo-dragging+allow-hide-cursor')
+end
+
+mp.observe_property('mouse-pos', 'native', function(_, mouse)
+	if mouse.hover then
+		if cursor.hidden then handle_mouse_enter(mouse.x, mouse.y) end
+		handle_mouse_move(mouse.x, mouse.y)
+	else handle_mouse_leave() end
+end)
 mp.observe_property('osc', 'bool', function(name, value) if value == true then mp.set_property('osc', 'no') end end)
 function update_title(title_template)
 	if title_template:sub(-6) == ' - mpv' then title_template = title_template:sub(1, -7) end
-	set_state('title', mp.command_native({'expand-text', title_template}))
+	set_state('title', ass_escape(mp.command_native({'expand-text', title_template})))
 end
 mp.register_event('file-loaded', function()
 	set_state('path', normalize_path(mp.get_property_native('path')))
@@ -4285,10 +4308,21 @@ mp.register_event('end-file', function(event)
 		handle_file_end()
 	end
 end)
-mp.observe_property('title', 'string', function(_, title)
-	-- Don't change title if there is currently none
-	if state.title then update_title(title) end
-end)
+function observe_title()
+	-- Idle is needed as some template variables might not be present until everything else initialized
+	mp.unregister_idle(observe_title)
+	local hot_keywords = {'time'}
+	local timer = mp.add_periodic_timer(0.9, function() update_title(mp.get_property_native('title')) end)
+	timer:kill()
+	mp.observe_property('title', 'string', function(_, title)
+		-- Don't change title if there is currently none
+		if state.title then update_title(title) end
+		-- Enable periodic updates for templates with hot variables
+		local is_hot = itable_find(hot_keywords, function(var) return string.find(title or '', var) ~= nil end)
+		if is_hot then timer:resume() else timer:kill() end
+	end)
+end
+mp.register_idle(observe_title)
 mp.observe_property('playback-time', 'number', create_state_setter('time', function()
 	-- Create a file-end event that triggers right before file ends
 	file_end_timer:kill()
@@ -4304,13 +4338,7 @@ mp.observe_property('playback-time', 'number', create_state_setter('time', funct
 	end
 
 	update_human_times()
-
-	-- Select current chapter
-	local current_chapter
-	if state.time and state.chapters then
-		_, current_chapter = itable_find(state.chapters, function(c) return state.time >= c.time end, true)
-	end
-	set_state('current_chapter', current_chapter)
+	select_current_chapter()
 end))
 mp.observe_property('duration', 'number', create_state_setter('duration', update_human_times))
 mp.observe_property('speed', 'number', create_state_setter('speed', update_human_times))
@@ -4344,6 +4372,7 @@ mp.observe_property('chapter-list', 'native', function(_, chapters)
 	set_state('chapters', chapters)
 	set_state('chapter_ranges', chapter_ranges)
 	set_state('has_chapter', #chapters > 0)
+	select_current_chapter()
 	Elements:trigger('dispositions')
 end)
 mp.observe_property('border', 'bool', create_state_setter('border'))
@@ -4784,7 +4813,8 @@ mp.register_script_message('thumbfast-info', function(json)
 	end
 end)
 mp.register_script_message('set', function(name, value)
-	Elements:trigger('external_prop_' .. name, utils.parse_json(value))
+	external[name] = value
+	Elements:trigger('external_prop_' .. name, value)
 end)
 mp.register_script_message('toggle-elements', function(elements) Elements:toggle(split(elements, ' *, *')) end)
 mp.register_script_message('flash-elements', function(elements) Elements:flash(split(elements, ' *, *')) end)
