@@ -1,5 +1,5 @@
---[[ uosc 4.2.0 - 2022-Oct-02 | https://github.com/tomasklaen/uosc ]]
-local uosc_version = '4.2.0'
+--[[ uosc 4.3.0 - 2022-Oct-11 | https://github.com/tomasklaen/uosc ]]
+local uosc_version = '4.3.0'
 
 local assdraw = require('mp.assdraw')
 local opt = require('mp.options')
@@ -249,21 +249,20 @@ local fgt, bgt = serialize_rgba(options.foreground_text).color, serialize_rgba(o
 
 local function create_default_menu()
 	return {
-		{title = 'Open file', value = 'script-binding uosc/open-file'},
-		{title = 'Playlist', value = 'script-binding uosc/playlist'},
-		{title = 'Chapters', value = 'script-binding uosc/chapters'},
-		{title = 'Subtitle tracks', value = 'script-binding uosc/subtitles'},
+		{title = 'Subtitles', value = 'script-binding uosc/subtitles'},
 		{title = 'Audio tracks', value = 'script-binding uosc/audio'},
 		{title = 'Stream quality', value = 'script-binding uosc/stream-quality'},
+		{title = 'Playlist', value = 'script-binding uosc/items'},
+		{title = 'Chapters', value = 'script-binding uosc/chapters'},
 		{title = 'Navigation', items = {
 			{title = 'Next', hint = 'playlist or file', value = 'script-binding uosc/next'},
 			{title = 'Prev', hint = 'playlist or file', value = 'script-binding uosc/prev'},
 			{title = 'Delete file & Next', value = 'script-binding uosc/delete-file-next'},
 			{title = 'Delete file & Prev', value = 'script-binding uosc/delete-file-prev'},
 			{title = 'Delete file & Quit', value = 'script-binding uosc/delete-file-quit'},
+			{title = 'Open file', value = 'script-binding uosc/open-file'},
 		},},
 		{title = 'Utils', items = {
-			{title = 'Load subtitles', value = 'script-binding uosc/load-subtitles'},
 			{title = 'Aspect ratio', items = {
 				{title = 'Default', value = 'set video-aspect-override "-1"'},
 				{title = '16:9', value = 'set video-aspect-override "16:9"'},
@@ -3054,7 +3053,7 @@ function Timeline:render()
 			local thumb_y = round(tooltip_anchor.ay * scale_y - thumb_y_margin - thumb_height)
 			local ax, ay = (thumb_x - border) / scale_x, (thumb_y - border) / scale_y
 			local bx, by = (thumb_x + thumb_width + border) / scale_x, (thumb_y + thumb_height + border) / scale_y
-			ass:rect(ax, ay, bx, by, {color = bg, border = 1, border_color = fg, border_opacity = 0.1, radius = 2})
+			ass:rect(ax, ay, bx, by, {color = bg, border = 1, border_color = fg, border_opacity = 0.08, radius = 2})
 			mp.commandv('script-message-to', 'thumbfast', 'thumb', hovered_seconds, thumb_x, thumb_y)
 			tooltip_anchor.ax, tooltip_anchor.bx, tooltip_anchor.ay = ax, bx, ay
 		end
@@ -4313,21 +4312,17 @@ mp.register_event('end-file', function(event)
 		handle_file_end()
 	end
 end)
-function observe_title()
-	-- Idle is needed as some template variables might not be present until everything else initialized
-	mp.unregister_idle(observe_title)
-	local hot_keywords = {'time'}
+do
+	local hot_keywords = {'time', 'percent'}
 	local timer = mp.add_periodic_timer(0.9, function() update_title(mp.get_property_native('title')) end)
 	timer:kill()
 	mp.observe_property('title', 'string', function(_, title)
-		-- Don't change title if there is currently none
-		if state.title then update_title(title) end
+		update_title(title)
 		-- Enable periodic updates for templates with hot variables
 		local is_hot = itable_find(hot_keywords, function(var) return string.find(title or '', var) ~= nil end)
 		if is_hot then timer:resume() else timer:kill() end
 	end)
 end
-mp.register_idle(observe_title)
 mp.observe_property('playback-time', 'number', create_state_setter('time', function()
 	-- Create a file-end event that triggers right before file ends
 	file_end_timer:kill()
