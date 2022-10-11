@@ -138,10 +138,10 @@ function InputEvent:new(key, on)
 
     Instance.key = key
     Instance.name = "@" .. key
-    Instance.on = on or {}
+    Instance.on = table.assign({ click = "ignore", ["repeat"] = "ignore" }, on)
     Instance.queue = {}
+    Instance.queue_max = { length = 0 }
     Instance.duration = mp.get_property_number("input-doubleclick-time", 300)
-    Instance.queue_max = 0
 
     for _, event in ipairs(event_pattern) do
         if Instance.on[event.to] and event.length > 1 then
@@ -263,7 +263,7 @@ function bind_from_input_conf()
             local key, cmd, comment = line:match("%s*([%S]+)%s+(.-)%s+#%s*(.-)%s*$")
             if comment then
                 local comments = comment:split("#")
-                local events = table.filter(comments, function (i, v) return v:match("^@") end)
+                local events = table.filter(comments, function(i, v) return v:match("^@") end)
                 if events and #events > 0 then
                     local event = events[1]:match("^@(.*)"):trim()
                     if event and event ~= "" then
