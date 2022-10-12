@@ -163,20 +163,30 @@ function InputEvent:emit(event)
     end
 
     local cmd = self.on[event]
-    if cmd and cmd ~= "" then
-        command(cmd)
-    end
-end
-
-function InputEvent:handler(event)
-    if event == "repeat" then
-        self:emit(event)
+    if not cmd or cmd == "" then
         return
     end
 
+    command(cmd)
+end
+
+function InputEvent:handler(event)
     if event == "press" then
         self:handler("down")
         self:handler("up")
+        return
+    end
+
+    if event == "down" then
+        self.down_at = now()
+    end
+
+    if event == "repeat" then
+        if now() - self.down_at < self.duration then
+            return
+        end
+
+        self:emit(event)
         return
     end
 
