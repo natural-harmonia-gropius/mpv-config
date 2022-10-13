@@ -141,7 +141,7 @@ function InputEvent:new(key, on)
 
     Instance.key = key
     Instance.name = "@" .. key
-    Instance.on = table.assign({ click = "ignore", ["repeat"] = "ignore" }, on)
+    Instance.on = table.assign({ click = "" }, on)
     Instance.queue = {}
     Instance.queue_max = { length = 0 }
     Instance.duration = mp.get_property_number("input-doubleclick-time", 300)
