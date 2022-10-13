@@ -2166,8 +2166,6 @@ function Menu:render()
 			local item_by = item_ay + self.item_height
 			local item_center_y = item_ay + (self.item_height / 2)
 			local item_clip = (item_ay < ay or item_by > by) and scroll_clip or nil
-			-- controls title & hint clipping proportional to the ratio of their widths
-			local title_hint_ratio = item.hint and item.title_width / (item.title_width + item.hint_width) or 1
 			local content_ax, content_bx = ax + spacing, bx - spacing
 			local font_color = item.active and fgt or bgt
 			local shadow_color = item.active and fg or bg
@@ -2201,12 +2199,17 @@ function Menu:render()
 				content_bx = content_bx - icon_size - spacing
 			end
 
-			local title_hint_cut_x = content_ax + (content_bx - content_ax - spacing) * title_hint_ratio
+			local title_cut_x = content_bx
+			if item.hint then
+				-- controls title & hint clipping proportional to the ratio of their widths
+				local title_content_ratio = item.title_width / (item.title_width + item.hint_width)
+				title_cut_x = content_ax + (content_bx - content_ax) * title_content_ratio - spacing / 2
+			end
 
 			-- Hint
 			if item.hint then
 				item.ass_safe_hint = item.ass_safe_hint or ass_escape(item.hint)
-				local clip = '\\clip(' .. round(title_hint_cut_x + spacing / 2) .. ',' ..
+				local clip = '\\clip(' .. round(title_cut_x + spacing) .. ',' ..
 					math.max(item_ay, ay) .. ',' .. bx .. ',' .. math.min(item_by, by) .. ')'
 				ass:txt(content_bx, item_center_y, 6, item.ass_safe_hint, {
 					size = self.font_size_hint, color = font_color, wrap = 2, opacity = 0.5 * opacity, clip = clip,
@@ -2218,7 +2221,7 @@ function Menu:render()
 			if item.title then
 				item.ass_safe_title = item.ass_safe_title or ass_escape(item.title)
 				local clip = '\\clip(' .. ax .. ',' .. math.max(item_ay, ay) .. ','
-					.. round(title_hint_cut_x - spacing / 2) .. ',' .. math.min(item_by, by) .. ')'
+					.. round(title_cut_x) .. ',' .. math.min(item_by, by) .. ')'
 				ass:txt(content_ax, item_center_y, 4, item.ass_safe_title, {
 					size = self.font_size, color = font_color, italic = item.italic, bold = item.bold, wrap = 2,
 					opacity = text_opacity * (item.muted and 0.5 or 1), clip = clip,
@@ -3032,8 +3035,8 @@ function Timeline:render()
 			local font_size = self.font_size * 0.8
 			local human = round(math.max(buffered_time, 0)) .. 's'
 			local width = text_width_estimate(human, font_size)
-			local min_x = bax + 5 + text_width_estimate(state.time_human, self.font_size)
-			local max_x = bbx - 5 - text_width_estimate(state.duration_or_remaining_time_human, self.font_size)
+			local min_x = bax + spacing + 5 + text_width_estimate(state.time_human, self.font_size)
+			local max_x = bbx - spacing - 5 - text_width_estimate(state.duration_or_remaining_time_human, self.font_size)
 			if x < min_x then x = min_x elseif x + width > max_x then x, align = max_x, 6 end
 			draw_timeline_text(x, fcy, align, human, {size = font_size, opacity = text_opacity * 0.6, border = 1})
 		end
