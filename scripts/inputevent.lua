@@ -1,3 +1,6 @@
+-- InputEvent
+-- https://github.com/Natural-Harmonia-Gropius/InputEvent
+
 local utils = require("mp.utils")
 
 local bind_map = {}
@@ -208,7 +211,7 @@ function InputEvent:handler(event)
 end
 
 function InputEvent:exec()
-    if self.queue == 0 then
+    if #self.queue == 0 then
         return
     end
 
