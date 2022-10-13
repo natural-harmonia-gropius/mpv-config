@@ -274,7 +274,7 @@ function bind_from_input_conf()
         line = line:trim()
         if line ~= "" then
             local key, cmd, comment = line:match("%s*([%S]+)%s+(.-)%s+#%s*(.-)%s*$")
-            if comment then
+            if comment and key:sub(1, 1) ~= "#" then
                 local comments = comment:split("#")
                 local events = table.filter(comments, function(i, v) return v:match("^@") end)
                 if events and #events > 0 then
