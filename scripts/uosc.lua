@@ -1298,7 +1298,10 @@ mp.set_key_bindings({
 	{
 		'mbtn_left',
 		Elements:create_proximity_dispatcher('mbtn_left_up'),
-		Elements:create_proximity_dispatcher('mbtn_left_down'),
+		function(...)
+			update_mouse_pos(nil, mp.get_property_native('mouse-pos'), true)
+			Elements:proximity_trigger('mbtn_left_down', ...)
+		end,
 	},
 	{'mbtn_left_dbl', 'ignore'},
 }, 'mbtn_left', 'force')
@@ -1798,10 +1801,11 @@ function Menu:update_content_dimensions()
 		-- Estimate width of a widest item
 		local max_width = 0
 		for _, item in ipairs(menu.items) do
-			local spacings_in_item = 2 + (item.hint and 1 or 0) + (item.icon and 1 or 0)
 			local icon_width = item.icon and self.font_size or 0
 			item.title_width = text_length_width_estimate(item.title_length, self.font_size)
 			item.hint_width = text_length_width_estimate(item.hint_length, self.font_size_hint)
+			local spacings_in_item = 1 + (item.title_width > 0 and 1 or 0)
+				+ (item.hint_width > 0 and 1 or 0) + (icon_width > 0 and 1 or 0)
 			local estimated_width = item.title_width + item.hint_width + icon_width
 				+ (self.item_padding * spacings_in_item)
 			if estimated_width > max_width then max_width = estimated_width end
@@ -2200,16 +2204,17 @@ function Menu:render()
 			end
 
 			local title_cut_x = content_bx
-			if item.hint then
+			if item.hint_width > 0 then
 				-- controls title & hint clipping proportional to the ratio of their widths
 				local title_content_ratio = item.title_width / (item.title_width + item.hint_width)
-				title_cut_x = content_ax + (content_bx - content_ax) * title_content_ratio - spacing / 2
+				title_cut_x = round(content_ax + (content_bx - content_ax - spacing) * title_content_ratio
+					+ (item.title_width > 0 and spacing / 2 or 0))
 			end
 
 			-- Hint
 			if item.hint then
 				item.ass_safe_hint = item.ass_safe_hint or ass_escape(item.hint)
-				local clip = '\\clip(' .. round(title_cut_x + spacing) .. ',' ..
+				local clip = '\\clip(' .. title_cut_x .. ',' ..
 					math.max(item_ay, ay) .. ',' .. bx .. ',' .. math.min(item_by, by) .. ')'
 				ass:txt(content_bx, item_center_y, 6, item.ass_safe_hint, {
 					size = self.font_size_hint, color = font_color, wrap = 2, opacity = 0.5 * opacity, clip = clip,
@@ -2221,7 +2226,7 @@ function Menu:render()
 			if item.title then
 				item.ass_safe_title = item.ass_safe_title or ass_escape(item.title)
 				local clip = '\\clip(' .. ax .. ',' .. math.max(item_ay, ay) .. ','
-					.. round(title_cut_x) .. ',' .. math.min(item_by, by) .. ')'
+					.. title_cut_x .. ',' .. math.min(item_by, by) .. ')'
 				ass:txt(content_ax, item_center_y, 4, item.ass_safe_title, {
 					size = self.font_size, color = font_color, italic = item.italic, bold = item.bold, wrap = 2,
 					opacity = text_opacity * (item.muted and 0.5 or 1), clip = clip,
@@ -2245,7 +2250,7 @@ function Menu:render()
 			})
 
 			-- Title
-			ass:txt(ax + menu.width / 2, title_ay + (title_height / 2), 5, menu.title, {
+			ass:txt(ax + menu.width / 2, title_ay + (title_height / 2), 5, menu.ass_safe_title, {
 				size = self.font_size, bold = true, color = bg, wrap = 2, opacity = opacity,
 				clip = '\\clip(' .. ax .. ',' .. title_ay .. ',' .. bx .. ',' .. ay .. ')',
 			})
@@ -4319,12 +4324,13 @@ if options.click_threshold > 0 then
 	mp.enable_key_bindings('mouse_movement', 'allow-vo-dragging+allow-hide-cursor')
 end
 
-mp.observe_property('mouse-pos', 'native', function(_, mouse)
-	if mouse.hover then
+function update_mouse_pos(_, mouse, ignore_hover)
+	if ignore_hover or mouse.hover then
 		if cursor.hidden then handle_mouse_enter(mouse.x, mouse.y) end
 		handle_mouse_move(mouse.x, mouse.y)
 	else handle_mouse_leave() end
-end)
+end
+mp.observe_property('mouse-pos', 'native', update_mouse_pos)
 mp.observe_property('osc', 'bool', function(name, value) if value == true then mp.set_property('osc', 'no') end end)
 mp.register_event('file-loaded', function()
 	set_state('path', normalize_path(mp.get_property_native('path')))
