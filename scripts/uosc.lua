@@ -2855,7 +2855,13 @@ function Timeline:set_from_cursor(fast)
 end
 function Timeline:clear_thumbnail() mp.commandv('script-message-to', 'thumbfast', 'clear') end
 
+local temp_pause = true
 function Timeline:on_mbtn_left_down()
+	local temp_pause_indicator = options.pause_indicator
+	options.pause_indicator = 'manual'
+	temp_pause = mp.get_property_native('pause')
+	mp.set_property_native('pause', true)
+	mp.add_timeout(0.05, function() options.pause_indicator = temp_pause_indicator end)
 	self.pressed = true
 	self:set_from_cursor()
 end
@@ -2866,6 +2872,10 @@ function Timeline:on_prop_fullormaxed() self:update_dimensions() end
 function Timeline:on_display() self:update_dimensions() end
 function Timeline:on_mouse_leave() self:clear_thumbnail() end
 function Timeline:on_global_mbtn_left_up()
+	local temp_pause_indicator = options.pause_indicator
+	options.pause_indicator = 'manual'
+	mp.set_property_native('pause', temp_pause)
+	mp.add_timeout(0.05, function() options.pause_indicator = temp_pause_indicator end)
 	self.pressed = false
 	self:clear_thumbnail()
 end
