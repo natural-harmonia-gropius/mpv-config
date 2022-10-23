@@ -251,12 +251,15 @@ function InputEvent:rebind(diff)
 end
 
 function bind(key, on)
-    if bind_map[key] then
-        bind_map[key]:unbind()
-    end
+    key = #key == 1 and key or key:upper()
 
     if type(on) == "string" then
         on = utils.parse_json(on)
+    end
+
+    if bind_map[key] then
+        on = table.assign(bind_map[key].on, on)
+        bind_map[key]:unbind()
     end
 
     bind_map[key] = InputEvent:new(key, on)
