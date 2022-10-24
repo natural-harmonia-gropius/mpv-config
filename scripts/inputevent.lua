@@ -157,6 +157,15 @@ function InputEvent:new(key, on)
 end
 
 function InputEvent:emit(event)
+    local ignore = event .. "-ignore"
+    if self.on[ignore] then
+        if now() - self.on[ignore] < self.duration then
+            return
+        end
+
+        self.on[ignore] = nil
+    end
+
     if event == "press" and self.on["release"] == "ignore" then
         self.on["release-auto"] = command_invert(self.on["press"])
     end
@@ -181,14 +190,10 @@ function InputEvent:handler(event)
     end
 
     if event == "down" then
-        self.down_at = now()
+        self.on["repeat-ignore"] = now()
     end
 
     if event == "repeat" then
-        if now() - self.down_at < self.duration then
-            return
-        end
-
         self:emit(event)
         return
     end
@@ -266,6 +271,10 @@ function bind(key, on)
     bind_map[key]:bind()
 end
 
+function unbind(key)
+    bind_map[key]:unbind()
+end
+
 function bind_from_input_conf()
     local input_conf = mp.get_property_native("input-conf")
     local input_conf_path = mp.command_native({ "expand-path", input_conf == "" and "~~/input.conf" or input_conf })
@@ -297,14 +306,16 @@ function bind_from_input_conf()
     end
 end
 
-function unbind(key)
-    bind_map[key]:unbind()
-end
-
 mp.observe_property("input-doubleclick-time", "native", function(_, new_duration)
-    for _, on in pairs(bind_map) do
-        on:rebind({ duration = new_duration })
+    for _, binding in pairs(bind_map) do
+        binding:rebind({ duration = new_duration })
     end
+end)
+
+mp.observe_property("focused", "native", function(_, focused)
+    local binding = bind_map["MBTN_LEFT"]
+    if not binding or not focused then return end
+    binding.on["click-ignore"] = now() + 100
 end)
 
 mp.register_script_message("bind", bind)
