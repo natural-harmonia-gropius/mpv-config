@@ -3388,8 +3388,7 @@ function Timeline:render()
 		) then
 		if size ~= nil then
 			local opts = {color = options.foreground, opacity = options.timeline_chapters_opacity}
-			local chapter_width = math.max(4 - foreground_size, 1)
-			local half_width = chapter_width / 2
+			local half_width = math.max(4 - foreground_size, 1) / 2
 			local ay, by = fay, fay + size
 			local function draw_chapter(time)
 				if time < 1 then
@@ -4226,18 +4225,13 @@ function Volume:get_visibility()
 	return self.slider.pressed and 1 or Elements.timeline.proximity_raw == 0 and -1 or Element.get_visibility(self)
 end
 
+function Volume:decide_enabled()
+	local enabled = state.has_audio
+	self.mute.enabled = enabled
+	self.slider.enabled = enabled
+end
+
 function Volume:update_dimensions()
-	if not state.has_audio then
-		Element.destroy(self.mute)
-		Element.destroy(self.slider)
-		return
-	end
-
-	if self.mute.destroyed or self.slider.destroyed then
-		self.mute = MuteButton:new({anchor_id = 'volume'})
-		self.slider = VolumeSlider:new({anchor_id = 'volume'})
-	end
-
 	local width = state.fullormaxed and options.volume_size_fullscreen or options.volume_size
 	local controls, timeline, top_bar = Elements.controls, Elements.timeline, Elements.top_bar
 	local min_y = top_bar.enabled and top_bar.by or 0
@@ -4255,6 +4249,7 @@ function Volume:update_dimensions()
 	self.mute.enabled, self.slider.enabled = self.enabled, self.enabled
 	self.mute:set_coordinates(self.ax, self.by - round(width * 0.8), self.bx, self.by)
 	self.slider:set_coordinates(self.ax, self.ay, self.bx, self.mute.ay)
+	self:decide_enabled()
 end
 
 function Volume:on_display() self:update_dimensions() end
