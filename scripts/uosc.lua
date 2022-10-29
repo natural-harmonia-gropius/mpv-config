@@ -1,7 +1,6 @@
---[[ uosc 4.3.0 - 2022-Oct-11 | https://github.com/tomasklaen/uosc ]]
-local uosc_version = '4.3.0'
+--[[ uosc 4.4.0 - 2022-Oct-28 | https://github.com/tomasklaen/uosc ]]
+local uosc_version = '4.4.0'
 
-require('lib/std')
 assdraw = require('mp.assdraw')
 opt = require('mp.options')
 utils = require('mp.utils')
@@ -9,6 +8,11 @@ msg = require('mp.msg')
 osd = mp.create_osd_overlay('ass-events')
 infinity = 1e309
 quarter_pi_sin = math.sin(math.pi / 4)
+
+-- Enables relative requires from `scripts` directory
+package.path = package.path .. ';' .. mp.find_config_file('scripts') .. '/?.lua'
+
+require('uosc_shared/lib/std')
 
 --[[ OPTIONS ]]
 
@@ -27,6 +31,7 @@ defaults = {
 	timeline_border = 1,
 	timeline_step = 5,
 	timeline_chapters_opacity = 0.8,
+	timeline_cache = true,
 
 	controls = 'menu,gap,subtitles,<has_many_audio>audio,<has_many_video>video,<has_many_edition>editions,<stream>stream-quality,gap,space,speed,space,shuffle,loop-playlist,loop-file,gap,prev,items,next,gap,fullscreen',
 	controls_size = 32,
@@ -324,14 +329,14 @@ state = {
 }
 thumbnail = {width = 0, height = 0, disabled = false}
 external = {} -- Properties set by external scripts
-Elements = require('elements/Elements')
-Menu = require('elements/Menu')
+Elements = require('uosc_shared/elements/Elements')
+Menu = require('uosc_shared/elements/Menu')
 
 -- State dependent utilities
-require('lib/utils')
-require('lib/text')
-require('lib/ass')
-require('lib/menus')
+require('uosc_shared/lib/utils')
+require('uosc_shared/lib/text')
+require('uosc_shared/lib/ass')
+require('uosc_shared/lib/menus')
 
 --[[ STATE UPDATERS ]]
 
@@ -470,9 +475,10 @@ function load_file_index_in_current_directory(index)
 
 	local serialized = serialize_path(state.path)
 	if serialized and serialized.dirname then
-		local files = get_files_in_directory(serialized.dirname, config.media_types)
+		local files = read_directory(serialized.dirname, config.media_types)
 
 		if not files then return end
+		sort_filenames(files)
 		if index < 0 then index = #files + index + 1 end
 
 		if files[index] then
@@ -950,7 +956,7 @@ mp.add_key_binding(nil, 'delete-file-next', function()
 		mp.commandv('playlist-remove', 'current')
 	else
 		if is_local_file then
-			local paths, current_index = get_adjacent_paths(state.path, config.media_types)
+			local paths, current_index = get_adjacent_files(state.path, config.media_types)
 			if paths and current_index then
 				local index, path = decide_navigation_in_list(paths, current_index, 1)
 				if path then next_file = path end
@@ -1063,11 +1069,11 @@ mp.register_script_message('flash-elements', function(elements) Elements:flash(s
 
 --[[ ELEMENTS ]]
 
-require('elements/WindowBorder'):new()
-require('elements/BufferingIndicator'):new()
-require('elements/PauseIndicator'):new()
-require('elements/TopBar'):new()
-require('elements/Timeline'):new()
-if options.controls and options.controls ~= 'never' then require('elements/Controls'):new() end
-if itable_index_of({'left', 'right'}, options.volume) then require('elements/Volume'):new() end
-require('elements/Curtain'):new()
+require('uosc_shared/elements/WindowBorder'):new()
+require('uosc_shared/elements/BufferingIndicator'):new()
+require('uosc_shared/elements/PauseIndicator'):new()
+require('uosc_shared/elements/TopBar'):new()
+require('uosc_shared/elements/Timeline'):new()
+if options.controls and options.controls ~= 'never' then require('uosc_shared/elements/Controls'):new() end
+if itable_index_of({'left', 'right'}, options.volume) then require('uosc_shared/elements/Volume'):new() end
+require('uosc_shared/elements/Curtain'):new()

@@ -1,4 +1,4 @@
-local Element = require('elements/Element')
+local Element = require('uosc_shared/elements/Element')
 
 -- Menu data structure accepted by `Menu:open(menu)`.
 ---@alias MenuData {type?: string; title?: string; hint?: string; keep_open?: boolean; separator?: boolean; items?: MenuDataItem[]; selected_index?: integer;}
@@ -498,7 +498,7 @@ function Menu:fling_distance()
 end
 
 function Menu:on_global_mbtn_left_up()
-	if self.proximity_raw == 0 and not self.is_dragging then
+	if self.proximity_raw == 0 and self.drag_data and not self.is_dragging then
 		self:select_item_below_cursor()
 		self:open_selected_item({preselect_submenu_item = false})
 	end
@@ -507,7 +507,7 @@ function Menu:on_global_mbtn_left_up()
 		if math.abs(distance) > 50 then
 			self.current.fling = {
 				y = self.current.scroll_y, distance = distance, time = self.drag_data[#self.drag_data].time,
-				easing = ease_out_quart, duration = 0.5, update_cursor = true
+				easing = ease_out_quart, duration = 0.5, update_cursor = true,
 			}
 		end
 	end
@@ -669,10 +669,15 @@ function Menu:render()
 
 			-- Icon
 			if item.icon then
-				ass:icon(content_bx - (icon_size / 2), item_center_y, icon_size * 0.8, item.icon, {
-					color = font_color, opacity = text_opacity, clip = item_clip,
-					shadow = 1, shadow_color = shadow_color,
-				})
+				local x, y = content_bx - (icon_size / 2), item_center_y
+				if item.icon == 'spinner' then
+					ass:spinner(x, y, icon_size * 1.5, {color = font_color, opacity = text_opacity * 0.8})
+				else
+					ass:icon(x, y, icon_size * 1.5, item.icon, {
+						color = font_color, opacity = text_opacity, clip = item_clip,
+						shadow = 1, shadow_color = shadow_color,
+					})
+				end
 				content_bx = content_bx - icon_size - spacing
 			end
 
