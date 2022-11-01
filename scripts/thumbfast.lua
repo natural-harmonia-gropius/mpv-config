@@ -291,10 +291,7 @@ end
 local function calc_dimensions()
     local width = mp.get_property_number("video-out-params/dw")
     local height = mp.get_property_number("video-out-params/dh")
-    if not width or not height then
-        effective_w, effective_h = 0, 0
-        return
-    end
+    if not width or not height then return end
 
     local scale = mp.get_property_number("display-hidpi-scale", 1)
 
@@ -323,7 +320,10 @@ local function info(w, h)
     network = mp.get_property_bool("demuxer-via-network", false)
     local image = mp.get_property_native("current-tracks/video/image", false)
     local albumart = image and mp.get_property_native("current-tracks/video/albumart", false)
-    disabled = (network and not options.network) or (albumart and not options.audio) or (image and not albumart)
+    disabled = not (w and h) or
+        (network and not options.network) or
+        (albumart and not options.audio) or
+        (image and not albumart)
 
     local json, err = mp.utils.format_json({width=display_w, height=display_h, disabled=disabled, socket=options.socket, thumbnail=options.thumbnail, overlay_id=options.overlay_id})
     mp.commandv("script-message", "thumbfast-info", json)
@@ -652,8 +652,8 @@ local function shutdown()
     end
 end
 
-mp.observe_property("display-hidpi-scale", "native", watch_changes_debounce)
-mp.observe_property("video-out-params", "native", watch_changes_debounce)
+mp.observe_property("display-hidpi-scale", "native", watch_changes)
+mp.observe_property("video-out-params", "native", watch_changes)
 mp.observe_property("vf", "native", watch_changes_debounce)
 mp.observe_property("vid", "native", sync_changes)
 mp.observe_property("edition", "native", sync_changes)
