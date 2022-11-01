@@ -2,8 +2,7 @@
 
 Personal portable_config for MPV player, The aim is to use it right out of the box.
 
-Except users of Windows 11 need to put [Segoe Fluent Icons](https://aka.ms/SegoeFluentIcons) into fonts folder to use my [modified uosc](https://github.com/Natural-Harmonia-Gropius/uosc).  
-Also [Segoe UI Variable](https://aka.ms/SegoeUIVariable) needs to be added manually.
+Except users of Windows 11 need to put [Segoe Fluent Icons](https://aka.ms/SegoeFluentIcons) and [Segoe UI Variable](https://aka.ms/SegoeUIVariable) into fonts folder to use my [modified uosc](https://github.com/Natural-Harmonia-Gropius/uosc).
 
 ## TL;DR
 
