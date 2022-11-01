@@ -3,7 +3,7 @@
 Personal portable_config for MPV player, The aim is to use it right out of the box.
 
 Except users of Windows 11 need to put [Segoe Fluent Icons](https://aka.ms/SegoeFluentIcons) into fonts folder to use my [modified uosc](https://github.com/Natural-Harmonia-Gropius/uosc).  
-Also [Segoe UI Variable](https://aka.ms/SegoeUIVariable) that need to be added manually.
+Also [Segoe UI Variable](https://aka.ms/SegoeUIVariable) needs to be added manually.
 
 ## TL;DR
 
@@ -13,29 +13,26 @@ Also [Segoe UI Variable](https://aka.ms/SegoeUIVariable) that need to be added m
 [python](https://www.python.org/downloads)  
 [ffmpeg](https://www.gyan.dev/ffmpeg/builds/#release-builds)
 
+[mpv-player/TOOLS/lua](https://github.com/mpv-player/mpv/tree/master/TOOLS/lua)  
 [tomasklaen/uosc](https://github.com/darsain/uosc)  
-[christoph-heinrich/mpv-quality-menu](https://github.com/christoph-heinrich/mpv-quality-menu)  
 [po5/thumbfast](https://github.com/po5/thumbfast)  
-[mpv-player/TOOLS/lua](https://github.com/mpv-player/mpv/tree/master/TOOLS/lua)
+[christoph-heinrich/mpv-quality-menu](https://github.com/christoph-heinrich/mpv-quality-menu)  
+[Natural-Harmonia-Gropius/InputEvent](https://github.com/Natural-Harmonia-Gropius/InputEvent)
 
-[dexeonify/modernx&Thumbnailer](https://github.com/dexeonify/mpv-config/tree/main/scripts)
-
-[igv/gist](https://gist.github.com/igv)  
-[igv/FSRCNNX](https://github.com/igv/FSRCNN-TensorFlow/releases)  
 [bjin/mpv-prescalers](https://github.com/bjin/mpv-prescalers/tree/master/vulkan/compute)  
-[agyild/gist](https://gist.github.com/agyild)
+[igv/FSRCNNX](https://github.com/igv/FSRCNN-TensorFlow/releases)  
+[igv/gist](https://gist.github.com/igv)  
+[agyild/gist](https://gist.github.com/agyild)  
+[AN3223/dotfiles](https://github.com/AN3223/dotfiles/tree/master/.config/mpv/shaders)
 
+[cameramanben/LUTCalc](https://cameramanben.github.io/LUTCalc/LUTCalc/index.html)  
 [toru-ver4/BT.2407 Annex2](https://trev16.hatenablog.com/entry/2020/06/07/094646)  
 [toru-ver4/BT.2446 Method C](https://trev16.hatenablog.com/entry/2020/08/01/131907)  
-[toru-ver4/Luminance Map](https://trev16.hatenablog.com/entry/2020/04/26/190416)  
-[cameramanben/LUTCalc](https://cameramanben.github.io/LUTCalc/LUTCalc/index.html)
-
-[datasone/MPVMediaControl](https://github.com/datasone/MPVMediaControl)  
-[akiirui/mpv-handler](https://github.com/akiirui/mpv-handler)
+[toru-ver4/Luminance Map](https://trev16.hatenablog.com/entry/2020/04/26/190416)
 
 ## About the shaders-toys folder
 
-### How to use?
+### How to use this?
 
 TBD
 
