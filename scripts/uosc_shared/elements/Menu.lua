@@ -671,9 +671,9 @@ function Menu:render()
 			if item.icon then
 				local x, y = content_bx - (icon_size / 2), item_center_y
 				if item.icon == 'spinner' then
-					ass:spinner(x, y, icon_size * 1.5, {color = font_color, opacity = text_opacity * 0.8})
+					ass:spinner(x, y, icon_size * 0.8, {color = font_color, opacity = text_opacity * 0.8})
 				else
-					ass:icon(x, y, icon_size * 1.5, item.icon, {
+					ass:icon(x, y, icon_size * 0.8, item.icon, {
 						color = font_color, opacity = text_opacity, clip = item_clip,
 						shadow = 1, shadow_color = shadow_color,
 					})
