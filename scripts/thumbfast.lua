@@ -32,7 +32,7 @@ local options = {
     hwdec = false,
 
     -- Windows only: use native Windows API to write to pipe (requires LuaJIT)
-    use_lua_io = false
+    direct_io = false
 }
 
 mp.utils = require "mp.utils"
@@ -60,7 +60,7 @@ function subprocess(args, async, callback)
 end
 
 local winapi = {}
-if options.use_lua_io then
+if options.direct_io then
     local ffi_loaded, ffi = pcall(require, "ffi")
     if ffi_loaded then
         winapi = {
@@ -107,13 +107,14 @@ if options.use_lua_io then
         end
 
     else
-        options.use_lua_io = false
+        options.direct_io = false
     end
 end
 
 local spawned = false
 local network = false
 local disabled = false
+local spawn_waiting = false
 
 local x = nil
 local y = nil
@@ -126,6 +127,8 @@ local effective_w = options.max_width
 local effective_h = options.max_height
 local real_w = nil
 local real_h = nil
+local last_real_w = nil
+local last_real_h = nil
 
 local script_name = nil
 
@@ -143,6 +146,9 @@ local last_rotate = 0
 
 local par = ""
 local last_par = ""
+
+local last_has_vid = 0
+local has_vid = 0
 
 local file_timer = nil
 local file_check_period = 1/60
@@ -245,13 +251,13 @@ local unique = mp.utils.getpid()
 options.socket = options.socket .. unique
 options.thumbnail = options.thumbnail .. unique
 
-if options.use_lua_io then
+if options.direct_io then
     if os_name == "Windows" then
         winapi.socket_wc = winapi.MultiByteToWideChar("\\\\.\\pipe\\" .. options.socket)
     end
 
     if winapi.socket_wc == "" then
-        options.use_lua_io = false
+        options.direct_io = false
     end
 end
 
@@ -321,6 +327,7 @@ local function info(w, h)
     local image = mp.get_property_native("current-tracks/video/image", false)
     local albumart = image and mp.get_property_native("current-tracks/video/albumart", false)
     disabled = not (w and h) or
+        has_vid == 0 or
         (network and not options.network) or
         (albumart and not options.audio) or
         (image and not albumart)
@@ -348,9 +355,12 @@ local function spawn(time)
 
     remove_thumbnail_files()
 
+    local vid = mp.get_property_number("vid")
+    has_vid = vid or 0
+
     local args = {
         mpv_path, path, "--no-config", "--msg-level=all=no", "--idle", "--pause", "--keep-open=always", "--really-quiet", "--no-terminal",
-        "--edition="..(mp.get_property_number("edition") or "auto"), "--vid="..(mp.get_property_number("vid") or "auto"), "--no-sub", "--no-audio",
+        "--edition="..(mp.get_property_number("edition") or "auto"), "--vid="..(vid or "auto"), "--no-sub", "--no-audio",
         "--start="..time, "--hr-seek=no",
         "--ytdl-format=worst", "--demuxer-readahead-secs=0", "--demuxer-max-bytes=128KiB",
         "--vd-lavc-skiploopfilter=all", "--vd-lavc-software-fallback=1", "--vd-lavc-fast", "--vd-lavc-threads=2", "--hwdec="..(options.hwdec and "auto" or "no"),
@@ -381,10 +391,11 @@ local function spawn(time)
     end
 
     spawned = true
+    spawn_waiting = true
 
     subprocess(args, true,
         function(success, result)
-            if success == false or result.status ~= 0 then
+            if spawn_waiting and (success == false or result.status ~= 0) then
                 mp.msg.error("mpv subprocess create failed")
             end
             spawned = false
@@ -395,7 +406,7 @@ end
 local function run(command)
     if not spawned then return end
 
-    if options.use_lua_io then
+    if options.direct_io then
         local hPipe = winapi.C.CreateFileW(winapi.socket_wc, winapi.GENERIC_WRITE, 0, nil, winapi.OPEN_EXISTING, winapi._createfile_pipe_flags, nil)
         if hPipe ~= winapi.INVALID_HANDLE_VALUE then
             local buf = command .. "\n"
@@ -508,6 +519,7 @@ local function check_new_thumb()
     move_file(options.thumbnail, tmp)
     local finfo = mp.utils.file_info(tmp)
     if not finfo then return false end
+    spawn_waiting = false
     if first_file then
         request_seek()
         first_file = false
@@ -517,7 +529,10 @@ local function check_new_thumb()
         move_file(tmp, options.thumbnail..".bgra")
 
         real_w, real_h = w, h
-        if real_w then info(real_w, real_h) end
+        if real_w and (real_w ~= last_real_w or real_h ~= last_real_h) then
+            last_real_w, last_real_h = real_w, real_h
+            info(real_w, real_h)
+        end
         return true
     end
     return false
@@ -586,6 +601,8 @@ local function watch_changes()
     if resized then
         last_rotate = rotate
         info(effective_w, effective_h)
+    elseif last_has_vid ~= has_vid and has_vid ~= 0 then
+        info(effective_w, effective_h)
     end
 
     if spawned then
@@ -612,16 +629,30 @@ local function watch_changes()
     last_vf_reset = vf_reset
     last_rotate = rotate
     last_par = par
+    last_has_vid = has_vid
 end
 
 local watch_changes_debounce = debounce(watch_changes, 500)
 
 local function sync_changes(prop, val)
-    if not spawned or val == nil then return end
+    if val == nil then return end
 
     if type(val) == "boolean" then
+        if prop == "vid" then
+            has_vid = 0
+            last_has_vid = 0
+            info(effective_w, effective_h)
+            clear()
+            return
+        end
         val = val and "yes" or "no"
     end
+
+    if prop == "vid" then
+        has_vid = 1
+    end
+
+    if not spawned then return end
 
     run("set "..prop.." "..val)
     watch_changes_debounce()
