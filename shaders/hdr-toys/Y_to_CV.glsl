@@ -1,6 +1,6 @@
-//!HOOK MAIN
+//!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC cd/m^2 to linear Code Value
+//!DESC Y to Linear
 
 const float L_WHITE = 203.0;
 const float L_BLACK = 0.0;

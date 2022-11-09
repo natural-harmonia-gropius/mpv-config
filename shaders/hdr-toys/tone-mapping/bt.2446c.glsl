@@ -1,4 +1,4 @@
-//!HOOK MAIN
+//!HOOK OUTPUT
 //!BIND HOOKED
 //!DESC ITU-R BT.2446 Conversion Method C
 

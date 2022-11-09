@@ -36,37 +36,45 @@ Except users of Windows 11 need to put [Segoe Fluent Icons](https://aka.ms/Segoe
 TBD
 
 ```ini
-vo=gpu-next
-
-glsl-shader=~~/shaders-toys/Helper/ClipBlack.glsl
-# glsl-shader=~~/shaders-toys/HLG_to_Y.glsl
-glsl-shader=~~/shaders-toys/PQ_to_Y.glsl
-glsl-shader=~~/shaders-toys/Tonemapper/BT2446C.glsl
-glsl-shader=~~/shaders-toys/Y_to_CV.glsl
-# glsl-shader=~~/shaders-toys/Tonemapper/Reinhard.glsl
-# glsl-shader=~~/shaders-toys/Tonemapper/Hable.glsl
-# glsl-shader=~~/shaders-toys/Tonemapper/ACES_KN_yc.gls
-# glsl-shader=~~/shaders-toys/Tonemapper/BT2446A.glsl
-glsl-shader=~~/shaders-toys/CV_to_BT1886.glsl
-
-lut=~~/luts/Rec202012-bit_Rec2020-Rec202012-bit_Rec709.cube
-lut-type=conversion
+[hdr]
+profile-cond=get("video-params/sig-peak") > 1
+profile-restore=copy
+target-trc=pq
+target-prim=bt.2020
+# glsl-shader=~~/shaders/BT2100PQ_to_BT709.glsl
+glsl-shader=~~/shaders/hdr-toys/utils/clip_black.glsl
+glsl-shader=~~/shaders/hdr-toys/PQ_to_Y.glsl
+# glsl-shader=~~/shaders/hdr-toys/tone-mapping/bt.2446c.glsl
+glsl-shader=~~/shaders/hdr-toys/Y_to_CV.glsl
+# glsl-shader=~~/shaders/hdr-toys/tone-mapping/linear.glsl
+glsl-shader=~~/shaders/hdr-toys/tone-mapping/reinhard.glsl
+# glsl-shader=~~/shaders/hdr-toys/tone-mapping/hable.glsl
+# glsl-shader=~~/shaders/hdr-toys/tone-mapping/aces.glsl
+# glsl-shader=~~/shaders/hdr-toys/tone-mapping/bt.2446a.glsl
+glsl-shader=~~/shaders/hdr-toys/gamut-mapping/bt.2407_matrix.glsl
+glsl-shader=~~/shaders/hdr-toys/CV_to_BT1886.glsl
 ```
 
 ### Roadmap
 
 Tone Mapping
 
+- [x] Linear
 - [x] Reinhard
-- [x] Uncharted 2
-- [ ] BT.2390
+- [x] Hable
 - [ ] BT.2446 Method A
 - [ ] BT.2446 Method C
-- [ ] BT.2446 Method C - with chroma correction
+- [ ] BT.2390
 
 Gamut Mapping
 
-- [ ] BT.2407
+- [x] BT.2407 Matrix
+- [ ] BT.2407 Annex 1
+- [ ] BT.2407 Annex 2
+- [ ] BT.2407 Annex 3
+- [ ] BT.2407 Annex 4
+- [ ] BT.2407 Annex 5
+- [ ] BT.2407 Annex 6
 
 Overkill
 

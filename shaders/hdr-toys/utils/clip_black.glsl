@@ -1,4 +1,4 @@
-//!HOOK MAIN
+//!HOOK OUTPUT
 //!BIND HOOKED
 //!DESC Clip Code Value (Black Only)
 

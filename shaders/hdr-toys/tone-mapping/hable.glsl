@@ -1,11 +1,11 @@
-//!HOOK MAIN
+//!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC Hable Tone Mapping
+//!DESC tone-mapping (hable)
 
 // Uncharted 2 devised by John Hable.
 // sometimes known as 'Hable Tone Mapping' or 'Hable Filmic' etc.
 // http://filmicgames.com/archives/75
-float hablef(float x) {
+float f(float x) {
     const float A = 0.15;   // Shoulder Strength
     const float B = 0.50;   // Linear Strength
     const float C = 0.10;   // Linear Angle
@@ -15,14 +15,15 @@ float hablef(float x) {
     return ((x * (A * x + C * B) + D * E) / (x * (A * x + B) + D * F)) - E / F;
 }
 
-float hable(float x) {
+float curve(float x) {
+    const float exposure_bias = 2.0;
     const float W = 11.2;
-    return hablef(x) / hablef(W);
+    return f(x * exposure_bias) / f(W);
 }
 
-vec4 p = HOOKED_tex(HOOKED_pos);
+vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
-    const float L = dot(p.rgb, vec3(0.2627, 0.6780, 0.0593));
-    p.rgb = p.rgb * hable(L) / L;
-    return p;
+    const float L = dot(color.rgb, vec3(0.2627, 0.6780, 0.0593));
+    color.rgb *= curve(L) / L;
+    return color;
 }

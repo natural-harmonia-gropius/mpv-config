@@ -1,6 +1,6 @@
-//!HOOK MAIN
+//!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC linear Code Value to BT.1886
+//!DESC Linear to BT.1886
 
 const float DISPGAMMA = 2.4;
 const float L_W = 1.0;

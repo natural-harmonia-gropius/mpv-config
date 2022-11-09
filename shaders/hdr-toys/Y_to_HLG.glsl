@@ -1,6 +1,6 @@
-//!HOOK MAIN
+//!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC cd/m^2 to HLG
+//!DESC Y to HLG
 
 const float L_w   = 1000.0;
 const float L_b   = 0.0;

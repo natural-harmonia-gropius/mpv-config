@@ -1,6 +1,6 @@
-//!HOOK MAIN
+//!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC cd/m^2 to PQ
+//!DESC Y to PQ
 
 // Constants from SMPTE ST 2084-2014
 const float pq_m1 = 0.1593017578125;    // ( 2610.0 / 4096.0 ) / 4.0;
