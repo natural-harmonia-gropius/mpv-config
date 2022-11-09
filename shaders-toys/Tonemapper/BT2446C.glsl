@@ -119,19 +119,19 @@ float tone_mapping(float Y, float k1, float k3, float ip) {
     return Y < ip ? Y * k1 : log((Y / ip) - k3) * k2 + k4;
 }
 
-vec4 p = HOOKED_texOff(vec2(0.0, 0.0));
+vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
-    p.rgb = crosstalk(p.rgb, 0.05);
-    p.rgb = RGB_to_XYZ(p.r, p.g, p.b);
-    p.rgb = XYZ_to_Lab(p.r, p.g, p.b);
-    p.rgb = Lab_to_LCHab(p.r, p.g, p.b);
-    // p.rgb = chroma_correction(p.r, p.g, p.b, 69.46953, 100.0, 0.1);  // greenish
-    p.rgb = LCHab_to_Lab(p.r, p.g, p.b);
-    p.rgb = Lab_to_XYZ(p.r, p.g, p.b);
-    p.rgb = XYZ_to_xyY(p.r, p.g, p.b);
-    p.z   = tone_mapping(p.z, 0.83802, 0.74204, 58.5);
-    p.rgb = xyY_to_XYZ(p.r, p.g, p.b);
-    p.rgb = XYZ_to_RGB(p.r, p.g, p.b);
-    p.rgb = crosstalk_inv(p.rgb, 0.05);
+    color.rgb = crosstalk(color.rgb, 0.05);
+    color.rgb = RGB_to_XYZ(color.r, color.g, color.b);
+    color.rgb = XYZ_to_Lab(color.r, color.g, color.b);
+    color.rgb = Lab_to_LCHab(color.r, color.g, color.b);
+    // color.rgb = chroma_correction(color.r, color.g, color.b, 69.46953, 100.0, 0.1);  // greenish
+    color.rgb = LCHab_to_Lab(color.r, color.g, color.b);
+    color.rgb = Lab_to_XYZ(color.r, color.g, color.b);
+    color.rgb = XYZ_to_xyY(color.r, color.g, color.b);
+    color.z   = tone_mapping(color.z, 0.83802, 0.74204, 58.5);
+    color.rgb = xyY_to_XYZ(color.r, color.g, color.b);
+    color.rgb = XYZ_to_RGB(color.r, color.g, color.b);
+    color.rgb = crosstalk_inv(color.rgb, 0.05);
     return p;
 }

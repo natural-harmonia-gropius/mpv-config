@@ -18,7 +18,7 @@ vec3 mode_y(vec3 x) {
     return x * curve(Y) / Y;
 }
 
-vec4 p = HOOKED_texOff(vec2(0.0, 0.0));
+vec4 p = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
     p.rgb = mode_y(p.rgb);
     return p;

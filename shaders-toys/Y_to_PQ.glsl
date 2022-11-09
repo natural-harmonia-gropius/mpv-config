@@ -31,7 +31,7 @@ vec3 Y_2_ST2084_f3(vec3 L) {
     return vec3(Y_2_ST2084(L.r), Y_2_ST2084(L.g), Y_2_ST2084(L.b));
 }
 
-vec4 color = HOOKED_texOff(vec2(0.0, 0.0));
+vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
     color.rgb = Y_2_ST2084_f3(color.rgb);
     return color;

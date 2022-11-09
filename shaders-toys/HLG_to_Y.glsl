@@ -29,7 +29,7 @@ vec3 HLG_2_Y(vec3 HLG) {
     return displayLinear;
 }
 
-vec4 color = HOOKED_texOff(vec2(0.0, 0.0));
+vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
     color.rgb = HLG_2_Y(color.rgb);
     return color;

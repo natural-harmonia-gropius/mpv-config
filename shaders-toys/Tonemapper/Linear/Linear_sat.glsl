@@ -19,7 +19,7 @@ vec3 mode_sat(vec3 x) {
     return max((x - Y) * S + Y, 0.0);
 }
 
-vec4 p = HOOKED_texOff(vec2(0.0, 0.0));
+vec4 p = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
     p.rgb = mode_sat(p.rgb);
     return p;

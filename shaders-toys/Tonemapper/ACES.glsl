@@ -51,7 +51,7 @@ float aces(float x) {
     return (x * (A * x + B)) / (x * (C * x + D) + E);
 }
 
-vec4 color = HOOKED_texOff(vec2(0.0, 0.0));
+vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
     color.xyz = RGB_to_XYZ(color.rgb);
     color.xyz = XYZ_to_xyY(color.xyz);
@@ -74,7 +74,7 @@ const mat3 REC709_PRI = mat3(
 );
 
 
-vec4 color = HOOKED_texOff(vec2(0.0, 0.0));
+vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
     vec3 linearCV = color.rgb;
 

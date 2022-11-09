@@ -9,7 +9,7 @@ vec3 linCV_2_Y(vec3 linCV, float Ymax, float Ymin) {
     return linCV * (Ymax - Ymin) + Ymin;
 }
 
-vec4 color = HOOKED_texOff(vec2(0.0, 0.0));
+vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
     color.rgb = linCV_2_Y(color.rgb, L_WHITE, L_BLACK);
     return color;

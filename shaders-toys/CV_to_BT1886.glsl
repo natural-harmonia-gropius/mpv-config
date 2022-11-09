@@ -14,7 +14,7 @@ float bt1886_r(float L, float gamma, float Lw, float Lb) {
     return V;
 }
 
-vec4 color = HOOKED_texOff(vec2(0.0, 0.0));
+vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
     // Encode linear code values with transfer function
     color.rgb = vec3(

@@ -20,7 +20,7 @@ float hable(float x) {
     return hablef(x) / hablef(W);
 }
 
-vec4 p = HOOKED_texOff(vec2(0.0, 0.0));
+vec4 p = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
     const float L = dot(p.rgb, vec3(0.2627, 0.6780, 0.0593));
     p.rgb = p.rgb * hable(L) / L;
