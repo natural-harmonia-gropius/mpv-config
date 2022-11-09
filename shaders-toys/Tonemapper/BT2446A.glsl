@@ -52,8 +52,8 @@ vec3 bt2446a(vec3 rgb) {
     return YCbCr_to_RGB(Y, Cb, Cr);
 }
 
-vec4 p = HOOKED_tex(HOOKED_pos);
+vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
-    p.rgb = bt2446a(p.rgb);
-    return p;
+    color.rgb = bt2446a(color.rgb);
+    return color;
 }

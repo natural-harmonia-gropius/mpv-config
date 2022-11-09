@@ -133,5 +133,5 @@ vec4 hook() {
     color.rgb = xyY_to_XYZ(color.r, color.g, color.b);
     color.rgb = XYZ_to_RGB(color.r, color.g, color.b);
     color.rgb = crosstalk_inv(color.rgb, 0.05);
-    return p;
+    return color;
 }
