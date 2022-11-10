@@ -7,7 +7,7 @@
 
 ## [tomasklaen/uosc](https://github.com/darsain/uosc)
 
-- thumbfast.lua
+- uosc.lua
 
 ## [po5/thumbfast](https://github.com/po5/thumbfast)
 
