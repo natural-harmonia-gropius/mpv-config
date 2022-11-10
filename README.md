@@ -24,11 +24,6 @@ Except users of Windows 11 need to put [Segoe Fluent Icons](https://aka.ms/Segoe
 [agyild/gist](https://gist.github.com/agyild)  
 [AN3223/dotfiles](https://github.com/AN3223/dotfiles/tree/master/.config/mpv/shaders)
 
-[cameramanben/LUTCalc](https://cameramanben.github.io/LUTCalc/LUTCalc/index.html)  
-[toru-ver4/BT.2407 Annex2](https://trev16.hatenablog.com/entry/2020/06/07/094646)  
-[toru-ver4/BT.2446 Method C](https://trev16.hatenablog.com/entry/2020/08/01/131907)  
-[toru-ver4/Luminance Map](https://trev16.hatenablog.com/entry/2020/04/26/190416)
-
 ## About the shaders-toys folder
 
 ### How to use this?

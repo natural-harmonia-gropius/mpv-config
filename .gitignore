@@ -8,8 +8,9 @@
 .history/
 
 misc
-luts
 watch_later
+
+luts/*.cube
 
 fonts/*
 !fonts/uosc_textures.ttf
