@@ -1,6 +1,9 @@
+// ITU-R BT.2446 Conversion Method A
+// https://www.itu.int/dms_pub/itu-r/opb/rep/R-REP-BT.2446-1-2021-PDF-E.pdf
+
 //!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC ITU-R BT.2446 Conversion Method A
+//!DESC tone-mapping (bt.2446a)
 
 // https://gist.github.com/yohhoy/dafa5a47dade85d8b40625261af3776a
 const float a = 0.2627;

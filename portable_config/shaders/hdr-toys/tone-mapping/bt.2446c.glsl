@@ -1,6 +1,9 @@
+// ITU-R BT.2446 Conversion Method C
+// https://www.itu.int/dms_pub/itu-r/opb/rep/R-REP-BT.2446-1-2021-PDF-E.pdf
+
 //!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC ITU-R BT.2446 Conversion Method C
+//!DESC tone-mapping (bt.2446c)
 
 vec3 RGB_to_XYZ(float R, float G, float B) {
     mat3 M = mat3(
