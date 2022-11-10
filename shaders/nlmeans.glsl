@@ -99,7 +99,7 @@ vec4 hook()
  * 		- LUMA=P=1
  * 		- CHROMA=P=1
  * 	- Sharp:
- * 		- LUMA=S=4:AS=1:PS=3:EP=0
+ * 		- LUMA=S=9:AS=1:EP=0
  *
  * It is recommended to make multiple copies of this shader with settings 
  * tweaked for different types of content, and then dispatch the appropriate 
@@ -142,7 +142,7 @@ vec4 hook()
 #ifdef LUMA_raw
 #define AS 0
 #define ASF 1.0
-#define ASP 0.5
+#define ASP 0.25
 #else
 #define AS 0
 #define ASF 0.0
@@ -187,6 +187,7 @@ vec4 hook()
  * 3: diamond (symmetrical)
  * 4: triangle (pointing upward, center pixel is in the bottom-middle)
  * 5: truncated triangle (last row halved)
+ * 6: offset square (accepts even and odd sizes)
  */
 #ifdef LUMA_raw
 #define RS 3
@@ -280,7 +281,7 @@ vec4 hook()
  * factor is set to 3.
  */
 #ifdef LUMA_raw
-#define RF 1
+#define RF 0
 #else
 #define RF 1
 #endif
@@ -347,55 +348,70 @@ const int hr = R/2;
 #define S_LINE_A(hz,Z) Z
 
 #define S_SQUARE(z,hz) for (z.x = -hz; z.x <= hz; z.x++) for (z.y = -hz; z.y <= hz; z.y++)
+#define S_SQUARE_OFF(z,hz) for (z.x = 0; z.x <= hz; z.x++) for (z.y = 0; z.y <= hz; z.y++)
 #define S_SQUARE_A(hz,Z) (Z*Z)
 
 // research shapes
 #define T1 (T+1)
+#define FOR_FRAME for (r.z = 0; r.z < T1; r.z++)
 #if R == 0 || R == 1
-#define FOR_RESEARCH(r) for (r.z = 0; r.z < T1; r.z++) S_1X1(r,hr)
+#define FOR_RESEARCH(r) FOR_FRAME S_1X1(r,hr)
 const int r_area = S_1X1_A(hr,R)*T1;
+#elif RS == 6
+#define FOR_RESEARCH(r) FOR_FRAME S_SQUARE_OFF(r,hr)
+const int r_area = S_SQUARE_A(hr,R)*T1;
 #elif RS == 5
-#define FOR_RESEARCH(r) for (r.z = 0; r.z < T1; r.z++) S_TRUNC_TRIANGLE(r,hr)
+#define FOR_RESEARCH(r) FOR_FRAME S_TRUNC_TRIANGLE(r,hr)
 const int r_area = S_TRIANGLE_A(hr,hr)*T1;
 #elif RS == 4
-#define FOR_RESEARCH(r) for (r.z = 0; r.z < T1; r.z++) S_TRIANGLE(r,hr)
+#define FOR_RESEARCH(r) FOR_FRAME S_TRIANGLE(r,hr)
 const int r_area = S_TRIANGLE_A(hr,R)*T1;
 #elif RS == 3
-#define FOR_RESEARCH(r) for (r.z = 0; r.z < T1; r.z++) S_DIAMOND(r,hr)
+#define FOR_RESEARCH(r) FOR_FRAME S_DIAMOND(r,hr)
 const int r_area = S_DIAMOND_A(hr,R)*T1;
 #elif RS == 2
-#define FOR_RESEARCH(r) for (r.z = 0; r.z < T1; r.z++) S_VERTICAL(r,hr)
+#define FOR_RESEARCH(r) FOR_FRAME S_VERTICAL(r,hr)
 const int r_area = S_LINE_A(hr,R)*T1;
 #elif RS == 1
-#define FOR_RESEARCH(r) for (r.z = 0; r.z < T1; r.z++) S_HORIZONTAL(r,hr)
+#define FOR_RESEARCH(r) FOR_FRAME S_HORIZONTAL(r,hr)
 const int r_area = S_LINE_A(hr,R)*T1;
-#else
-#define FOR_RESEARCH(r) for (r.z = 0; r.z < T1; r.z++) S_SQUARE(r,hr)
+#elif RS == 0 && R == 2 // interpolated 2x2
+#define FOR_RESEARCH(r) FOR_FRAME S_SQUARE(r,0.5)
+const int r_area = 4*T1;
+#elif RS == 0
+#define FOR_RESEARCH(r) FOR_FRAME S_SQUARE(r,hr)
 const int r_area = S_SQUARE_A(hr,R)*T1;
 #endif
 
 // patch shapes
 #define RI1 (RI+1)
+#define FOR_ROTATION for (float ri = 0; ri < 360; ri+=360.0/RI1)
 #if P == 0 || P == 1
 #define FOR_PATCH(p) S_1X1(p,hp) for (float ri = 0; ri <= 0; ri++)
 const int p_area = S_1X1_A(hp,P)*RI1;
+#elif PS == 6
+#define FOR_PATCH(p) S_SQUARE_OFF(p,hp) FOR_ROTATION
+const int p_area = S_SQUARE_A(hp,P)*RI1;
 #elif PS == 5
-#define FOR_PATCH(p) S_TRUNC_TRIANGLE(p,hp) for (float ri = 0; ri < 360; ri+=360/RI1)
+#define FOR_PATCH(p) S_TRUNC_TRIANGLE(p,hp) FOR_ROTATION
 const int p_area = S_TRIANGLE_A(hp,hp)*RI1;
 #elif PS == 4
-#define FOR_PATCH(p) S_TRIANGLE(p,hp) for (float ri = 0; ri < 360; ri+=360/RI1)
+#define FOR_PATCH(p) S_TRIANGLE(p,hp) FOR_ROTATION
 const int p_area = S_TRIANGLE_A(hp,P)*RI1;
 #elif PS == 3
-#define FOR_PATCH(p) S_DIAMOND(p,hp) for (float ri = 0; ri < 360; ri+=360/RI1)
+#define FOR_PATCH(p) S_DIAMOND(p,hp) FOR_ROTATION
 const int p_area = S_DIAMOND_A(hp,P)*RI1;
 #elif PS == 2
-#define FOR_PATCH(p) S_VERTICAL(p,hp) for (float ri = 0; ri < 360; ri+=360/RI1)
+#define FOR_PATCH(p) S_VERTICAL(p,hp) FOR_ROTATION
 const int p_area = S_LINE_A(hp,P)*RI1;
 #elif PS == 1
-#define FOR_PATCH(p) S_HORIZONTAL(p,hp) for (float ri = 0; ri < 360; ri+=360/RI1)
+#define FOR_PATCH(p) S_HORIZONTAL(p,hp) FOR_ROTATION
 const int p_area = S_LINE_A(hp,P)*RI1;
-#else
-#define FOR_PATCH(p) S_SQUARE(p,hp) for (float ri = 0; ri < 360; ri+=360/RI1)
+#elif PS == 0 && P == 2 // interpolated 2x2
+#define FOR_PATCH(p) S_SQUARE(p,0.5) FOR_ROTATION
+const int p_area = 4*RI1;
+#elif PS == 0
+#define FOR_PATCH(p) S_SQUARE(p,hp) FOR_ROTATION
 const int p_area = S_SQUARE_A(hp,P)*RI1;
 #endif
 
@@ -454,8 +470,16 @@ vec4 hook()
 		const float pdiff_scale = 1.0/(h*h);
 
 		vec4 pdiff_sq = vec4(0);
+#if defined(LUMA_gather) && P == 3 && PS == 4 && RF == 0 && RI == 0 && T == 0
+		const ivec2 offsets[4] = {ivec2(0,-1), ivec2(-1,0), ivec2(0,0), ivec2(1,0)};
+		#define gather(pos) (LUMA_mul * vec4(textureGatherOffsets(LUMA_raw, pos, offsets)))
+		pdiff_sq.x = dot(pow(gather(HOOKED_pos) - gather(HOOKED_pos+r.xy*HOOKED_pt), vec4(2)), vec4(1));
+#elif defined(LUMA_gather) && P == 2 && PS == 6 && RF == 0 && RI == 0 && T == 0
+		pdiff_sq.x = dot(pow(LUMA_gather(HOOKED_pos, 0) - LUMA_gather(HOOKED_pos+r.xy*HOOKED_pt, 0), vec4(2)), vec4(1));
+#else
 		FOR_PATCH(p)
 			pdiff_sq += pow(HOOKED_texOff(p) - load(ROT(p)+r), vec4(2));
+#endif
 		vec4 weight = exp(-pdiff_sq * p_scale * pdiff_scale);
 
 		weight *= exp(-pow(length(r*SD) * SS, 2));
