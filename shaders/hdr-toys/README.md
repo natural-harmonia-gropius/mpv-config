@@ -1,6 +1,4 @@
-# About the shaders-toys folder
-
-## How to use this?
+# How to use this?
 
 mpv.conf
 
@@ -24,7 +22,7 @@ glsl-shader=~~/shaders/hdr-toys/gamut-mapping/bt.2407_matrix.glsl
 glsl-shader=~~/shaders/hdr-toys/CV_to_BT1886.glsl
 ```
 
-## Roadmap
+# Roadmap
 
 Tone Mapping
 
