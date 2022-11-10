@@ -38,12 +38,21 @@ vec3 xyY_to_XYZ(float x, float y, float Y) {
 float Xn = 192.93;
 float Yn = 203.0;
 float Zn = 221.05;
+
 float delta = 6.0 / 29.0;
 float deltac = delta * 2.0 / 3.0;
 
-// float f1(float x, float delta) { return x > pow(delta, 3.0) ? pow(x, 1.0 / 3.0) : pow(1.0 / delta, 3.0) * x; }
-float f1(float x, float delta) { return x > pow(delta, 3.0) ? pow(x, 1.0 / 3.0) : deltac + x / (3.0 * pow(delta, 2.0)); }
-float f2(float x, float delta) { return x > delta ? pow(x, 3.0) : (x - deltac) * (3.0 * pow(delta, 2.0)); }
+float f1(float x, float delta) {
+    return x > pow(delta, 3.0) ?
+        pow(x, 1.0 / 3.0) :
+        deltac + x / (3.0 * pow(delta, 2.0));
+}
+
+float f2(float x, float delta) {
+    return x > delta ?
+        pow(x, 3.0) :
+        (x - deltac) * (3.0 * pow(delta, 2.0));
+}
 
 vec3 XYZ_to_Lab(float X, float Y, float Z) {
     X = f1(X / Xn, delta);
@@ -53,8 +62,6 @@ vec3 XYZ_to_Lab(float X, float Y, float Z) {
     float L = 116.0 * Y - 16.0;
     float a = 500.0 * (X - Y);
     float b = 200.0 * (Y - Z);
-
-    L = max(L, 0.0);
 
     return vec3(L, a, b);
 }
@@ -105,7 +112,9 @@ vec3 crosstalk_inv(vec3 x, float a) {
 }
 
 vec3 chroma_correction(float L, float C, float H, float Lref, float Lmax, float sigma) {
-    float cor = L > Lref ? 1.0 - sigma * (L - Lref) / (Lmax - Lref) : 1.0;
+    float cor = L > Lref ?
+        1.0 - sigma * (L - Lref) / (Lmax - Lref) :
+        1.0;
     return vec3(L, C * cor, H);
 }
 
@@ -113,7 +122,9 @@ float tone_mapping(float Y, float k1, float k3, float ip) {
     ip /= k1;
     float k2 = (k1 * ip) * (1.0 - k3);
     float k4 = (k1 * ip) - (k2 * log(1.0 - k3));
-    return Y < ip ? Y * k1 : log((Y / ip) - k3) * k2 + k4;
+    return Y < ip ?
+        Y * k1 :
+        log((Y / ip) - k3) * k2 + k4;
 }
 
 vec4 color = HOOKED_tex(HOOKED_pos);
@@ -122,12 +133,11 @@ vec4 hook() {
     color.rgb = RGB_to_XYZ(color.r, color.g, color.b);
     color.rgb = XYZ_to_Lab(color.r, color.g, color.b);
     color.rgb = Lab_to_LCHab(color.r, color.g, color.b);
-    color.rgb = chroma_correction(color.r, color.g, color.b, 69.46953, 100.0, 0.1);
+    color.rgb = chroma_correction(color.r, color.g, color.b, 58.5, 101.5, 0.133);
     color.rgb = LCHab_to_Lab(color.r, color.g, color.b);
     color.rgb = Lab_to_XYZ(color.r, color.g, color.b);
     color.rgb = XYZ_to_xyY(color.r, color.g, color.b);
-    // color.z   = tone_mapping(color.z, 0.83802, 0.74204, 58.5);
-    color.z   = tone_mapping(color.z, 0.83802, 0.74204, 100.0);
+    color.z   = tone_mapping(color.z, 0.83802, 0.74204, 101.5);
     color.rgb = xyY_to_XYZ(color.r, color.g, color.b);
     color.rgb = XYZ_to_RGB(color.r, color.g, color.b);
     color.rgb = crosstalk_inv(color.rgb, 0.05);
