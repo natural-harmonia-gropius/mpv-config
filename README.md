@@ -17,9 +17,3 @@ Except users of Windows 11 need to put [Segoe Fluent Icons](https://aka.ms/Segoe
 [po5/thumbfast](https://github.com/po5/thumbfast)  
 [christoph-heinrich/mpv-quality-menu](https://github.com/christoph-heinrich/mpv-quality-menu)  
 [Natural-Harmonia-Gropius/InputEvent](https://github.com/Natural-Harmonia-Gropius/InputEvent)
-
-[bjin/mpv-prescalers](https://github.com/bjin/mpv-prescalers/tree/master/vulkan/compute)  
-[igv/FSRCNNX](https://github.com/igv/FSRCNN-TensorFlow/releases)  
-[igv/gist](https://gist.github.com/igv)  
-[agyild/gist](https://gist.github.com/agyild)  
-[AN3223/dotfiles](https://github.com/AN3223/dotfiles/tree/master/.config/mpv/shaders)

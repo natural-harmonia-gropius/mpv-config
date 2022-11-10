@@ -25,13 +25,13 @@
 // Adaptive sharpen - version 2021-10-17
 // Tuned for use post-resize
 
-//!HOOK OUTPUT
+//!HOOK LUMA
 //!BIND HOOKED
 //!DESC adaptive-sharpen
 
 //--------------------------------------- Settings ------------------------------------------------
 
-#define curve_height    1.0                  // Main control of sharpening strength [>0]
+#define curve_height    0.5                  // Main control of sharpening strength [>0]
                                              // 0.3 <-> 2.0 is a reasonable range of values
 
 #define overshoot_ctrl  false                // Allow for higher overshoot if the current edge pixel
@@ -221,9 +221,9 @@ vec4 hook() {
     // Soft limited anti-ringing with tanh, wpmean to control compression slope
     sharpdiff = wpmean(max(sharpdiff, 0.0), soft_lim( max(sharpdiff, 0.0), min_dist ), cs.x )
               - wpmean(min(sharpdiff, 0.0), soft_lim( min(sharpdiff, 0.0), min_dist ), cs.y );
-    
+
     float sharpdiff_lim = sat(c0_Y + sharpdiff) - c0_Y;
-    /*float satmul = (c0_Y + max(sharpdiff_lim*0.9, sharpdiff_lim)*0.3 + 0.03)/(c0_Y + 0.03);
+    /*float satmul = (c0_Y + max(sharpdiff_lim*0.9, sharpdiff_lim)*1.03 + 0.03)/(c0_Y + 0.03);
     vec3 res = c0_Y + sharpdiff_lim + (c[0] - c0_Y)*satmul;
     */
     return vec4(sharpdiff_lim + c[0], HOOKED_texOff(0).a);
