@@ -105,11 +105,8 @@ vec3 crosstalk_inv(vec3 x, float a) {
 }
 
 vec3 chroma_correction(float L, float C, float H, float Lref, float Lmax, float sigma) {
-    if (L > Lref)
-        C *= 1.0 - sigma * (L - Lref) / (Lmax - Lref);
-        C = max(C, 0.0);
-
-    return vec3(L, C, H);
+    float cor = L > Lref ? 1.0 - sigma * (L - Lref) / (Lmax - Lref) : 1.0;
+    return vec3(L, C * cor, H);
 }
 
 float tone_mapping(float Y, float k1, float k3, float ip) {
@@ -125,11 +122,12 @@ vec4 hook() {
     color.rgb = RGB_to_XYZ(color.r, color.g, color.b);
     color.rgb = XYZ_to_Lab(color.r, color.g, color.b);
     color.rgb = Lab_to_LCHab(color.r, color.g, color.b);
-    // color.rgb = chroma_correction(color.r, color.g, color.b, 69.46953, 100.0, 0.1);  // greenish
+    color.rgb = chroma_correction(color.r, color.g, color.b, 69.46953, 100.0, 0.1);
     color.rgb = LCHab_to_Lab(color.r, color.g, color.b);
     color.rgb = Lab_to_XYZ(color.r, color.g, color.b);
     color.rgb = XYZ_to_xyY(color.r, color.g, color.b);
-    color.z   = tone_mapping(color.z, 0.83802, 0.74204, 58.5);
+    // color.z   = tone_mapping(color.z, 0.83802, 0.74204, 58.5);
+    color.z   = tone_mapping(color.z, 0.83802, 0.74204, 100.0);
     color.rgb = xyY_to_XYZ(color.r, color.g, color.b);
     color.rgb = XYZ_to_RGB(color.r, color.g, color.b);
     color.rgb = crosstalk_inv(color.rgb, 0.05);
