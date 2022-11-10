@@ -7,9 +7,11 @@
 *.code-workspace
 .history/
 
-*.*
-!*.ps1
+/*.*
+!/*.ps1
 
+installer
+vapoursynth64
 misc
 
 portable_config/watch_later
