@@ -16,9 +16,8 @@ float f(float x) {
 }
 
 float curve(float x) {
-    const float exposure_bias = 2.0;
     const float W = 11.2;
-    return f(x * exposure_bias) / f(W);
+    return f(x) / f(W);
 }
 
 vec4 color = HOOKED_tex(HOOKED_pos);
