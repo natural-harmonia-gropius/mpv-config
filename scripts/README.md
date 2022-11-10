@@ -1,4 +1,4 @@
-# User scripts
+# User Scripts
 
 ## [mpv-player/TOOLS/lua](https://github.com/mpv-player/mpv/tree/master/TOOLS/lua)
 
