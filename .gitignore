@@ -8,6 +8,7 @@
 .history/
 
 *.*
+!*.ps1
 
 misc
 

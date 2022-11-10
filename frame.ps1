@@ -1,0 +1,1 @@
+ffmpeg -i $args[0] -c:v copy -ss $args[1] -vframes 1 -an clip.mkv
