@@ -1,5 +1,7 @@
 // ITU-R BT.2446 Conversion Method A
-// https://www.itu.int/dms_pub/itu-r/opb/rep/R-REP-BT.2446-1-2021-PDF-E.pdf
+// https://www.itu.int/pub/R-REP-BT.2446
+
+// TODO: the curve makes things brighter.
 
 //!HOOK OUTPUT
 //!BIND HOOKED

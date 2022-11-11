@@ -1,4 +1,4 @@
-// From "Photographic Tone Reproduction For Digital Images" by Reinhard et al. 2002.
+// Extended mapping by Reinhard et al. 2002. which allows high luminances to burn out.
 // https://www.researchgate.net/publication/2908938_Photographic_Tone_Reproduction_For_Digital_Images
 
 //!HOOK OUTPUT

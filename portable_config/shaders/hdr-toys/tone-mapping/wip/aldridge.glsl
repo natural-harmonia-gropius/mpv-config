@@ -1,1 +1,0 @@
-// https://github.com/tizian/tonemapper/blob/master/src/operators/AldridgeFilmicOperator.cpp

@@ -1,4 +1,4 @@
-// From the "Advanced Techniques and Optimization of HDR Color Pipelines" GDC talk by Timothy Lottes.
+// Filmic curve by Timothy Lottes, Also known as the "AMD curve".
 // https://www.gdcvault.com/play/1023512/Advanced-Graphics-Techniques-Tutorial-Day
 
 //!HOOK OUTPUT

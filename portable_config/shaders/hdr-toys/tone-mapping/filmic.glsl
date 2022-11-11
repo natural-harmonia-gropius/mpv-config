@@ -1,4 +1,4 @@
-// By Jim Hejl and Richard Burgess-Dawson presented in the "Filmic Tonemapping for Real-time Rendering" SIGGRAPH 2010 course by Haarm-Pieter Duiker.
+// Analytical approximation of a Kodak film curve by Jim Hejl and Richard Burgess-Dawson.
 // http://filmicworlds.com/blog/filmic-tonemapping-operators/
 
 //!HOOK OUTPUT

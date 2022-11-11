@@ -1,5 +1,7 @@
 // ITU-R BT.2446 Conversion Method C
-// https://www.itu.int/dms_pub/itu-r/opb/rep/R-REP-BT.2446-1-2021-PDF-E.pdf
+// https://www.itu.int/pub/R-REP-BT.2446
+
+// TODO: chroma_correction causes green tint.
 
 //!HOOK OUTPUT
 //!BIND HOOKED
@@ -113,7 +115,6 @@ vec3 crosstalk_inv(vec3 x, float a) {
     return M * x;
 }
 
-// TODO: greenish
 vec3 chroma_correction(float L, float C, float H, float Lref, float Lmax, float sigma) {
     if (L > Lref) {
         float cor = 1.0 - sigma * (L - Lref) / (Lmax - Lref);

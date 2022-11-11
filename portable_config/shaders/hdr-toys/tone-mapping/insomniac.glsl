@@ -1,4 +1,4 @@
-// From the "An efficient and user-friendly tone mapping operator" document by Mike Day.
+// Filmic curve by Mike Day, Also known as the "Insomniac curve".
 // https://d3cw3dd2w32x2b.cloudfront.net/wp-content/uploads/2012/09/an-efficient-and-user-friendly-tone-mapping-operator.pdf
 
 //!HOOK OUTPUT

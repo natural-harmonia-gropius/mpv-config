@@ -1,4 +1,4 @@
-// Filmic curve by John Hable. Based on the 'Uncharted 2', but updated with a better controllability.
+// Filmic curve by John Hable. Based on the "Uncharted 2", but updated with a better controllability.
 // http://filmicworlds.com/blog/filmic-tonemapping-with-piecewise-power-curves/
 
 //!HOOK OUTPUT

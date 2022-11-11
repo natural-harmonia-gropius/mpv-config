@@ -1,4 +1,4 @@
-// From the "HDR Theory and Practice" CEDEC talk by Hajime Uchimura.
+// Filmic curve by Hajime Uchimura. Also known as the "Gran Turismo curve".
 // https://www.slideshare.net/nikuque/hdr-theory-and-practicce-jp
 
 //!HOOK OUTPUT

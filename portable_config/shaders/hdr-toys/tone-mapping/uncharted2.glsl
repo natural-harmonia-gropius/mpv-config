@@ -1,4 +1,4 @@
-// By John Hable presented in the "Filmic Tonemapping for Real-time Rendering" SIGGRAPH 2010 course by Haarm-Pieter Duiker.
+// Filmic curve by John Hable, see the "Filmic Tonemapping Also known as the "Uncharted 2 curve".
 // http://filmicworlds.com/blog/filmic-tonemapping-operators/
 
 //!HOOK OUTPUT
