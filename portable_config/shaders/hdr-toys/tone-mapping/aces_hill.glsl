@@ -1,9 +1,9 @@
+// ACES curve fit by Stephen Hill.
+// https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/ACES.hlsl
+
 //!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC tone-mapping (aces)
-
-// Stephen Hill's fit
-// https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/ACES.hlsl
+//!DESC tone-mapping (aces_hill)
 
 // sRGB => XYZ => D65_2_D60 => AP1 => RRT_SAT
 const mat3 ACESInputMat = mat3(

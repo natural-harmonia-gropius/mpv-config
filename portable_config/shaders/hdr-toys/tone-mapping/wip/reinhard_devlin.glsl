@@ -5,7 +5,6 @@
 //!BIND HOOKED
 //!DESC tone-mapping (reinhard_devlin)
 
-const float exposure;
 const float gamma;      // Gamma correction value.
 const float f;          // Intensity adjustment parameter.
 const float c;          // Chromatic adaptation.
