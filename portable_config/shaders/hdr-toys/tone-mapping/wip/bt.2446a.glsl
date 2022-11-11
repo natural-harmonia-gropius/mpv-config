@@ -27,7 +27,11 @@ vec3 YCbCr_to_RGB(float Y, float Cb, float Cr) {
 }
 
 vec3 bt2446a(vec3 rgb) {
-    const vec3 YCbCr = RGB_to_YCbCr(rgb.r, rgb.g, rgb.b);
+    float R = rgb.r;    // pow(rgb.r, 1.0 / 2.4);
+    float G = rgb.g;    // pow(rgb.g, 1.0 / 2.4);
+    float B = rgb.b;    // pow(rgb.b, 1.0 / 2.4);
+
+    const vec3 YCbCr = RGB_to_YCbCr(R, G, B);
     float Y  = YCbCr[0];
     float Cb = YCbCr[1];
     float Cr = YCbCr[2];
@@ -52,7 +56,9 @@ vec3 bt2446a(vec3 rgb) {
     Cr *= Yr;
     Y = Ysdr - max(0.1 * Cr, 0.0);
 
-    return YCbCr_to_RGB(Y, Cb, Cr);
+    rgb = YCbCr_to_RGB(Y, Cb, Cr);
+
+    return rgb;
 }
 
 vec4 color = HOOKED_tex(HOOKED_pos);
