@@ -100,9 +100,9 @@ vec4 hook() {
 
     // Normalize (correct for overshooting)
     float scale = evalCurveSegment(1.0,
-                                    shoulderOffsetX, shoulderOffsetY,
-                                    shoulderScaleX, shoulderScaleY,
-                                    shoulderLnA, shoulderB);
+        shoulderOffsetX, shoulderOffsetY,
+        shoulderScaleX, shoulderScaleY,
+        shoulderLnA, shoulderB);
     float invScale = 1.0 / scale;
     toeOffsetY      *= invScale;
     toeScaleY       *= invScale;
