@@ -1,15 +1,23 @@
-// The simplest tone mapping method, just multiplied by a number.
+// "film-like" tonemap, by Jim Hejl.
+// https://twitter.com/jimhejl/status/633777619998130176
 
 //!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC tone-mapping (linear)
+//!DESC tone-mapping (hejl2015)
 
 const float WHITE = 203.0;
 const float PEAK  = 1000.0;
 const float L_w   = PEAK / WHITE;   // White Point
 
+float f(float x) {
+    float vh = x;
+    float va = (1.425 * vh) + 0.05;
+    float vf = ((vh * va + 0.004) / ((vh * (va + 0.55) + 0.0491))) - 0.0821;
+    return vf;
+}
+
 float curve(float x) {
-    return x / L_w;
+    return f(x) / f(L_w);
 }
 
 vec4 color = HOOKED_tex(HOOKED_pos);

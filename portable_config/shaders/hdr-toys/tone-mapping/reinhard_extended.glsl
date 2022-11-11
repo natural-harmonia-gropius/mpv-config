@@ -1,15 +1,16 @@
-// The simplest tone mapping method, just multiplied by a number.
+// From "Photographic Tone Reproduction For Digital Images" by Reinhard et al. 2002.
+// https://www.researchgate.net/publication/2908938_Photographic_Tone_Reproduction_For_Digital_Images
 
 //!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC tone-mapping (linear)
+//!DESC tone-mapping (reinhard_extended)
 
 const float WHITE = 203.0;
 const float PEAK  = 1000.0;
 const float L_w   = PEAK / WHITE;   // White Point
 
 float curve(float x) {
-    return x / L_w;
+    return (x * (1.0 + x / (L_w * L_w))) / (1.0 + x);
 }
 
 vec4 color = HOOKED_tex(HOOKED_pos);

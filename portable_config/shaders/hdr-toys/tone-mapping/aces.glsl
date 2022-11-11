@@ -1,35 +1,23 @@
+// approximated ACES fit by Krzysztof Narkowicz.
+// https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/
+
 //!HOOK OUTPUT
 //!BIND HOOKED
 //!DESC tone-mapping (aces)
 
-// sRGB => XYZ => D65_2_D60 => AP1 => RRT_SAT
-const mat3 ACESInputMat = mat3(
-    0.59719, 0.35458, 0.04823,
-    0.07600, 0.90834, 0.01566,
-    0.02840, 0.13383, 0.83777);
+const float A = 2.51;
+const float B = 0.03;
+const float C = 2.43;
+const float D = 0.59;
+const float E = 0.14;
 
-// ODT_SAT => XYZ => D60_2_D65 => sRGB
-const mat3 ACESOutputMat = mat3(
-     1.60475, -0.53108, -0.07367,
-    -0.10208,  1.10813, -0.00605,
-    -0.00327, -0.07276,  1.07602);
-
-vec3 RRTAndODTFit(vec3 v) {
-    vec3 a = v * (v + 0.0245786) - 0.000090537;
-    vec3 b = v * (0.983729 * v + 0.4329510) + 0.238081;
-    return a / b;
-}
-
-vec3 ACESFitted(vec3 color) {
-    color *= ACESInputMat;
-    color = RRTAndODTFit(color);
-    color *= ACESOutputMat;
-    color = clamp(color, 0.0, 1.0);
-    return color;
+float curve(float x) {
+    return (x * (A * x + B)) / (x * (C * x + D) + E);
 }
 
 vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
-    color.rgb = ACESFitted(color.rgb);
+    const float L = dot(color.rgb, vec3(0.2627, 0.6780, 0.0593));
+    color.rgb *= curve(L) / L;
     return color;
 }
