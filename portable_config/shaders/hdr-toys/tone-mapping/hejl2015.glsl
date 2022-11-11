@@ -10,14 +10,13 @@ const float PEAK  = 1000.0;
 const float L_w   = PEAK / WHITE;   // White Point
 
 float f(float x) {
-    float vh = x;
-    float va = (1.425 * vh) + 0.05;
-    float vf = ((vh * va + 0.004) / ((vh * (va + 0.55) + 0.0491))) - 0.0821;
-    return vf;
+    float a = (1.425 * x) + 0.05;
+    return ((x * a + 0.004) / ((x * (a + 0.55) + 0.0491))) - 0.0821;
 }
 
 float curve(float x) {
-    return f(x) / f(L_w);
+    float a = f(x) / f(L_w);
+    return max(a, 0.0);
 }
 
 vec4 color = HOOKED_tex(HOOKED_pos);

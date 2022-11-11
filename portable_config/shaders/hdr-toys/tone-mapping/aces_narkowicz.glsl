@@ -3,7 +3,7 @@
 
 //!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC tone-mapping (aces)
+//!DESC tone-mapping (aces_narkowicz)
 
 const float A = 2.51;
 const float B = 0.03;
