@@ -1,6 +1,6 @@
 //!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC Y to Linear
+//!DESC luminance to linear
 
 const float L_WHITE = 203.0;
 const float L_BLACK = 0.0;

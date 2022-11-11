@@ -1,6 +1,6 @@
 //!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC HLG to Y
+//!DESC hybrid log–gamma to luminance
 
 const float L_w   = 1000.0;
 const float L_b   = 0.0;
