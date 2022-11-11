@@ -3,7 +3,7 @@
 
 //!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC tone-mapping (reinhard_devlin)
+//!DESC tone mapping (reinhard_devlin)
 
 const float gamma;      // Gamma correction value.
 const float f;          // Intensity adjustment parameter.

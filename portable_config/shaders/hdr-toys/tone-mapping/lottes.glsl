@@ -3,7 +3,7 @@
 
 //!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC tone-mapping (lottes)
+//!DESC tone mapping (lottes)
 
 float curve(float x) {
     const float a       = 1.6;

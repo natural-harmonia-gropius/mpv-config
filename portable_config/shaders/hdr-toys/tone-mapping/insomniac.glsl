@@ -3,7 +3,7 @@
 
 //!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC tone-mapping (insomniac)
+//!DESC tone mapping (insomniac)
 
 const float WHITE = 203.0;
 const float PEAK  = 1000.0;

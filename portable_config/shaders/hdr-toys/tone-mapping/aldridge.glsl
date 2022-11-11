@@ -3,7 +3,7 @@
 
 //!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC tone-mapping (aldridge)
+//!DESC tone mapping (aldridge)
 
 const float cutoff = 0.025; // Transition into compressed blacks.
 

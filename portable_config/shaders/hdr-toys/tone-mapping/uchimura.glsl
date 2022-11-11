@@ -3,7 +3,7 @@
 
 //!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC tone-mapping (uchimura)
+//!DESC tone mapping (uchimura)
 
 float f(float x, float P, float a, float m, float l, float c, float b) {
     float l0 = ((P - m) * l) / a;

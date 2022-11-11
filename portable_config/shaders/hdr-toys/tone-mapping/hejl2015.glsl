@@ -3,7 +3,7 @@
 
 //!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC tone-mapping (hejl2015)
+//!DESC tone mapping (hejl2015)
 
 const float WHITE = 203.0;
 const float PEAK  = 1000.0;

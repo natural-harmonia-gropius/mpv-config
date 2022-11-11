@@ -2,7 +2,7 @@
 
 //!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC tone-mapping (linear)
+//!DESC tone mapping (linear)
 
 const float WHITE = 203.0;
 const float PEAK  = 1000.0;

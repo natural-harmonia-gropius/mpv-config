@@ -5,7 +5,7 @@
 
 //!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC tone-mapping (bt.2446a)
+//!DESC tone mapping (bt.2446a)
 
 // https://gist.github.com/yohhoy/dafa5a47dade85d8b40625261af3776a
 const float a = 0.2627;

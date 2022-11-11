@@ -1,6 +1,6 @@
 //!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC gamut-mapping (bt.2407 matrix)
+//!DESC gamut mapping (bt.2407 matrix)
 
 // Simple conversion from BT.2020 to BT.709 based on linear matrix transformation
 mat3 M = mat3(

@@ -1,6 +1,6 @@
 //!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC Clip Code Value (Black Only)
+//!DESC clip code value (black)
 
 vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {

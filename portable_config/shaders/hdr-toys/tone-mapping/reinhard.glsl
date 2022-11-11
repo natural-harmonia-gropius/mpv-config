@@ -3,7 +3,7 @@
 
 //!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC tone-mapping (reinhard)
+//!DESC tone mapping (reinhard)
 
 const float WHITE = 203.0;
 const float PEAK  = 1000.0;

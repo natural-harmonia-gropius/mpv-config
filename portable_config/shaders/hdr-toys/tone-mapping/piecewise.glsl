@@ -3,7 +3,7 @@
 
 //!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC tone-mapping (piecewise)
+//!DESC tone mapping (piecewise)
 
 const float gamma   = 1.2;  // Gamma correction value.
 const float tStr    = 0.5;  // Toe strength.

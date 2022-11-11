@@ -3,7 +3,7 @@
 
 //!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC tone-mapping (drago)
+//!DESC tone mapping (drago)
 
 const float WHITE = 203.0;
 const float PEAK  = 1000.0;

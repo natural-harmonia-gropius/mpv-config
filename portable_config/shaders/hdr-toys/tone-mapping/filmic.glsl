@@ -3,7 +3,7 @@
 
 //!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC tone-mapping (filmic)
+//!DESC tone mapping (filmic)
 
 float curve(float x) {
     float X = max(0.0, x - 0.004);
