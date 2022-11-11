@@ -36,8 +36,7 @@ float evalCurveSegment(float x, float offsetX, float offsetY, float scaleX, floa
     return y0 * scaleY + offsetY;
 }
 
-vec4 color = HOOKED_tex(HOOKED_pos);
-vec4 hook() {
+float curve(float x) {
     // Convert from "user" to "direct" parameters
     float   tLen_       = pow(tLen, 2.2),
             x0          = 0.5 * tLen_,
@@ -111,33 +110,31 @@ vec4 hook() {
     shoulderOffsetY *= invScale;
     shoulderScaleY  *= invScale;
 
-    // Fetch color
-    vec3 Cin = color.rgb;
-
-    // Apply curve directly on color input
-    vec3 Cout;
-    for (int i = 0; i < 3; ++i) {
-        float normX = Cin[i] * curveWinv;
-        float res;
-        if (normX < x0) {
-            res = evalCurveSegment(normX,
-                toeOffsetX, toeOffsetY,
-                toeScaleX, toeScaleY,
-                toeLnA, toeB);
-        } else if (normX < x1) {
-            res = evalCurveSegment(normX,
-                midOffsetX, midOffsetY,
-                midScaleX, midScaleY,
-                midLnA, midB);
-        } else {
-            res = evalCurveSegment(normX,
-                shoulderOffsetX, shoulderOffsetY,
-                shoulderScaleX, shoulderScaleY,
-                shoulderLnA, shoulderB);
-        }
-        Cout[i] = res;
+    float normX = x * curveWinv;
+    float res;
+    if (normX < x0) {
+        res = evalCurveSegment(normX,
+            toeOffsetX, toeOffsetY,
+            toeScaleX, toeScaleY,
+            toeLnA, toeB);
+    } else if (normX < x1) {
+        res = evalCurveSegment(normX,
+            midOffsetX, midOffsetY,
+            midScaleX, midScaleY,
+            midLnA, midB);
+    } else {
+        res = evalCurveSegment(normX,
+            shoulderOffsetX, shoulderOffsetY,
+            shoulderScaleX, shoulderScaleY,
+            shoulderLnA, shoulderB);
     }
 
-    color.rgb = Cout;
+    return res;
+}
+
+vec4 color = HOOKED_tex(HOOKED_pos);
+vec4 hook() {
+    const float L = dot(color.rgb, vec3(0.2627, 0.6780, 0.0593));
+    color.rgb *= curve(L) / L;
     return color;
 }
