@@ -38,7 +38,7 @@ float evalCurveSegment(float x, float offsetX, float offsetY, float scaleX, floa
 
 float curve(float x) {
     // Convert from "user" to "direct" parameters
-    float   tLen_       = pow(tLen, 2.2),
+    float   tLen_       = pow(tLen, 2.4),
             x0          = 0.5 * tLen_,
             y0          = (1.0 - tStr) * x0,
             remainingY  = 1.0 - y0,
