@@ -20,3 +20,9 @@ glsl-shader=~~/shaders/hdr-toys/utils/crosstalk_inverse.glsl
 glsl-shader=~~/shaders/hdr-toys/gamut-mapping/bt.2407_matrix.glsl
 glsl-shader=~~/shaders/hdr-toys/transfer-function/linear_to_bt1886.glsl
 ```
+
+## How to Handle very bright image?
+
+- Auto exposure
+- Dynamic curve
+- Local tone mapping
