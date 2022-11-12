@@ -1,11 +1,15 @@
-// ITU-R BT.2446 Conversion Method C
-// https://www.itu.int/pub/R-REP-BT.2446
+// ITU-R BT.2446 Conversion Method C - 6.1.8
+// Optional processing of chroma correction above HDR Reference White
+// In SDR production, highlight parts are sometimes intentionally expressed as white. The processing
+// described in this section is optionally used to shift chroma above HDR Reference White to achromatic
+// when the converted SDR content requires a degree of consistency for SDR production content. This
+// processing is applied as needed before the tone-mapping processing.
 
-// TODO: chroma_correction causes green tint.
+// TODO: fix green tint.
 
 //!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC chroma correction (bt.2446c)
+//!DESC chroma correction
 
 vec3 RGB_to_XYZ(float R, float G, float B) {
     mat3 M = mat3(
