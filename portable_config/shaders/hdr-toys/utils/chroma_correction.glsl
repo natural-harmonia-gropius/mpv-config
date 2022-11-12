@@ -51,7 +51,7 @@ vec3 XYZ_to_Lab(float X, float Y, float Z) {
     float a = 500.0 * (X - Y);
     float b = 200.0 * (Y - Z);
 
-    L = clamp(L, 0.0, 100.0);
+    // L = clamp(L, 0.0, 100.0);
     return vec3(L, a, b);
 }
 
@@ -84,8 +84,9 @@ vec3 chroma_correction(float L, float C, float H, float Lref, float Lmax, float 
         float cor = 1.0 - sigma * (L - Lref) / (Lmax - Lref);
         cor = max(cor, 0.0);
         C *= cor;
-        C = clamp(C, 0.0, 150.0);
     }
+
+    // C = clamp(C, 0.0, 150.0);
     return vec3(L, C, H);
 }
 
