@@ -21,7 +21,7 @@ glsl-shader=~~/shaders/hdr-toys/gamut-mapping/bt.2407_matrix.glsl
 glsl-shader=~~/shaders/hdr-toys/transfer-function/linear_to_bt1886.glsl
 ```
 
-## How to Handle very bright image?
+## How to handle very bright images?
 
 - Auto exposure
 - Dynamic curve
