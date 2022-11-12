@@ -10,18 +10,14 @@ profile-cond=get("video-params/sig-peak") > 1
 profile-restore=copy
 target-trc=pq
 target-prim=bt.2020
-# glsl-shader=~~/shaders/BT2100PQ_to_BT709.glsl
 glsl-shader=~~/shaders/hdr-toys/utils/clip_black.glsl
-glsl-shader=~~/shaders/hdr-toys/PQ_to_Y.glsl
-# glsl-shader=~~/shaders/hdr-toys/tone-mapping/bt.2446c.glsl
-glsl-shader=~~/shaders/hdr-toys/Y_to_CV.glsl
-# glsl-shader=~~/shaders/hdr-toys/tone-mapping/linear.glsl
-glsl-shader=~~/shaders/hdr-toys/tone-mapping/reinhard.glsl
-# glsl-shader=~~/shaders/hdr-toys/tone-mapping/hable.glsl
-# glsl-shader=~~/shaders/hdr-toys/tone-mapping/aces.glsl
-# glsl-shader=~~/shaders/hdr-toys/tone-mapping/bt.2446a.glsl
+glsl-shader=~~/shaders/hdr-toys/transfer-function/pq_to_l.glsl
+glsl-shader=~~/shaders/hdr-toys/transfer-function/l_to_linear.glsl
+glsl-shader=~~/shaders/hdr-toys/utils/crosstalk.glsl
+glsl-shader=~~/shaders/hdr-toys/tone-mapping/piecewise.glsl
+glsl-shader=~~/shaders/hdr-toys/utils/crosstalk_inverse.glsl
 glsl-shader=~~/shaders/hdr-toys/gamut-mapping/bt.2407_matrix.glsl
-glsl-shader=~~/shaders/hdr-toys/CV_to_BT1886.glsl
+glsl-shader=~~/shaders/hdr-toys/transfer-function/linear_to_bt1886.glsl
 ```
 
 ## Roadmap
