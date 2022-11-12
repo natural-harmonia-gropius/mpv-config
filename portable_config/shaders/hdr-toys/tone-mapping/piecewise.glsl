@@ -80,8 +80,8 @@ float curve(float x) {
                 g = 1.0 / gamma;
 
     if (g != 1.0) {
-        y0 = max(1e-6, pow(y0, g));
-        y1 = max(1e-6, pow(y1, g));
+        y0 = max(pow(y0, g), 1e-6);
+        y1 = max(pow(y1, g), 1e-6);
         overshootY = pow(1.0 + overshootY, g) - 1.0;
     }
 
