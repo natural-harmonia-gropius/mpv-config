@@ -1,3 +1,7 @@
+// The crosstalk matrix is applied such that saturations of
+// linear signals are reduced to achromatic to avoid hue
+// changes caused by clipping of compressed highlight parts.
+
 //!PARAM alpha
 //!TYPE float
 //!MINIMUM 0.00

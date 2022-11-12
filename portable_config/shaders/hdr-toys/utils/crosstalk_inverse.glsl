@@ -1,3 +1,6 @@
+// The inverse crosstalk matrix is applied to ensure that
+// the original hues of input HDR images are recovered.
+
 //!PARAM alpha
 //!TYPE float
 //!MINIMUM 0.00
