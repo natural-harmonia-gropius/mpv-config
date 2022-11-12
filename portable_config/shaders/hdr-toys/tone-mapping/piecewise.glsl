@@ -41,20 +41,16 @@ float curve(float x) {
     const float gamma = 1.0;
 
 
-    // This is not actually the display gamma. It's just a UI space to avoid having to
-    // enter small numbers for the input.
-    const float perceptualGamma = 2.2;
-
-    // As a simple trick, we can apply a power of 2.2 to toeLength to allow finer
-    // control of the toe.
-    const float _toeLength = pow(toeLength, perceptualGamma);
-
-
 
     // Convert from "user" to "direct" parameters
 
-    // toe goes from 0 to 0.5
-    float x0 = _toeLength * 0.5;
+    // This is not actually the display gamma. It's just a UI space to avoid having
+    // to enter small numbers for the input.
+    // As a simple trick, we can apply a power of 2.2 to toeLength to allow finer
+    // control of the toe.
+    const float perceptualGamma = 2.2;
+
+    float x0 = pow(toeLength, perceptualGamma) * 0.5;  // toe goes from 0 to 0.5
     float y0 = (1.0 - toeStrength ) * x0; // lerp from 0 to x0
 
     const float remainingY = 1.0 - y0;
