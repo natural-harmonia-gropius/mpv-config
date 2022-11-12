@@ -6,7 +6,7 @@
 //!DESC tone mapping (insomniac)
 
 const float WHITE = 203.0;
-const float PEAK  = 1000.0;
+const float PEAK  = 4000.0;
 const float L_w   = PEAK / WHITE;   // White Point
 
 const float w = L_w;    // White point. Smallest value that is mapped to 1.
