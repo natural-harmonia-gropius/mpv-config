@@ -23,7 +23,7 @@ vec3 XYZ_to_RGB(float X, float Y, float Z) {
 
 vec3 XYZ_to_xyY(float X, float Y, float Z) {
     float divisor = X + Y + Z;
-    if (divisor == 0.0) divisor = 1e-10;
+    if (divisor == 0.0) divisor = 1e-6;
 
     float x = X / divisor;
     float y = Y / divisor;
@@ -32,8 +32,8 @@ vec3 XYZ_to_xyY(float X, float Y, float Z) {
 }
 
 vec3 xyY_to_XYZ(float x, float y, float Y) {
-    float X = x * Y / max(y, 1e-10);
-    float Z = (1.0 - x - y) * Y / max(y, 1e-10);
+    float X = x * Y / max(y, 1e-6);
+    float Z = (1.0 - x - y) * Y / max(y, 1e-6);
 
     return vec3(X, Y, Z);
 }
