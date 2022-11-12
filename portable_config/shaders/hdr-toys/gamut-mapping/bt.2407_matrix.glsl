@@ -3,6 +3,7 @@
 //!DESC gamut mapping (bt.2407 matrix)
 
 // Simple conversion from BT.2020 to BT.709 based on linear matrix transformation
+// RGB_rec2020 => XYZ => RGB_Rec709
 mat3 M = mat3(
      1.6605, -0.5876, -0.0728,
     -0.1246,  1.1329, -0.0083,
