@@ -29,26 +29,23 @@ float evalCurveSegment(float x, float offsetX, float offsetY, float scaleX, floa
     return y0 * scaleY + offsetY;
 }
 
+// User Params
+const float toeStrength = 0.1;  // [0-1]
+const float toeLength = 0.5;  // [0-1]
+const float shoulderStrength = 2.5;  // in F stops [0-10]
+const float shoulderLength = 0.5;  // [0-1]
+const float shoulderAngle = 1.0;  // [0-1]
+
+const float gamma = 1.0;
+
 float curve(float x) {
-
-    // User Params
-    const float toeStrength = 0.1;  // [0-1]
-    const float toeLength = 0.5; // [0-1]
-    const float shoulderStrength = 2.0; // [0-1]
-    const float shoulderLength = 0.5; // in F stops [0-10]
-    const float shoulderAngle = 1.0; // [0-1]
-
-    const float gamma = 1.0;
-
-
-
     // Convert from "user" to "direct" parameters
 
     // This is not actually the display gamma. It's just a UI space to avoid having
     // to enter small numbers for the input.
     // As a simple trick, we can apply a power of 2.2 to toeLength to allow finer
     // control of the toe.
-    const float perceptualGamma = 2.2;
+    const float perceptualGamma = 2.4;
 
     float x0 = pow(toeLength, perceptualGamma) * 0.5;  // toe goes from 0 to 0.5
     float y0 = (1.0 - toeStrength ) * x0; // lerp from 0 to x0
