@@ -1,4 +1,4 @@
-// SMPTE "legal" signal range
+// default to SMPTE "legal" signal range
 
 //!PARAM DEPTH
 //!TYPE int

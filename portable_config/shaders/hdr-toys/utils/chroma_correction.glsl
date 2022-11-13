@@ -5,7 +5,16 @@
 // when the converted SDR content requires a degree of consistency for SDR production content. This
 // processing is applied as needed before the tone-mapping processing.
 
-// TODO: fix green tint.
+// TODO: fix green tint. (I can't)
+// I don't know why, but LCH(150, 100, 0) is not white blanced,
+// and the round-trip of functions from BT.2446 are not work properly.
+// So I do this in HSV, use "chroma_correction_hsv.glsl" instead.
+
+//!PARAM sigma
+//!TYPE float
+//!MINIMUM 0
+//!MAXIMUM 1
+0.06
 
 //!HOOK OUTPUT
 //!BIND HOOKED
@@ -83,15 +92,12 @@ vec3 LCHab_to_Lab(float L, float C, float H) {
     return vec3(L, ab);
 }
 
-vec3 chroma_correction(float L, float C, float H, float Lref, float Lmax, float sigma) {
-    if (L > Lref) {
-        float cor = 1.0 - sigma * (L - Lref) / (Lmax - Lref);
-        cor = max(cor, 0.0);
-        C *= cor;
-    }
+float chroma_correction(float L, float Lref, float Lmax, float sigma) {
+    float cor = 1.0;
+    if (L > Lref)
+        cor = max(1.0 - sigma * (L - Lref) / (Lmax - Lref), 0.0);
 
-    // C = clamp(C, 0.0, 150.0);
-    return vec3(L, C, H);
+    return cor;
 }
 
 const float WHITE = 203.0;
@@ -100,15 +106,12 @@ const float L_w   = PEAK / WHITE;   // White Point
 
 vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
-    const float sigma = 1.00;   // [0, 1]
-
     color.rgb = RGB_to_XYZ(color.r, color.g, color.b);
     color.rgb = XYZ_to_Lab(color.r, color.g, color.b);
     color.rgb = Lab_to_LCHab(color.r, color.g, color.b);
-    color.rgb = chroma_correction(color.r, color.g, color.b, 1.0, L_w, 1);
+    color.g  *= chroma_correction(color.r, 1.0, L_w, sigma);
     color.rgb = LCHab_to_Lab(color.r, color.g, color.b);
     color.rgb = Lab_to_XYZ(color.r, color.g, color.b);
     color.rgb = XYZ_to_RGB(color.r, color.g, color.b);
-
     return color;
 }
