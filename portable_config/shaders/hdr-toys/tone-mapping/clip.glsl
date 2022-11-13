@@ -10,7 +10,7 @@ const float BLACK = WHITE * CONTRAST_RATIO;
 
 float curve(float x) {
     const float r = (x - BLACK) / (WHITE - BLACK);
-    return max(r, 0.0);
+    return clamp(r, 0.0, WHITE);
 }
 
 vec4 color = HOOKED_tex(HOOKED_pos);
