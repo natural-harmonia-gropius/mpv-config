@@ -24,6 +24,7 @@ glsl-shader=~~/shaders/hdr-toys/transfer-function/linear_to_bt1886.glsl
 
 ## How to handle very bright images?
 
-- Auto exposure
-- Dynamic curve
-- Local tone mapping
+- Metering -> Auto Exposure
+- Histogram -> Dynamic Tonemapping Curve
+- Blend between Bilateral and Gaussian -> Local Tonemapping
+- Exposure Bracketing -> Exposure Fusion
