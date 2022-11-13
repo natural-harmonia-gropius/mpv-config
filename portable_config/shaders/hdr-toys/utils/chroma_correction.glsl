@@ -100,7 +100,7 @@ const float L_w   = PEAK / WHITE;   // White Point
 
 vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
-    const float sigma = 1.00;   // 0 <= sigma <= 1
+    const float sigma = 1.00;   // [0, 1]
 
     color.rgb = RGB_to_XYZ(color.r, color.g, color.b);
     color.rgb = XYZ_to_Lab(color.r, color.g, color.b);
