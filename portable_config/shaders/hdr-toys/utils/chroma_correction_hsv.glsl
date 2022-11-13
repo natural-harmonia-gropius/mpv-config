@@ -1,9 +1,12 @@
-// Emissive values are now physically correct so that as
-// the emissive power increases the color will become lighter,
-// similarly to how colored lights work in the real world.
-// As color gets tone mapped, if the final color is bright
-// enough to start saturating the film / sensor, it will
-// become white.
+// ITU-R BT.2446 Conversion Method C - 6.1.8
+// Optional processing of chroma correction above HDR Reference White
+
+// In SDR production, highlight parts are sometimes intentionally expressed as white. The processing
+// described in this section is optionally used to shift chroma above HDR Reference White to achromatic
+// when the converted SDR content requires a degree of consistency for SDR production content. This
+// processing is applied as needed before the tone-mapping processing.
+
+// In HSV, originally LCHab.
 
 //!PARAM sigma
 //!TYPE float
