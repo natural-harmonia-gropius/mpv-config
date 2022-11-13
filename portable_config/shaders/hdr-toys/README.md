@@ -15,6 +15,7 @@ glsl-shader=~~/shaders/hdr-toys/transfer-function/pq_to_l.glsl
 glsl-shader=~~/shaders/hdr-toys/transfer-function/l_to_linear.glsl
 glsl-shader=~~/shaders/hdr-toys/utils/exposure.glsl
 glsl-shader=~~/shaders/hdr-toys/utils/crosstalk.glsl
+glsl-shader=~~/shaders/hdr-toys/utils/chroma_correction_hsv.glsl
 glsl-shader=~~/shaders/hdr-toys/tone-mapping/piecewise.glsl
 glsl-shader=~~/shaders/hdr-toys/utils/crosstalk_inverse.glsl
 glsl-shader=~~/shaders/hdr-toys/gamut-mapping/bt.2407_matrix.glsl
