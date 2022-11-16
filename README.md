@@ -4,7 +4,7 @@ Personal portable_config for MPV player, The aim is to use it right out of the b
 
 Except users of Windows 11 need to put [Segoe Fluent Icons](https://aka.ms/SegoeFluentIcons) and [Segoe UI Variable](https://aka.ms/SegoeUIVariable) into fonts folder to use my [modified uosc](https://github.com/Natural-Harmonia-Gropius/uosc).
 
-HDR to SDR playground, see [hdr-toys](https://github.com/Natural-Harmonia-Gropius/mpv_config/tree/main/portable_config/shaders/hdr-toys).
+Optimized HDR to SDR conversion, see [hdr-toys](https://github.com/Natural-Harmonia-Gropius/mpv_config/tree/main/portable_config/shaders/hdr-toys).
 
 ## Folders
 
@@ -38,6 +38,10 @@ HDR to SDR playground, see [hdr-toys](https://github.com/Natural-Harmonia-Gropiu
 #### [Natural-Harmonia-Gropius/InputEvent](https://github.com/Natural-Harmonia-Gropius/InputEvent)
 
 - inputevent.lua
+
+#### [po5/evafast](https://github.com/po5/evafast)
+
+- evafast.lua
 
 ### ~~/shaders
 
