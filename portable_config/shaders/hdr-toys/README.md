@@ -22,13 +22,6 @@ glsl-shader=~~/shaders/hdr-toys/gamut-mapping/bt.2407_matrix.glsl
 glsl-shader=~~/shaders/hdr-toys/transfer-function/linear_to_bt1886.glsl
 ```
 
-## How to handle very bright images?
-
-- Metering -> Auto Exposure
-- Histogram -> Dynamic Tonemapping Curve
-- Blend between Bilateral and Gaussian -> Local Tonemapping
-- Exposure Bracketing -> Exposure Fusion
-
 ## 一些碎碎念
 
 映射最重要的是为溢出合法范围的信号营造层次感以保留视频创作者的主观调色。  
@@ -58,3 +51,13 @@ color.js 的 demo 里 LCH(150, 100, 0) 也不是白平衡的，很接近白，�
 当然在亮度之外还有色域映射，这部分我希望能保持饱和度只校正色相，之后看 JzCzHz 的时候再说了
 
 ACES output transform 更适合调色，而非回放，对于已经经过良好调色的内容产生的结果（我认为）很糟糕。
+
+## How to handle very bright images?
+
+- Metering -> Auto Exposure
+- Histogram -> Dynamic Tonemapping Curve
+- Exposure Bracketing -> Exposure Fusion
+![image](https://user-images.githubusercontent.com/50797982/202188381-a9d9f6f5-9d9d-49df-947a-727ce351d7d8.png)
+- Blend between Bilateral and Gaussian -> Local Tonemapping
+![image](https://user-images.githubusercontent.com/50797982/202188262-fa831bb1-32d5-4325-915b-bc5467cb7b20.png)
+
