@@ -54,5 +54,5 @@ ACES output transform 更适合调色，而非回放，对于已经经过良好�
 
 ## Thanks
 
-<https://github.com/ampas/aces-dev>
+<https://github.com/ampas/aces-dev>  
 <https://github.com/tizian/tonemapper>
