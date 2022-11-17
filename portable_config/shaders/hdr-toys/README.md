@@ -52,12 +52,7 @@ color.js 的 demo 里 LCH(150, 100, 0) 也不是白平衡的，很接近白，�
 
 ACES output transform 更适合调色，而非回放，对于已经经过良好调色的内容产生的结果（我认为）很糟糕。
 
-## How to handle very bright images?
+## Thanks
 
-- Metering -> Auto Exposure
-- Histogram -> Dynamic Tonemapping Curve
-- Exposure Bracketing -> Exposure Fusion
-![image](https://user-images.githubusercontent.com/50797982/202188381-a9d9f6f5-9d9d-49df-947a-727ce351d7d8.png)
-- Blend between Bilateral and Gaussian -> Local Tonemapping
-![image](https://user-images.githubusercontent.com/50797982/202188262-fa831bb1-32d5-4325-915b-bc5467cb7b20.png)
-
+<https://github.com/ampas/aces-dev>
+<https://github.com/tizian/tonemapper>
