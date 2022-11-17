@@ -64,7 +64,7 @@ float evalCurveSegment(float x, float offsetX, float offsetY, float scaleX, floa
 
 // User Params
 const float toeStrength = 0.1;  // [0-1]
-const float toeLength = 0.1;  // [0-1]
+const float toeLength = 0.2;  // [0-1]
 const float shoulderStrength = 3.3;  // in F stops [0-10]
 const float shoulderLength = 0.5;  // [0-1]
 const float shoulderAngle = 1.0;  // [0-1]
