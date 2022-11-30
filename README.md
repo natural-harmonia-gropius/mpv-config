@@ -4,78 +4,89 @@ Personal portable_config for MPV player, The aim is to use it right out of the b
 
 Except users of Windows 11 need to put [Segoe Fluent Icons](https://aka.ms/SegoeFluentIcons) and [Segoe UI Variable](https://aka.ms/SegoeUIVariable) into fonts folder to use my [modified uosc](https://github.com/Natural-Harmonia-Gropius/uosc).
 
-## TL;DR
+Optimized HDR to SDR conversion, see [hdr-toys](https://github.com/Natural-Harmonia-Gropius/mpv_config/tree/main/portable_config/shaders/hdr-toys).
 
-[mpv-player](https://github.com/shinchiro/mpv-winbuild-cmake/releases)  
-[yt-dlp](https://github.com/yt-dlp/yt-dlp/releases)  
-[vapoursynth](https://github.com/vapoursynth/vapoursynth/releases)  
-[python](https://www.python.org/downloads)  
-[ffmpeg](https://www.gyan.dev/ffmpeg/builds/#release-builds)
+## Folders
 
-[mpv-player/TOOLS/lua](https://github.com/mpv-player/mpv/tree/master/TOOLS/lua)  
-[tomasklaen/uosc](https://github.com/darsain/uosc)  
-[po5/thumbfast](https://github.com/po5/thumbfast)  
-[christoph-heinrich/mpv-quality-menu](https://github.com/christoph-heinrich/mpv-quality-menu)  
-[Natural-Harmonia-Gropius/InputEvent](https://github.com/Natural-Harmonia-Gropius/InputEvent)
+### ./
 
-[bjin/mpv-prescalers](https://github.com/bjin/mpv-prescalers/tree/master/vulkan/compute)  
-[igv/FSRCNNX](https://github.com/igv/FSRCNN-TensorFlow/releases)  
-[igv/gist](https://gist.github.com/igv)  
-[agyild/gist](https://gist.github.com/agyild)  
-[AN3223/dotfiles](https://github.com/AN3223/dotfiles/tree/master/.config/mpv/shaders)
+#### [mpv-player](https://github.com/shinchiro/mpv-winbuild-cmake/releases)
 
-[cameramanben/LUTCalc](https://cameramanben.github.io/LUTCalc/LUTCalc/index.html)  
-[toru-ver4/BT.2407 Annex2](https://trev16.hatenablog.com/entry/2020/06/07/094646)  
-[toru-ver4/BT.2446 Method C](https://trev16.hatenablog.com/entry/2020/08/01/131907)  
-[toru-ver4/Luminance Map](https://trev16.hatenablog.com/entry/2020/04/26/190416)
+#### [yt-dlp](https://github.com/yt-dlp/yt-dlp/releases)
 
-## About the shaders-toys folder
+#### [vapoursynth](https://github.com/vapoursynth/vapoursynth/releases)
 
-### How to use this?
+#### [python](https://www.python.org/downloads)
 
-TBD
+#### [ffmpeg](https://www.gyan.dev/ffmpeg/builds/#release-builds)
 
-```ini
-[hdr]
-profile-cond=get("video-params/sig-peak") > 1
-profile-restore=copy
-target-trc=pq
-target-prim=bt.2020
-# glsl-shader=~~/shaders/BT2100PQ_to_BT709.glsl
-glsl-shader=~~/shaders/hdr-toys/utils/clip_black.glsl
-glsl-shader=~~/shaders/hdr-toys/PQ_to_Y.glsl
-# glsl-shader=~~/shaders/hdr-toys/tone-mapping/bt.2446c.glsl
-glsl-shader=~~/shaders/hdr-toys/Y_to_CV.glsl
-# glsl-shader=~~/shaders/hdr-toys/tone-mapping/linear.glsl
-glsl-shader=~~/shaders/hdr-toys/tone-mapping/reinhard.glsl
-# glsl-shader=~~/shaders/hdr-toys/tone-mapping/hable.glsl
-# glsl-shader=~~/shaders/hdr-toys/tone-mapping/aces.glsl
-# glsl-shader=~~/shaders/hdr-toys/tone-mapping/bt.2446a.glsl
-glsl-shader=~~/shaders/hdr-toys/gamut-mapping/bt.2407_matrix.glsl
-glsl-shader=~~/shaders/hdr-toys/CV_to_BT1886.glsl
-```
+### ~~/scripts
 
-### Roadmap
+#### [mpv-player/TOOLS/lua](https://github.com/mpv-player/mpv/tree/master/TOOLS/lua)
 
-Tone Mapping
+- autocrop.lua
+- autoload.lua
 
-- [x] Linear
-- [x] Reinhard
-- [x] Hable
-- [ ] BT.2446 Method A
-- [ ] BT.2446 Method C
-- [ ] BT.2390
+#### [tomasklaen/uosc](https://github.com/darsain/uosc)
 
-Gamut Mapping
+- uosc.lua
 
-- [x] BT.2407 Matrix
-- [ ] BT.2407 Annex 1
-- [ ] BT.2407 Annex 2
-- [ ] BT.2407 Annex 3
-- [ ] BT.2407 Annex 4
-- [ ] BT.2407 Annex 5
-- [ ] BT.2407 Annex 6
+#### [po5/thumbfast](https://github.com/po5/thumbfast)
 
-Overkill
+- thumbfast.lua
 
-- [ ] ACES Output Transform
+#### [christoph-heinrich/mpv-quality-menu](https://github.com/christoph-heinrich/mpv-quality-menu)
+
+- quality-menu.lua
+
+#### [Natural-Harmonia-Gropius/InputEvent](https://github.com/Natural-Harmonia-Gropius/InputEvent)
+
+- inputevent.lua
+
+#### [po5/evafast](https://github.com/po5/evafast)
+
+- evafast.lua
+
+### ~~/shaders
+
+#### [bjin/mpv-prescalers](https://github.com/bjin/mpv-prescalers/tree/master/vulkan/compute)
+
+- ravu-zoom-r3.glsl
+
+#### [igv/FSRCNNX](https://github.com/igv/FSRCNN-TensorFlow/releases)
+
+- FSRCNNX_x2_8-0-4-1.glsl
+- FSRCNNX_x2_16-0-4-1.glsl
+
+#### [igv/gist](https://gist.github.com/igv)
+
+- KrigBilateral.glsl
+- SSimSuperRes.glsl
+- SSimDownscaler.glsl
+- adaptive-sharpen.glsl
+
+#### [agyild/gist](https://gist.github.com/agyild)
+
+- FSR.glsl
+- CAS.glsl
+- NVScaler.glsl
+- NVSharpen.glsl
+
+#### [AN3223/dotfiles](https://github.com/AN3223/dotfiles/tree/master/.config/mpv/shaders)
+
+- nlmeans.glsl
+- nlmeans_next.glsl
+
+### ~~/luts
+
+These files are too large, please get them from the following links.
+
+#### [Toru Yoshihara](https://github.com/toru-ver4)
+
+- [Report ITU-R BT.2407 の Annex2 を実装してみた](https://trev16.hatenablog.com/entry/2020/06/07/094646)
+- [BT.2446 Method C (HDR to SDR 変換) を実装してみた](https://trev16.hatenablog.com/entry/2020/08/01/131907)
+- [HDR コンテンツの輝度マップ生成用の 3DLUT を作る](https://trev16.hatenablog.com/entry/2020/04/26/190416)
+
+#### [Ben Turley](https://github.com/cameramanben)
+
+- [LUT Calculator](https://cameramanben.github.io/LUTCalc/LUTCalc/index.html)
