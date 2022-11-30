@@ -2,7 +2,9 @@
 
 Personal portable_config for MPV player, The aim is to use it right out of the box.
 
-Except users of Windows 11 need to put [Segoe Fluent Icons](https://aka.ms/SegoeFluentIcons) and [Segoe UI Variable](https://aka.ms/SegoeUIVariable) into fonts folder to use my [modified uosc](https://github.com/Natural-Harmonia-Gropius/uosc).
+Optimized uosc, except users of Windows 11 need to put [Segoe Fluent Icons](https://aka.ms/SegoeFluentIcons) and [Segoe UI Variable](https://aka.ms/SegoeUIVariable) into `~~/portable_config/fonts`.
+
+Optimized svpflow script + optional rife enhancement, see `~~/portable_config/filters/interp.py`
 
 Optimized HDR to SDR conversion, see [hdr-toys](https://github.com/Natural-Harmonia-Gropius/mpv_config/tree/main/portable_config/shaders/hdr-toys).
 
