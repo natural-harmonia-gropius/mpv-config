@@ -10,11 +10,15 @@ Optimized HDR to SDR conversion, see [hdr-toys](https://github.com/Natural-Harmo
 
 ### ./
 
-- [mpv-player](https://github.com/shinchiro/mpv-winbuild-cmake/releases)
-- [yt-dlp](https://github.com/yt-dlp/yt-dlp/releases)
-- [vapoursynth](https://github.com/vapoursynth/vapoursynth/releases)
-- [python](https://www.python.org/downloads)
-- [ffmpeg](https://www.gyan.dev/ffmpeg/builds/#release-builds)
+#### [mpv-player](https://github.com/shinchiro/mpv-winbuild-cmake/releases)
+
+#### [yt-dlp](https://github.com/yt-dlp/yt-dlp/releases)
+
+#### [vapoursynth](https://github.com/vapoursynth/vapoursynth/releases)
+
+#### [python](https://www.python.org/downloads)
+
+#### [ffmpeg](https://www.gyan.dev/ffmpeg/builds/#release-builds)
 
 ### ~~/scripts
 
