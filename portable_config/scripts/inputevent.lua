@@ -2,6 +2,11 @@
 -- https://github.com/Natural-Harmonia-Gropius/InputEvent
 
 local utils = require("mp.utils")
+local options = require("mp.options")
+
+local o = {
+    configs = "input.conf",
+}
 
 local bind_map = {}
 
@@ -179,6 +184,13 @@ function InputEvent:emit(event)
         return
     end
 
+    local expand = mp.command_native({'expand-text', cmd})
+    if #cmd:split(";") == #expand:split(";") then
+        cmd = mp.command_native({'expand-text', cmd})
+    else
+        mp.msg.warn("Unsafe property-expansion: " .. cmd)
+    end
+
     command(cmd)
 end
 
@@ -272,37 +284,104 @@ function bind(key, on)
 end
 
 function unbind(key)
-    bind_map[key]:unbind()
+    local binding = bind_map[key]
+    if binding then
+        binding:unbind()
+        bind_map[key] = nil
+    end
 end
 
-function bind_from_input_conf()
-    local input_conf = mp.get_property_native("input-conf")
-    local input_conf_path = mp.command_native({ "expand-path", input_conf == "" and "~~/input.conf" or input_conf })
-    local input_conf_meta, meta_error = utils.file_info(input_conf_path)
-    if not input_conf_meta or not input_conf_meta.is_file then return end -- File doesn"t exist
+function bind_from_conf(path)
+    local meta, meta_error = utils.file_info(path)
+    if not meta or not meta.is_file then
+        return {}
+    end
 
-    local parsed = {}
-    for line in io.lines(input_conf_path) do
+    local kv = {}
+    for line in io.lines(path) do
         line = line:trim()
-        if line ~= "" then
+        if line ~= "" and line:sub(1, 1) ~= "#" then
             local key, cmd, comment = line:match("%s*([%S]+)%s+(.-)%s+#%s*(.-)%s*$")
-            if comment and key:sub(1, 1) ~= "#" then
+            if comment then
                 local comments = comment:split("#")
                 local events = table.filter(comments, function(i, v) return v:match("^@") end)
                 if events and #events > 0 then
                     local event = events[1]:match("^@(.*)"):trim()
                     if event and event ~= "" then
-                        if parsed[key] == nil then
-                            parsed[key] = {}
+                        if kv[key] == nil then
+                            kv[key] = {}
                         end
-                        parsed[key][event] = cmd
+                        kv[key][event] = cmd
                     end
                 end
             end
         end
     end
-    for key, on in pairs(parsed) do
-        bind(key, on)
+
+    local parsed = {}
+    for key, on in pairs(kv) do
+        table.insert(parsed, { key = key, on = on })
+    end
+
+    return parsed
+end
+
+function bind_from_json(path)
+    local meta, meta_error = utils.file_info(path)
+    if not meta or not meta.is_file then
+        return {}
+    end
+
+    local json_file = io.open(path, "r")
+    if not json_file then
+        return {}
+    end
+    local json = json_file:read("a")
+    json_file:close()
+
+    local parsed = utils.parse_json(json)
+    return parsed
+end
+
+function bind_from_options_configs()
+    for index, value in ipairs(o.configs:split(",")) do
+        local path = value:trim()
+        if path == "input.conf" then
+            local input_conf = mp.get_property_native("input-conf")
+            if input_conf == "" then
+                path = "~~/input.conf"
+            end
+        end
+        path = mp.command_native({ "expand-path", path })
+
+        local parsed = {}
+        local splited_filename = path:split(".")
+        local extension = splited_filename[#splited_filename]
+        if extension == "conf" then
+            parsed = bind_from_conf(path)
+        elseif extension == "json" then
+            parsed = bind_from_json(path)
+        end
+
+        if #parsed ~= 0 then
+            for _, v in ipairs(parsed) do
+                if v.key and v.on then
+                    unbind(v.key)
+                    bind(v.key, v.on)
+                else
+                    mp.msg.error("Invalidated config: " .. path)
+                end
+            end
+        end
+    end
+end
+
+function on_options_configs_update(list)
+    if(list.configs) then
+        for key, value in pairs(bind_map) do
+            unbind(key)
+        end
+        bind_from_options_configs()
     end
 end
 
@@ -321,4 +400,6 @@ end)
 mp.register_script_message("bind", bind)
 mp.register_script_message("unbind", unbind)
 
-bind_from_input_conf()
+options.read_options(o, _, on_options_configs_update)
+
+bind_from_options_configs()
