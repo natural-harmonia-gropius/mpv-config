@@ -7,16 +7,19 @@ end
 function set_hdr_white(w)
     w = math.clamp(w, 0, 10000)
     mp.command("no-osd set glsl-shader-opts WHITE_hdr=" .. w)
+    print("WHITE_hdr=" .. w)
 end
 
 function set_sdr_white(w)
     w = math.clamp(w, 0, 1000)
     mp.command("no-osd set glsl-shader-opts WHITE_sdr=" .. w)
+    print("WHITE_sdr=" .. w)
 end
 
 function set_exposure_bias(bias)
     bias = math.clamp(bias, 0, 100)
     mp.command("no-osd set glsl-shader-opts exposure/bias=" .. bias)
+    print("exposure/bias=" .. bias)
 end
 
 mp.observe_property("video-out-params", "native", function(_, value)
@@ -32,13 +35,7 @@ mp.observe_property("video-out-params", "native", function(_, value)
     end
 
     local exposure_bias = 1000 / 203 / peak
+    exposure_bias = math.clamp(exposure_bias, 1, 100)   -- no darken
     set_hdr_white(203 * peak * exposure_bias)
-
-    -- no darken
-    if peak > 4.926 then
-        set_exposure_bias(1)
-        return
-    end
-
     set_exposure_bias(exposure_bias)
 end)
