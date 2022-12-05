@@ -9,7 +9,7 @@ float bt1886_r(float L, float gamma, float Lw, float Lb) {
     // The reference EOTF specified in Rec. ITU-R BT.1886
     // L = a(max[(V+b),0])^g
     float a = pow(pow(Lw, 1.0 / gamma) - pow(Lb, 1.0 / gamma), gamma);
-    float b = pow(Lb, 1.0 / gamma) / (pow(Lw, 1.0/ gamma) - pow(Lb, 1.0 / gamma));
+    float b = pow(Lb, 1.0 / gamma) / (pow(Lw, 1.0 / gamma) - pow(Lb, 1.0 / gamma));
     float V = pow(max(L / a, 0.0), 1.0 / gamma) - b;
     return V;
 }

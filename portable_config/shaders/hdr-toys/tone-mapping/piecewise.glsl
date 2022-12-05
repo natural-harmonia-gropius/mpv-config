@@ -1,42 +1,45 @@
 // Filmic curve by John Hable. Based on the "Uncharted 2", but updated with a better controllability.
 // http://filmicworlds.com/blog/filmic-tonemapping-with-piecewise-power-curves/
 
+//!PARAM toeStrength
+//!TYPE float
+//!MINIMUM 0.0
+//!MAXIMUM 1.0
+0.1
+
+//!PARAM toeLength
+//!TYPE float
+//!MINIMUM 0.0
+//!MAXIMUM 1.0
+0.2
+
+//!PARAM shoulderStrength
+//!TYPE float
+//!MINIMUM 0.0
+//!MAXIMUM 10.0
+2.0
+
+//!PARAM shoulderLength
+//!TYPE float
+//!MINIMUM 0.0
+//!MAXIMUM 1.0
+0.5
+
+//!PARAM shoulderAngle
+//!TYPE float
+//!MINIMUM 0.0
+//!MAXIMUM 1.0
+1.0
+
+//!PARAM gamma
+//!TYPE float
+//!MINIMUM 1.0
+//!MAXIMUM 3.0
+1.0
+
 //!HOOK OUTPUT
 //!BIND HOOKED
 //!DESC tone mapping (piecewise)
-
-vec3 RGB_to_XYZ(float R, float G, float B) {
-    mat3 M = mat3(
-        0.6370, 0.1446, 0.1689,
-        0.2627, 0.6780, 0.0593,
-        0.0000, 0.0281, 1.0610);
-    return M * vec3(R, G, B);
-}
-
-vec3 XYZ_to_RGB(float X, float Y, float Z) {
-    mat3 M = mat3(
-         1.7167, -0.3557, -0.2534,
-        -0.6667,  1.6165,  0.0158,
-         0.0176, -0.0428,  0.9421);
-    return M * vec3(X, Y, Z);
-}
-
-vec3 XYZ_to_xyY(float X, float Y, float Z) {
-    float divisor = X + Y + Z;
-    if (divisor == 0.0) divisor = 1e-6;
-
-    float x = X / divisor;
-    float y = Y / divisor;
-
-    return vec3(x, y, Y);
-}
-
-vec3 xyY_to_XYZ(float x, float y, float Y) {
-    float X = x * Y / max(y, 1e-6);
-    float Z = (1.0 - x - y) * Y / max(y, 1e-6);
-
-    return vec3(X, Y, Z);
-}
 
 vec2 asSlopeIntercept(float x0, float x1, float y0, float y1) {
     float dy = (y1 - y0);
@@ -61,15 +64,6 @@ float evalCurveSegment(float x, float offsetX, float offsetY, float scaleX, floa
     float y0 = x0 > 0.0 ? exp(lnA + B * log(x0)) : 0.0;
     return y0 * scaleY + offsetY;
 }
-
-// User Params
-const float toeStrength = 0.1;  // [0-1]
-const float toeLength = 0.2;  // [0-1]
-const float shoulderStrength = 3.3;  // in F stops [0-10]
-const float shoulderLength = 0.5;  // [0-1]
-const float shoulderAngle = 1.0;  // [0-1]
-
-const float gamma = 1.0;
 
 float curve(float x) {
     // Convert from "user" to "direct" parameters
@@ -170,6 +164,39 @@ float curve(float x) {
     }
 
     return result;
+}
+
+vec3 RGB_to_XYZ(float R, float G, float B) {
+    mat3 M = mat3(
+        0.6370, 0.1446, 0.1689,
+        0.2627, 0.6780, 0.0593,
+        0.0000, 0.0281, 1.0610);
+    return M * vec3(R, G, B);
+}
+
+vec3 XYZ_to_RGB(float X, float Y, float Z) {
+    mat3 M = mat3(
+         1.7167, -0.3557, -0.2534,
+        -0.6667,  1.6165,  0.0158,
+         0.0176, -0.0428,  0.9421);
+    return M * vec3(X, Y, Z);
+}
+
+vec3 XYZ_to_xyY(float X, float Y, float Z) {
+    float divisor = X + Y + Z;
+    if (divisor == 0.0) divisor = 1e-6;
+
+    float x = X / divisor;
+    float y = Y / divisor;
+
+    return vec3(x, y, Y);
+}
+
+vec3 xyY_to_XYZ(float x, float y, float Y) {
+    float X = x * Y / max(y, 1e-6);
+    float Z = (1.0 - x - y) * Y / max(y, 1e-6);
+
+    return vec3(X, Y, Z);
 }
 
 vec4 color = HOOKED_tex(HOOKED_pos);
