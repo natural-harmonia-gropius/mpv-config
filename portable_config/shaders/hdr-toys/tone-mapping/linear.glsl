@@ -1,15 +1,23 @@
 // The simplest tone mapping method, just multiplied by a number.
 
+//!PARAM WHITE_hdr
+//!TYPE float
+//!MINIMUM 0
+//!MAXIMUM 10000
+1000.0
+
+//!PARAM WHITE_sdr
+//!TYPE float
+//!MINIMUM 0
+//!MAXIMUM 1000
+203.0
+
 //!HOOK OUTPUT
 //!BIND HOOKED
 //!DESC tone mapping (linear)
 
-const float WHITE = 203.0;
-const float PEAK  = 1000.0;
-const float L_w   = PEAK / WHITE;   // White Point
-
 float curve(float x) {
-    return x / L_w;
+    return x * WHITE_sdr / WHITE_hdr;
 }
 
 vec4 color = HOOKED_tex(HOOKED_pos);

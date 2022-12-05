@@ -1,16 +1,27 @@
+// Scale linear code value to cd/m^2
+
+//!PARAM WHITE_sdr
+//!TYPE float
+//!MINIMUM 0
+//!MAXIMUM 1000
+203.0
+
+//!PARAM BLACK_sdr
+//!TYPE float
+//!MINIMUM 0
+//!MAXIMUM 1000
+0.0
+
 //!HOOK OUTPUT
 //!BIND HOOKED
 //!DESC linear to luminance
 
-const float L_WHITE = 203.0;
-const float L_BLACK = 0.0;
-// Scale linear code value to cd/m^2
 vec3 linCV_2_Y(vec3 linCV, float Ymax, float Ymin) {
     return linCV * (Ymax - Ymin) + Ymin;
 }
 
 vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
-    color.rgb = linCV_2_Y(color.rgb, L_WHITE, L_BLACK);
+    color.rgb = linCV_2_Y(color.rgb, WHITE_sdr, BLACK_sdr);
     return color;
 }

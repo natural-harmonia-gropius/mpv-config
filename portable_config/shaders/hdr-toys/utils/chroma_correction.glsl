@@ -11,6 +11,18 @@
 // and the round-trip of functions from BT.2446 are not work properly.
 // So I do this in HSV, use "chroma_correction_hsv.glsl" instead.
 
+//!PARAM WHITE_hdr
+//!TYPE float
+//!MINIMUM 0
+//!MAXIMUM 10000
+1000.0
+
+//!PARAM WHITE_sdr
+//!TYPE float
+//!MINIMUM 0
+//!MAXIMUM 1000
+203.0
+
 //!PARAM sigma
 //!TYPE float
 //!MINIMUM 0
@@ -101,16 +113,12 @@ float chroma_correction(float L, float Lref, float Lmax, float sigma) {
     return cor;
 }
 
-const float WHITE = 203.0;
-const float PEAK  = 1000.0;
-const float L_w   = PEAK / WHITE;   // White Point
-
 vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
     color.rgb = RGB_to_XYZ(color.r, color.g, color.b);
     color.rgb = XYZ_to_Lab(color.r, color.g, color.b);
     color.rgb = Lab_to_LCHab(color.r, color.g, color.b);
-    color.g  *= chroma_correction(color.r, 1.0, L_w, sigma);
+    color.g  *= chroma_correction(color.r, 1.0, WHITE_hdr / WHITE_sdr, sigma);
     color.rgb = LCHab_to_Lab(color.r, color.g, color.b);
     color.rgb = Lab_to_XYZ(color.r, color.g, color.b);
     color.rgb = XYZ_to_RGB(color.r, color.g, color.b);
