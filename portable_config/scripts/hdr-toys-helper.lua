@@ -31,12 +31,14 @@ mp.observe_property("video-out-params", "native", function(_, value)
         return
     end
 
-    set_hdr_white(203 * peak)
+    local exposure_bias = 1000 / 203 / peak
+    set_hdr_white(203 * peak * exposure_bias)
 
+    -- no darken
     if peak > 4.926 then
         set_exposure_bias(1)
         return
     end
 
-    set_exposure_bias(1000 / 203 / peak)
+    set_exposure_bias(exposure_bias)
 end)
