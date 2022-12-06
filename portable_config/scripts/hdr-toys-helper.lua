@@ -17,9 +17,9 @@ function set_sdr_white(w)
 end
 
 function set_exposure_bias(bias)
-    bias = math.clamp(bias, 0, 100)
-    mp.command("no-osd set glsl-shader-opts exposure/bias=" .. bias)
-    print("exposure/bias=" .. bias)
+    -- bias = math.clamp(bias, 0, 100)
+    -- mp.command("no-osd set glsl-shader-opts exposure/bias=" .. bias)
+    -- print("exposure/bias=" .. bias)
 end
 
 mp.observe_property("video-out-params", "native", function(_, value)

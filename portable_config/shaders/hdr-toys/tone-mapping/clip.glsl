@@ -1,16 +1,23 @@
-// clip the code value under the black point.
+// Clip the code value out of sdr range.
+
+//!PARAM CONTRAST_sdr
+//!TYPE float
+//!MINIMUM 0
+//!MAXIMUM 1000000
+1000.0
 
 //!HOOK OUTPUT
 //!BIND HOOKED
 //!DESC tone mapping (clip)
 
-const float CONTRAST_RATIO = 1.0 / 1000.0;
-const float WHITE = 1.0;
-const float BLACK = WHITE * CONTRAST_RATIO;
 
 float curve(float x) {
-    const float r = (x - BLACK) / (WHITE - BLACK);
-    return clamp(r, 0.0, WHITE);
+    const float WHITE = 1.0;
+    const float BLACK = WHITE / CONTRAST_sdr;
+
+    x = (x - BLACK) / (WHITE - BLACK);
+    x = clamp(x, 0.0, 1.0);
+    return x;
 }
 
 vec4 color = HOOKED_tex(HOOKED_pos);
