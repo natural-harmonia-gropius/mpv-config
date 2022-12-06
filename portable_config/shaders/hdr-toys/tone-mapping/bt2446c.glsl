@@ -5,6 +5,18 @@
 //!BIND HOOKED
 //!DESC tone mapping (bt.2446c)
 
+const float k1 = 0.69;      // In book: 0.83802
+const float k3 = 0.74204;
+const float ip = 0.49;      // In book: 80% SDR, 58.5 of 100 cd/m2
+float tone_mapping(float Y, float k1, float k3, float ip) {
+    ip /= k1;
+    float k2 = (k1 * ip) * (1.0 - k3);
+    float k4 = (k1 * ip) - (k2 * log(1.0 - k3));
+    return Y < ip ?
+        Y * k1 :
+        log((Y / ip) - k3) * k2 + k4;
+}
+
 vec3 RGB_to_XYZ(float R, float G, float B) {
     mat3 M = mat3(
         0.6370, 0.1446, 0.1689,
@@ -37,19 +49,6 @@ vec3 xyY_to_XYZ(float x, float y, float Y) {
 
     return vec3(X, Y, Z);
 }
-
-float tone_mapping(float Y, float k1, float k3, float ip) {
-    ip /= k1;
-    float k2 = (k1 * ip) * (1.0 - k3);
-    float k4 = (k1 * ip) - (k2 * log(1.0 - k3));
-    return Y < ip ?
-        Y * k1 :
-        log((Y / ip) - k3) * k2 + k4;
-}
-
-const float k1 = 0.69;      // In book: 0.83802
-const float k3 = 0.74204;
-const float ip = 0.49;      // In book: 80% SDR, 58.5 of 100 cd/m2
 
 vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
