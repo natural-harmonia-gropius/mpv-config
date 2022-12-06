@@ -5,13 +5,13 @@
 //!TYPE float
 //!MINIMUM 0.0
 //!MAXIMUM 1.0
-0.1
+0.5
 
 //!PARAM toeLength
 //!TYPE float
 //!MINIMUM 0.0
 //!MAXIMUM 1.0
-0.2
+0.1
 
 //!PARAM shoulderStrength
 //!TYPE float

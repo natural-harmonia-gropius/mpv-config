@@ -20,11 +20,11 @@ vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
     const float L = dot(color.rgb, vec3(0.2627, 0.6780, 0.0593));
 
-    const float l0 = WHITE_sdr / CONTRAST_sdr / WHITE_sdr;
-    const float l1 = 1.0;   // WHITE_sdr / WHITE_sdr;
-    const float l2 = 1000.0 / WHITE_sdr;
-    const float l3 = 2000.0 / WHITE_sdr;
-    const float l4 = 4000.0 / WHITE_sdr;
+    const float l0 =     1.0 / CONTRAST_sdr;
+    const float l1 =     1.0;
+    const float l2 =  1000.0 / WHITE_sdr;
+    const float l3 =  2000.0 / WHITE_sdr;
+    const float l4 =  4000.0 / WHITE_sdr;
     const float l5 = 10000.0 / WHITE_sdr;
 
     if (L > l5) {
