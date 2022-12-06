@@ -5,13 +5,12 @@
 //!BIND HOOKED
 //!DESC tone mapping (aces_narkowicz)
 
-const float A = 2.51;
-const float B = 0.03;
-const float C = 2.43;
-const float D = 0.59;
-const float E = 0.14;
-
 float curve(float x) {
+    const float A = 2.51;
+    const float B = 0.03;
+    const float C = 2.43;
+    const float D = 0.59;
+    const float E = 0.14;
     return (x * (A * x + B)) / (x * (C * x + D) + E);
 }
 

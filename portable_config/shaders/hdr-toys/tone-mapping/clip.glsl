@@ -10,7 +10,6 @@
 //!BIND HOOKED
 //!DESC tone mapping (clip)
 
-
 float curve(float x) {
     const float WHITE = 1.0;
     const float BLACK = WHITE / CONTRAST_sdr;
