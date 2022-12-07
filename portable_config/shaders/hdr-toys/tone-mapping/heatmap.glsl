@@ -70,16 +70,20 @@ vec4 hook() {
     if (L > l5) {
         color.rgb = vec3(1.0, 0.0, 0.6);
     } else if (L > l4) {
-        const float a = (L - l4) / (l5 - l4);
+        float a = (L - l4) / (l5 - l4);
+        a = max(a - 0.1, 0.0) / 0.9 + 0.1;
         color.rgb = vec3(1.0, 1.0, a);
     } else if (L > l3) {
-        const float a = (L - l3) / (l4 - l3);
+        float a = (L - l3) / (l4 - l3);
+        a = max(a - 0.1, 0.0) / 0.9 + 0.1;
         color.rgb = vec3(a, 0.0, 0.0);
     } else if (L > l2) {
-        const float a = (L - l2) / (l3 - l2);
+        float a = (L - l2) / (l3 - l2);
+        a = max(a - 0.1, 0.0) / 0.9 + 0.1;
         color.rgb = vec3(0.0, a, 0.0);
     } else if (L > l1) {
-        const float a = (L - l1) / (l2 - l1);
+        float a = (L - l1) / (l2 - l1);
+        a = max(a - 0.1, 0.0) / 0.9 + 0.1;
         color.rgb = vec3(0.0, 0.0, a);
     } else if (L < l0) {
         color.rgb = vec3(0.0, 0.0, 0.0);
