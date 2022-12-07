@@ -10,27 +10,32 @@ profile-cond=get("video-params/sig-peak") > 1
 profile-restore=copy
 target-trc=pq
 target-prim=bt.2020
-glsl-shader=~~/shaders/hdr-toys/utils/clip_black.glsl
+glsl-shader=~~/shaders/hdr-toys/utils/clip_both.glsl
 glsl-shader=~~/shaders/hdr-toys/transfer-function/pq_to_l.glsl
 glsl-shader=~~/shaders/hdr-toys/transfer-function/l_to_linear.glsl
 glsl-shader=~~/shaders/hdr-toys/utils/exposure.glsl
 glsl-shader=~~/shaders/hdr-toys/utils/crosstalk.glsl
 glsl-shader=~~/shaders/hdr-toys/utils/chroma_correction_hsv.glsl
 glsl-shader=~~/shaders/hdr-toys/tone-mapping/piecewise.glsl
+glsl-shader=~~/shaders/hdr-toys/tone-mapping/heatmap.glsl
 glsl-shader=~~/shaders/hdr-toys/utils/crosstalk_inverse.glsl
-glsl-shader=~~/shaders/hdr-toys/gamut-mapping/bt.2407_matrix.glsl
+glsl-shader=~~/shaders/hdr-toys/gamut-mapping/bt2407_matrix.glsl
 glsl-shader=~~/shaders/hdr-toys/transfer-function/linear_to_bt1886.glsl
 ```
 
+heatmap
+
+L_METHOD <1, 2, 3, 4>  
+1: Relative luminance  
+2: Max Code Value  
+3: Average Code Value  
+4: CIE xyY
+
+```ini
+set glsl-shader-opts L_METHOD=1
+```
+
 ## 一些碎碎念
-
-映射最重要的是为溢出合法范围的信号营造层次感以保留视频创作者的主观调色。  
-所以 黑 -> 亮度映射 -> HDR_ref_white -> 色度映射 -> 白 是我理想的影调映射效果。
-
-**亮度映射**  
-xyY 比 Lum 亮部更高也更平坦一些 曲线的高光部分需要更大程度地压低。  
-我对 piecewise 这条曲线的表现很满意，对比度足够高，高光压制不错，暗处也没有很奇怪。  
-一味地压暗 (一个较极端的例子: insomniac.glsl) 将所有的细节带到了可视的部分，以摄影的角度来审视画面整体欠曝，观感极差。
 
 我理想的曲线
 
