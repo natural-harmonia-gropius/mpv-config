@@ -17,7 +17,7 @@
 //!TYPE float
 //!MINIMUM 0.0
 //!MAXIMUM 10.0
-2.0
+2.3
 
 //!PARAM shoulderLength
 //!TYPE float
