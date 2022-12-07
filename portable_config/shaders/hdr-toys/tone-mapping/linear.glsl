@@ -1,12 +1,12 @@
 // The simplest tone mapping method, just multiplied by a number.
 
-//!PARAM WHITE_hdr
+//!PARAM L_hdr
 //!TYPE float
 //!MINIMUM 0
 //!MAXIMUM 10000
 1000.0
 
-//!PARAM WHITE_sdr
+//!PARAM L_sdr
 //!TYPE float
 //!MINIMUM 0
 //!MAXIMUM 1000
@@ -17,7 +17,7 @@
 //!DESC tone mapping (linear)
 
 float curve(float x) {
-    return x * WHITE_sdr / WHITE_hdr;
+    return x * L_sdr / L_hdr;
 }
 
 vec4 color = HOOKED_tex(HOOKED_pos);

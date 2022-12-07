@@ -1,13 +1,13 @@
 // Filmic curve by Mike Day, Also known as the "Insomniac curve".
 // https://d3cw3dd2w32x2b.cloudfront.net/wp-content/uploads/2012/09/an-efficient-and-user-friendly-tone-mapping-operator.pdf
 
-//!PARAM WHITE_hdr
+//!PARAM L_hdr
 //!TYPE float
 //!MINIMUM 0
 //!MAXIMUM 10000
 1000.0
 
-//!PARAM WHITE_sdr
+//!PARAM L_sdr
 //!TYPE float
 //!MINIMUM 0
 //!MAXIMUM 1000
@@ -25,7 +25,7 @@ float c = 2.0;    // Cross-over point. Point where the toe and shoulder are piec
 float k = 0.0;
 
 float curve(float x) {
-    w = WHITE_hdr / WHITE_sdr;
+    w = L_hdr / L_sdr;
     k = (1.0 - t) * (c - b) / ((1.0 - s) * (w - c) + (1.0 - t) * (c - b));
     float a = x < c ?
         k * (1.0 - t) * (x - b) / (c - (1.0 - t) * b - t * x) :

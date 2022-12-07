@@ -8,13 +8,13 @@
 
 // In HSV, originally LCHab.
 
-//!PARAM WHITE_hdr
+//!PARAM L_hdr
 //!TYPE float
 //!MINIMUM 0
 //!MAXIMUM 10000
 1000.0
 
-//!PARAM WHITE_sdr
+//!PARAM L_sdr
 //!TYPE float
 //!MINIMUM 0
 //!MAXIMUM 1000
@@ -58,7 +58,7 @@ float chroma_correction(float L, float Lref, float Lmax, float sigma) {
 vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
     color.rgb = RGB_to_HSV(color.rgb);
-    color.g  *= chroma_correction(color.b, 1.0, WHITE_hdr / WHITE_sdr, sigma);
+    color.g  *= chroma_correction(color.b, 1.0, L_hdr / L_sdr, sigma);
     color.rgb = HSV_to_RGB(color.rgb);
     return color;
 }

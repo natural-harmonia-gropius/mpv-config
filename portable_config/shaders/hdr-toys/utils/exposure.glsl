@@ -8,8 +8,8 @@
 
 //!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC exposure scaling
 //!WHEN bias 1 -
+//!DESC exposure scaling
 
 vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {

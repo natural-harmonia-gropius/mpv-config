@@ -1,12 +1,12 @@
 // Heatmap
 
-//!PARAM TM_MODE
+//!PARAM L_METHOD
 //!TYPE int
-//!MINIMUM 1
+//!MINIMUM 0
 //!MAXIMUM 4
-3
+0
 
-//!PARAM WHITE_sdr
+//!PARAM L_sdr
 //!TYPE float
 //!MINIMUM 0
 //!MAXIMUM 1000
@@ -20,6 +20,7 @@
 
 //!HOOK OUTPUT
 //!BIND HOOKED
+//!WHEN L_METHOD
 //!DESC tone mapping (heatmap)
 
 vec3 RGB_to_XYZ(float R, float G, float B) {
@@ -43,16 +44,16 @@ vec3 XYZ_to_xyY(float X, float Y, float Z) {
 vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
     float L = 0.0;
-    if (TM_MODE == 1) {
-        // Max Code Value
-        L = max(max(color.r, color.g), color.b);
-    } else if (TM_MODE == 2) {
-        // Average Code Value
-        L = (color.r + color.g + color.b) / 3;
-    } else if (TM_MODE == 3) {
+    if (L_METHOD == 1) {
         // Relative luminance
         L = dot(color.rgb, vec3(0.2627, 0.6780, 0.0593));
-    } else if (TM_MODE == 4) {
+    } else if (L_METHOD == 2) {
+        // Max Code Value
+        L = max(max(color.r, color.g), color.b);
+    } else if (L_METHOD == 3) {
+        // Average Code Value
+        L = (color.r + color.g + color.b) / 3;
+    } else if (L_METHOD == 4) {
         // CIE xyY;
         vec3 XYZ = RGB_to_XYZ(color.r, color.g, color.b);
         vec3 xyY = XYZ_to_xyY(XYZ.x, XYZ.y, XYZ.z);
@@ -61,10 +62,10 @@ vec4 hook() {
 
     const float l0 =     1.0 / CONTRAST_sdr;
     const float l1 =     1.0;
-    const float l2 =  1000.0 / WHITE_sdr;
-    const float l3 =  2000.0 / WHITE_sdr;
-    const float l4 =  4000.0 / WHITE_sdr;
-    const float l5 = 10000.0 / WHITE_sdr;
+    const float l2 =  1000.0 / L_sdr;
+    const float l3 =  2000.0 / L_sdr;
+    const float l4 =  4000.0 / L_sdr;
+    const float l5 = 10000.0 / L_sdr;
 
     if (L > l5) {
         color.rgb = vec3(1.0, 0.0, 0.6);

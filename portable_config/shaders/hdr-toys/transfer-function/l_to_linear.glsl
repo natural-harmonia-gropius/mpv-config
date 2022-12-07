@@ -1,12 +1,12 @@
 // Scale cd/m^2 to linear code value
 
-//!PARAM WHITE_sdr
+//!PARAM L_sdr
 //!TYPE float
 //!MINIMUM 0
 //!MAXIMUM 1000
 203.0
 
-//!PARAM BLACK_sdr
+//!PARAM Lb_sdr
 //!TYPE float
 //!MINIMUM 0
 //!MAXIMUM 1000
@@ -22,6 +22,6 @@ vec3 Y_2_linCV(vec3 Y, float Ymax, float Ymin) {
 
 vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
-    color.rgb = Y_2_linCV(color.rgb, WHITE_sdr, BLACK_sdr);
+    color.rgb = Y_2_linCV(color.rgb, L_sdr, Lb_sdr);
     return color;
 }

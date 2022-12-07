@@ -1,13 +1,13 @@
 // Extended mapping by Reinhard et al. 2002. which allows high luminances to burn out.
 // https://www.researchgate.net/publication/2908938_Photographic_Tone_Reproduction_For_Digital_Images
 
-//!PARAM WHITE_hdr
+//!PARAM L_hdr
 //!TYPE float
 //!MINIMUM 0
 //!MAXIMUM 10000
 1000.0
 
-//!PARAM WHITE_sdr
+//!PARAM L_sdr
 //!TYPE float
 //!MINIMUM 0
 //!MAXIMUM 1000
@@ -18,7 +18,7 @@
 //!DESC tone mapping (reinhard)
 
 float curve(float x) {
-    return (x * (1.0 + x / pow(WHITE_hdr / WHITE_sdr, 2))) / (1.0 + x);
+    return (x * (1.0 + x / pow(L_hdr / L_sdr, 2))) / (1.0 + x);
 }
 
 vec4 color = HOOKED_tex(HOOKED_pos);

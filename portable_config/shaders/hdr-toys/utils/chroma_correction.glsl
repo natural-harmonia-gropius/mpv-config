@@ -11,13 +11,13 @@
 // and the round-trip of functions from BT.2446 are not work properly.
 // So I do this in HSV, use "chroma_correction_hsv.glsl" instead.
 
-//!PARAM WHITE_hdr
+//!PARAM L_hdr
 //!TYPE float
 //!MINIMUM 0
 //!MAXIMUM 10000
 1000.0
 
-//!PARAM WHITE_sdr
+//!PARAM L_sdr
 //!TYPE float
 //!MINIMUM 0
 //!MAXIMUM 1000
@@ -118,7 +118,7 @@ vec4 hook() {
     color.rgb = RGB_to_XYZ(color.r, color.g, color.b);
     color.rgb = XYZ_to_Lab(color.r, color.g, color.b);
     color.rgb = Lab_to_LCHab(color.r, color.g, color.b);
-    color.g  *= chroma_correction(color.r, 1.0, WHITE_hdr / WHITE_sdr, sigma);
+    color.g  *= chroma_correction(color.r, 1.0, L_hdr / L_sdr, sigma);
     color.rgb = LCHab_to_Lab(color.r, color.g, color.b);
     color.rgb = Lab_to_XYZ(color.r, color.g, color.b);
     color.rgb = XYZ_to_RGB(color.r, color.g, color.b);
