@@ -4,7 +4,7 @@
 //!PARAM enabled
 //!TYPE int
 //!MINIMUM 0
-//!MAXIMUM 1
+//!MAXIMUM 2
 0
 
 //!HOOK OUTPUT
@@ -58,7 +58,11 @@ vec4 hook() {
 
     for (float u = 0.0; u < samples; u++) {
         for (float v = 0.0; v < samples; v++) {
-        	float L = RGB_to_L(HOOKED_tex(vec2(u/samples, v/samples)).rgb * 203.0 / 10000.0);
+            vec3 rgb = HOOKED_tex(vec2(u/samples, v/samples)).rgb;
+            if (enabled == 2) {
+                rgb *= 203.0 / 10000.0;
+            }
+        	float L = RGB_to_L(rgb);
             int index = int(floor(L * valLen));
             val[index]++;
     	}
