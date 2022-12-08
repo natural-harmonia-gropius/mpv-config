@@ -1,5 +1,15 @@
+// Histogram
+// https://www.shadertoy.com/view/3dBXRW
+
+//!PARAM enabled
+//!TYPE int
+//!MINIMUM 0
+//!MAXIMUM 1
+0
+
 //!HOOK OUTPUT
 //!BIND HOOKED
+//!WHEN enabled
 //!DESC histogram
 
 #define samples 64.0
