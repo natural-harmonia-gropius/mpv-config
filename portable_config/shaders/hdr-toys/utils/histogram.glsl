@@ -7,12 +7,22 @@
 //!MAXIMUM 2
 0
 
+//!PARAM samples
+//!TYPE float
+//!MINIMUM 0
+//!MAXIMUM 1000
+32.0
+
+//!PARAM L_sdr
+//!TYPE float
+//!MINIMUM 0
+//!MAXIMUM 1000
+203.0
+
 //!HOOK OUTPUT
 //!BIND HOOKED
 //!WHEN enabled
 //!DESC histogram
-
-#define samples 100.0
 
 float drawRect(float i, float valLen, float val, vec2 uv) {
     // draw the rectangle at appropriate place
@@ -43,16 +53,7 @@ vec4 hook() {
         0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
         0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
         0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        0.0, 0.0, 0.0, 0.0
+        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
     );
     float valLen = float(val.length());
 
@@ -60,7 +61,7 @@ vec4 hook() {
         for (float v = 0.0; v < samples; v++) {
             vec3 rgb = HOOKED_tex(vec2(u/samples, v/samples)).rgb;
             if (enabled == 2) {
-                rgb *= 203.0 / 10000.0;
+                rgb *= L_sdr / 10000.0;
             }
         	float L = RGB_to_L(rgb);
             int index = int(floor(L * valLen));
@@ -76,5 +77,5 @@ vec4 hook() {
     }
 
     // Output to screen
-    return vec4(vec3(mix(uv.x, RGB_to_L(col), hist + 0.1)), 1.0);
+    return vec4(vec3(mix(uv.x, RGB_to_L(col) - 0.2, hist + 0.1)), 1.0);
 }
