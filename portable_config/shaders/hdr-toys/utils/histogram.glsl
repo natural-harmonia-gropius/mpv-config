@@ -12,7 +12,7 @@
 //!WHEN enabled
 //!DESC histogram
 
-#define samples 64.0
+#define samples 100.0
 
 float drawRect(float i, float valLen, float val, vec2 uv) {
     // draw the rectangle at appropriate place
@@ -47,13 +47,18 @@ vec4 hook() {
         0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
         0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
         0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        0.0, 0.0, 0.0, 0.0
     );
     float valLen = float(val.length());
 
     for (float u = 0.0; u < samples; u++) {
         for (float v = 0.0; v < samples; v++) {
-        	float L = RGB_to_L(HOOKED_tex(vec2(u/samples, v/samples)).rgb);
+        	float L = RGB_to_L(HOOKED_tex(vec2(u/samples, v/samples)).rgb * 203.0 / 10000.0);
             int index = int(floor(L * valLen));
             val[index]++;
     	}
