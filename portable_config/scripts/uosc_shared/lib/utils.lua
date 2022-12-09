@@ -145,23 +145,26 @@ function opacity_to_alpha(opacity)
 	return 255 - math.ceil(255 * opacity)
 end
 
-do
+path_separator = (function()
 	local os_separator = state.os == 'windows' and '\\' or '/'
 
 	-- Get appropriate path separator for the given path.
 	---@param path string
 	---@return string
-	function path_separator(path)
+	return function(path)
 		return path:sub(1, 2) == '\\\\' and '\\' or os_separator
 	end
+end)()
 
-	-- Joins paths with the OS aware path separator or UNC separator.
-	---@param p1 string
-	---@param p2 string
-	---@return string
-	function utils.join_path(p1, p2)
-		return p1 .. path_separator(p1) .. p2
-	end
+-- Joins paths with the OS aware path separator or UNC separator.
+---@param p1 string
+---@param p2 string
+---@return string
+function join_path(p1, p2)
+	local p1, separator = trim_trailing_separator(p1)
+	-- Prevents joining drive letters with a redundant separator (`C:\\foo`),
+	-- as `trim_trailing_separator()` doesn't trim separators from drive letters.
+	return p1:sub(#p1) == separator and p1 .. p2 or p1 .. separator.. p2
 end
 
 -- Check if path is absolute.
@@ -178,22 +181,22 @@ end
 ---@return string
 function ensure_absolute(path)
 	if is_absolute(path) then return path end
-	return utils.join_path(state.cwd, path)
+	return join_path(state.cwd, path)
 end
 
 -- Remove trailing slashes/backslashes.
 ---@param path string
----@return string
+---@return string path, string trimmed_separator_type
 function trim_trailing_separator(path)
-	path = trim_end(path, path_separator(path))
+	local separator = path_separator(path)
+	path = trim_end(path, separator)
 	if state.os == 'windows' then
 		-- Drive letters on windows need trailing backslash
-		if path:sub(#path) == ':' then return path .. '\\' end
-		return path
+		if path:sub(#path) == ':' then path = path .. '\\' end
 	else
-		if path == '' then return '/' end
-		return path
+		if path == '' then path = '/' end
 	end
+	return path, separator
 end
 
 -- Ensures path is absolute, remove trailing slashes/backslashes.
@@ -202,8 +205,8 @@ end
 ---@return string
 function normalize_path_lite(path)
 	if not path or is_protocol(path) then return path end
-	path = ensure_absolute(path)
-	return trim_trailing_separator(path)
+	path = trim_trailing_separator(ensure_absolute(path))
+	return path
 end
 
 -- Ensures path is absolute, remove trailing slashes/backslashes, normalization of path separators and deduplication.
@@ -286,7 +289,7 @@ function read_directory(path, allowed_types)
 
 	for _, item in ipairs(items) do
 		if item ~= '.' and item ~= '..' then
-			local info = utils.file_info(utils.join_path(path, item))
+			local info = utils.file_info(join_path(path, item))
 			if info then
 				if info.is_file then
 					if not allowed_types or has_any_extension(item, allowed_types) then
@@ -313,7 +316,7 @@ function get_adjacent_files(file_path, allowed_types)
 	local current_file_index
 	local paths = {}
 	for index, file in ipairs(files) do
-		paths[#paths + 1] = utils.join_path(current_file.dirname, file)
+		paths[#paths + 1] = join_path(current_file.dirname, file)
 		if current_file.basename == file then current_file_index = index end
 	end
 	if not current_file_index then return end
@@ -499,6 +502,7 @@ end
 --[[ RENDERING ]]
 
 function render()
+	if not display.initialized then return end
 	state.render_last_time = mp.get_time()
 
 	-- Actual rendering

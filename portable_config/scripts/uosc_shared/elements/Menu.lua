@@ -4,7 +4,7 @@ local Element = require('uosc_shared/elements/Element')
 ---@alias MenuData {type?: string; title?: string; hint?: string; keep_open?: boolean; separator?: boolean; items?: MenuDataItem[]; selected_index?: integer;}
 ---@alias MenuDataItem MenuDataValue|MenuData
 ---@alias MenuDataValue {title?: string; hint?: string; icon?: string; value: any; bold?: boolean; italic?: boolean; muted?: boolean; active?: boolean; keep_open?: boolean; separator?: boolean;}
----@alias MenuOptions {mouse_nav?: boolean; on_open?: fun(), on_close?: fun()}
+---@alias MenuOptions {mouse_nav?: boolean; on_open?: fun(); on_close?: fun(); on_back?: fun()}
 
 -- Internal data structure created from `Menu`.
 ---@alias MenuStack {id?: string; type?: string; title?: string; hint?: string; selected_index?: number; keep_open?: boolean; separator?: boolean; items: MenuStackItem[]; parent_menu?: MenuStack; active?: boolean; width: number; height: number; top: number; scroll_y: number; scroll_height: number; title_width: number; hint_width: number; max_width: number; is_root?: boolean; fling?: Fling}
@@ -98,7 +98,7 @@ function Menu:init(data, callback, opts)
 	self.by_id = {}
 	self.key_bindings = {}
 	self.is_being_replaced = false
-	self.is_closing = false
+	self.is_closing, self.is_closed = false, false
 	---@type {y: integer, time: number}[]
 	self.drag_data = nil
 	self.is_dragging = false
@@ -120,6 +120,7 @@ end
 function Menu:destroy()
 	Element.destroy(self)
 	self:disable_key_bindings()
+	self.is_closed = true
 	if not self.is_being_replaced then Elements.curtain:unregister('menu') end
 	if self.opts.on_close then self.opts.on_close() end
 end
@@ -329,10 +330,13 @@ end
 
 ---@param index? integer
 ---@param menu? MenuStack
-function Menu:scroll_to_index(index, menu)
+---@param immediate? boolean
+function Menu:scroll_to_index(index, menu, immediate)
 	menu = menu or self.current
 	if (index and index >= 1 and index <= #menu.items) then
-		self:scroll_to(round((self.scroll_step * (index - 1)) - ((menu.height - self.scroll_step) / 2)), menu)
+		local position = round((self.scroll_step * (index - 1)) - ((menu.height - self.scroll_step) / 2))
+		if immediate then self:set_scroll_to(position, menu)
+		else self:scroll_to(position, menu) end
 	end
 end
 
@@ -348,7 +352,7 @@ end
 ---@param menu? MenuStack
 function Menu:select_value(value, menu)
 	menu = menu or self.current
-	local index = itable_find(menu.items, function(_, item) return item.value == value end)
+	local index = itable_find(menu.items, function(item) return item.value == value end)
 	self:select_index(index, 5)
 end
 
@@ -369,7 +373,7 @@ end
 
 ---@param index? integer
 ---@param menu? MenuStack
-function Menu:activate_unique_index(index, menu)
+function Menu:activate_one_index(index, menu)
 	self:deactivate_items(menu)
 	self:activate_index(index, menu)
 end
@@ -378,16 +382,16 @@ end
 ---@param menu? MenuStack
 function Menu:activate_value(value, menu)
 	menu = menu or self.current
-	local index = itable_find(menu.items, function(_, item) return item.value == value end)
+	local index = itable_find(menu.items, function(item) return item.value == value end)
 	self:activate_index(index, menu)
 end
 
 ---@param value? any
 ---@param menu? MenuStack
-function Menu:activate_unique_value(value, menu)
+function Menu:activate_one_value(value, menu)
 	menu = menu or self.current
-	local index = itable_find(menu.items, function(_, item) return item.value == value end)
-	self:activate_unique_index(index, menu)
+	local index = itable_find(menu.items, function(item) return item.value == value end)
+	self:activate_one_index(index, menu)
 end
 
 ---@param id string
@@ -417,7 +421,7 @@ end
 ---@param menu? MenuStack
 function Menu:delete_value(value, menu)
 	menu = menu or self.current
-	local index = itable_find(menu.items, function(_, item) return item.value == value end)
+	local index = itable_find(menu.items, function(item) return item.value == value end)
 	self:delete_index(index)
 end
 
@@ -425,27 +429,34 @@ end
 function Menu:prev(menu)
 	menu = menu or self.current
 	menu.selected_index = math.max(menu.selected_index and menu.selected_index - 1 or #menu.items, 1)
-	self:scroll_to_index(menu.selected_index, menu)
+	self:scroll_to_index(menu.selected_index, menu, true)
 end
 
 ---@param menu? MenuStack
 function Menu:next(menu)
 	menu = menu or self.current
 	menu.selected_index = math.min(menu.selected_index and menu.selected_index + 1 or 1, #menu.items)
-	self:scroll_to_index(menu.selected_index, menu)
+	self:scroll_to_index(menu.selected_index, menu, true)
 end
 
 function Menu:back()
+	if self.opts.on_back then
+		self.opts.on_back()
+		if self.is_closed then return end
+	end
+
 	local menu = self.current
 	local parent = menu.parent_menu
 
-	if not parent then return self:close() end
-
-	menu.selected_index = nil
-	self.current = parent
-	self:update_dimensions()
-	self:tween(self.offset_x - menu.width / 2, 0, function(offset) self:set_offset_x(offset) end)
-	self.opacity = 1 -- in case tween above canceled fade in animation
+	if parent then
+		menu.selected_index = nil
+		self.current = parent
+		self:update_dimensions()
+		self:tween(self.offset_x - menu.width / 2, 0, function(offset) self:set_offset_x(offset) end)
+		self.opacity = 1 -- in case tween above canceled fade in animation
+	else
+		self:close()
+	end
 end
 
 ---@param opts? {keep_open?: boolean, preselect_submenu_item?: boolean}
@@ -579,8 +590,8 @@ function Menu:enable_key_bindings()
 	self:add_key_binding('shift+enter', 'menu-select-alt5', self:create_key_action('open_selected_item_soft'))
 	self:add_key_binding('shift+kp_enter', 'menu-select-alt6', self:create_key_action('open_selected_item_soft'))
 	self:add_key_binding('esc', 'menu-close', self:create_key_action('close'))
-	self:add_key_binding('pgup', 'menu-page-up', self:create_key_action('on_pgup'))
-	self:add_key_binding('pgdwn', 'menu-page-down', self:create_key_action('on_pgdwn'))
+	self:add_key_binding('pgup', 'menu-page-up', self:create_key_action('on_pgup'), 'repeatable')
+	self:add_key_binding('pgdwn', 'menu-page-down', self:create_key_action('on_pgdwn'), 'repeatable')
 	self:add_key_binding('home', 'menu-home', self:create_key_action('on_home'))
 	self:add_key_binding('end', 'menu-end', self:create_key_action('on_end'))
 end

@@ -1,5 +1,5 @@
---[[ uosc 4.4.0 - 2022-Oct-28 | https://github.com/tomasklaen/uosc ]]
-local uosc_version = '4.4.0'
+--[[ uosc 4.5.0 - 2022-Dec-07 | https://github.com/tomasklaen/uosc ]]
+local uosc_version = '4.5.0'
 
 assdraw = require('mp.assdraw')
 opt = require('mp.options')
@@ -268,7 +268,7 @@ end
 
 --[[ STATE ]]
 
-display = {width = 1280, height = 720, scale_x = 1, scale_y = 1}
+display = {width = 1280, height = 720, scale_x = 1, scale_y = 1, initialized = false}
 cursor = {hidden = true, x = 0, y = 0}
 state = {
 	os = (function()
@@ -343,9 +343,11 @@ require('uosc_shared/lib/menus')
 function update_display_dimensions()
 	local scale = (state.hidpi_scale or 1) * options.ui_scale
 	local real_width, real_height = mp.get_osd_size()
+	if real_width <= 0 then return end
 	local scaled_width, scaled_height = round(real_width / scale), round(real_height / scale)
 	display.width, display.height = scaled_width, scaled_height
 	display.scale_x, display.scale_y = real_width / scaled_width, real_height / scaled_height
+	display.initialized = true
 
 	-- Tell elements about this
 	Elements:trigger('display')
@@ -482,7 +484,7 @@ function load_file_index_in_current_directory(index)
 		if index < 0 then index = #files + index + 1 end
 
 		if files[index] then
-			mp.commandv('loadfile', utils.join_path(serialized.dirname, files[index]))
+			mp.commandv('loadfile', join_path(serialized.dirname, files[index]))
 		end
 	end
 end
@@ -643,7 +645,7 @@ mp.observe_property('osd-dimensions', 'native', function(name, val)
 	request_render()
 end)
 mp.observe_property('display-hidpi-scale', 'native', create_state_setter('hidpi_scale', update_display_dimensions))
-mp.observe_property('cache', 'native', create_state_setter('cache'))
+mp.observe_property('cache', 'string', create_state_setter('cache'))
 mp.observe_property('cache-buffering-state', 'number', create_state_setter('cache_buffering'))
 mp.observe_property('demuxer-via-network', 'native', create_state_setter('is_stream', function()
 	Elements:trigger('dispositions')
@@ -900,7 +902,7 @@ mp.add_key_binding(nil, 'open-file', function()
 	-- Update active file in directory navigation menu
 	local function handle_file_loaded()
 		if Menu:is_open('open-file') then
-			Elements.menu:activate_value(normalize_path(mp.get_property_native('path')))
+			Elements.menu:activate_one_value(normalize_path(mp.get_property_native('path')))
 		end
 	end
 
@@ -1001,7 +1003,7 @@ mp.add_key_binding(nil, 'audio-device', create_self_updating_menu_opener({
 }))
 mp.add_key_binding(nil, 'open-config-directory', function()
 	local config_path = mp.command_native({'expand-path', '~~/mpv.conf'})
-	local config = serialize_path(config_path)
+	local config = serialize_path(normalize_path(config_path))
 
 	if config then
 		local args
