@@ -1,6 +1,18 @@
 // Filmic curve by John Hable. Based on the "Uncharted 2", but updated with a better controllability.
 // http://filmicworlds.com/blog/filmic-tonemapping-with-piecewise-power-curves/
 
+//!PARAM L_hdr
+//!TYPE float
+//!MINIMUM 0
+//!MAXIMUM 10000
+1000.0
+
+//!PARAM L_sdr
+//!TYPE float
+//!MINIMUM 0
+//!MAXIMUM 1000
+203.0
+
 //!PARAM toeStrength
 //!TYPE float
 //!MINIMUM 0.0
@@ -12,12 +24,6 @@
 //!MINIMUM 0.0
 //!MAXIMUM 1.0
 0.1
-
-//!PARAM shoulderStrength
-//!TYPE float
-//!MINIMUM 0.0
-//!MAXIMUM 10.0
-2.3
 
 //!PARAM shoulderLength
 //!TYPE float
@@ -66,6 +72,9 @@ float evalCurveSegment(float x, float offsetX, float offsetY, float scaleX, floa
 }
 
 float curve(float x) {
+    const float w = L_hdr / L_sdr;
+    const float shoulderStrength = clamp(log2(w), 0.0, 10.0);
+
     // Convert from "user" to "direct" parameters
 
     // This is not actually the display gamma. It's just a UI space to avoid having

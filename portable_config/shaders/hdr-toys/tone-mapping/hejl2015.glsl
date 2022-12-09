@@ -1,13 +1,21 @@
 // "film-like" tonemap, by Jim Hejl.
 // https://twitter.com/jimhejl/status/633777619998130176
 
+//!PARAM L_hdr
+//!TYPE float
+//!MINIMUM 0
+//!MAXIMUM 10000
+1000.0
+
+//!PARAM L_sdr
+//!TYPE float
+//!MINIMUM 0
+//!MAXIMUM 1000
+203.0
+
 //!HOOK OUTPUT
 //!BIND HOOKED
 //!DESC tone mapping (hejl2015)
-
-const float WHITE = 203.0;
-const float PEAK  = 1000.0;
-const float L_w   = PEAK / WHITE;   // White Point
 
 float f(float x) {
     float a = (1.425 * x) + 0.05;
@@ -15,7 +23,8 @@ float f(float x) {
 }
 
 float curve(float x) {
-    float a = f(x) / f(L_w);
+    const float w = L_hdr / L_sdr;
+    float a = f(x) / f(w);
     return max(a, 0.0);
 }
 

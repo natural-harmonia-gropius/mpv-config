@@ -5,16 +5,21 @@
 //!BIND HOOKED
 //!DESC tone mapping (bt.2446c)
 
-const float k1 = 0.69;      // In book: 0.83802
-const float k3 = 0.74204;
-const float ip = 0.49;      // In book: 80% SDR, 58.5 of 100 cd/m2
-float tone_mapping(float Y, float k1, float k3, float ip) {
+const float ip = 0.58535;   // linear length
+const float k1 = 0.83802;   // linear strength
+const float k3 = 0.74204;   // shoulder strength
+
+float f(float Y, float k1, float k3, float ip) {
     ip /= k1;
     float k2 = (k1 * ip) * (1.0 - k3);
     float k4 = (k1 * ip) - (k2 * log(1.0 - k3));
     return Y < ip ?
         Y * k1 :
         log((Y / ip) - k3) * k2 + k4;
+}
+
+float curve(float x) {
+    return f(x, k1, k3, ip);
 }
 
 vec3 RGB_to_XYZ(float R, float G, float B) {
@@ -52,9 +57,11 @@ vec3 xyY_to_XYZ(float x, float y, float Y) {
 
 vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
+    const float L = dot(color.rgb, vec3(0.2627, 0.6780, 0.0593));
+
     color.rgb = RGB_to_XYZ(color.r, color.g, color.b);
     color.rgb = XYZ_to_xyY(color.r, color.g, color.b);
-    color.z   = tone_mapping(color.z, k1, k3, ip);
+    color.z  *= curve(L) / L;
     color.rgb = xyY_to_XYZ(color.r, color.g, color.b);
     color.rgb = XYZ_to_RGB(color.r, color.g, color.b);
     return color;

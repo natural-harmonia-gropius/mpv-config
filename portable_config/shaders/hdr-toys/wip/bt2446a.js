@@ -1,9 +1,9 @@
 const { pow, log, max } = Math;
 
-function f(Y) {
-  const Lhdr = 1000.0;
-  const Lsdr = 100.0;
+const Lhdr = 1000.0;
+const Lsdr = 100.0;
 
+function f(Y) {
   const pHDR = 1.0 + 32.0 * pow(Lhdr / 10000.0, 1.0 / 2.4); // 13.25979791858332
   const pSDR = 1.0 + 32.0 * pow(Lsdr / 10000.0, 1.0 / 2.4); // 5.696957656390622
 
@@ -21,5 +21,4 @@ function f(Y) {
 
 const arr = [];
 for (let i = 0; i <= 20; i++) arr.push(i / 10);
-for (let i = 1; i <= 10; i++) arr.push(i * 100);
 console.table(arr.map((v) => f(v)));

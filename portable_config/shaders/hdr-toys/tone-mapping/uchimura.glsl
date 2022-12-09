@@ -5,6 +5,13 @@
 //!BIND HOOKED
 //!DESC tone mapping (uchimura)
 
+const float P = 1.00;   // max display brightness
+const float a = 1.00;   // contrast
+const float m = 0.22;   // linear section start
+const float l = 0.40;   // linear section length
+const float c = 1.33;   // black
+const float b = 0.00;   // pedestal
+
 float f(float x, float P, float a, float m, float l, float c, float b) {
     float l0 = ((P - m) * l) / a;
     float L0 = m - m / a;
@@ -26,13 +33,6 @@ float f(float x, float P, float a, float m, float l, float c, float b) {
 }
 
 float curve(float x) {
-    const float P = 1.00;   // max display brightness
-    const float a = 1.00;   // contrast
-    const float m = 0.22;   // linear section start
-    const float l = 0.40;   // linear section length
-    const float c = 1.33;   // black
-    const float b = 0.00;   // pedestal
-
     return f(x, P, a, m, l, c, b);
 }
 

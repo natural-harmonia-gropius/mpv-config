@@ -18,7 +18,10 @@
 //!DESC tone mapping (reinhard)
 
 float curve(float x) {
-    return (x * (1.0 + x / pow(L_hdr / L_sdr, 2))) / (1.0 + x);
+    const float w = L_hdr / L_sdr;
+    const float simple = x / (1.0 + x);
+    const float extended = simple * (1.0 + x / (w * w));
+    return extended;
 }
 
 vec4 color = HOOKED_tex(HOOKED_pos);
