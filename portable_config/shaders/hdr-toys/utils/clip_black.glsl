@@ -4,5 +4,5 @@
 
 vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
-    return max(color, 0.0);
+    return vec4(max(color.rgb, 0.0), color.a);
 }

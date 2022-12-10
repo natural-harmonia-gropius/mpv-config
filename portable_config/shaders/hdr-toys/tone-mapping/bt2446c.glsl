@@ -19,7 +19,8 @@ float f(float Y, float k1, float k3, float ip) {
 }
 
 float curve(float x) {
-    return f(x, k1, k3, ip);
+    // TMO feature - Output peak luminance - 120 cd/m2
+    return f(x, k1, k3, ip) / 1.2;
 }
 
 vec3 RGB_to_XYZ(float R, float G, float B) {
@@ -61,7 +62,7 @@ vec4 hook() {
 
     color.rgb = RGB_to_XYZ(color.r, color.g, color.b);
     color.rgb = XYZ_to_xyY(color.r, color.g, color.b);
-    color.z  *= curve(L) / L;
+    color.z   = curve(color.z);
     color.rgb = xyY_to_XYZ(color.r, color.g, color.b);
     color.rgb = XYZ_to_RGB(color.r, color.g, color.b);
     return color;

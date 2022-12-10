@@ -15,7 +15,7 @@
 
 //!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC tone mapping (insomniac)
+//!DESC tone mapping (day)
 
 const float b = 0.0;    // Black point. Largest value that is mapped to 0.
 const float t = 0.7;    // Toe strength. Amount of blending between a straight-line curve and a purely asymptotic curve for the toe.

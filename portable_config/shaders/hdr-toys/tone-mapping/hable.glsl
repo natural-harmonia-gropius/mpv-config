@@ -15,7 +15,7 @@
 
 //!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC tone mapping (uncharted2)
+//!DESC tone mapping (hable)
 
 const float A = 0.15;   // Shoulder Strength
 const float B = 0.50;   // Linear Strength

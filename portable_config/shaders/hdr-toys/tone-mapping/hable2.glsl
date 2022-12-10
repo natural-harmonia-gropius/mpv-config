@@ -45,7 +45,7 @@
 
 //!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC tone mapping (piecewise)
+//!DESC tone mapping (hable2)
 
 vec2 asSlopeIntercept(float x0, float x1, float y0, float y1) {
     float dy = (y1 - y0);
