@@ -15,7 +15,7 @@ float curve(float x) {
     const float BLACK = WHITE / CONTRAST_sdr;
 
     x = (x - BLACK) / (WHITE - BLACK);
-    x = clamp(x, 0.0, 1.0);
+    x = clamp(x, 0.0, WHITE);
     return x;
 }
 
