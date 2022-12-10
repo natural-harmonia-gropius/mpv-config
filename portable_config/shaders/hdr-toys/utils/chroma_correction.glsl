@@ -73,7 +73,6 @@ vec3 XYZ_to_Lab(float X, float Y, float Z) {
     float a = 500.0 * (X - Y);
     float b = 200.0 * (Y - Z);
 
-    // L = clamp(L, 0.0, 100.0);
     return vec3(L, a, b);
 }
 
