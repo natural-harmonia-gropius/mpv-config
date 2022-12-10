@@ -53,9 +53,10 @@ vec3 XYZ_to_RGB(float X, float Y, float Z) {
     return vec3(X, Y, Z) * M;
 }
 
-float Xn = 192.93;
-float Yn = 203.00;
-float Zn = 221.05;
+vec3 XYZn = RGB_to_XYZ(L_sdr, L_sdr, L_sdr);
+float Xn = XYZn.x;
+float Yn = XYZn.y;
+float Zn = XYZn.z;
 
 float delta = 6.0 / 29.0;
 float deltac = delta * 2.0 / 3.0;
