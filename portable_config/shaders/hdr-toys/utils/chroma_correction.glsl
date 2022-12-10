@@ -29,6 +29,14 @@
 //!WHEN sigma
 //!DESC chroma correction
 
+float chroma_correction(float L, float Lref, float Lmax, float sigma) {
+    float cor = 1.0;
+    if (L > Lref)
+        cor = max(1.0 - sigma * (L - Lref) / (Lmax - Lref), 0.0);
+
+    return cor;
+}
+
 vec3 RGB_to_XYZ(float R, float G, float B) {
     mat3 M = mat3(
         0.6370, 0.1446, 0.1689,
@@ -98,14 +106,6 @@ vec3 Lab_to_LCHab(float L, float a, float b) {
 vec3 LCHab_to_Lab(float L, float C, float H) {
     vec2 ab = C * vec2(cos(H), sin(H));
     return vec3(L, ab);
-}
-
-float chroma_correction(float L, float Lref, float Lmax, float sigma) {
-    float cor = 1.0;
-    if (L > Lref)
-        cor = max(1.0 - sigma * (L - Lref) / (Lmax - Lref), 0.0);
-
-    return cor;
 }
 
 vec4 color = HOOKED_tex(HOOKED_pos);

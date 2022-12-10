@@ -57,8 +57,6 @@ vec3 xyY_to_XYZ(float x, float y, float Y) {
 
 vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
-    const float L = dot(color.rgb, vec3(0.2627, 0.6780, 0.0593));
-
     color.rgb = RGB_to_XYZ(color.r, color.g, color.b);
     color.rgb = XYZ_to_xyY(color.r, color.g, color.b);
     color.z   = curve(color.z);
