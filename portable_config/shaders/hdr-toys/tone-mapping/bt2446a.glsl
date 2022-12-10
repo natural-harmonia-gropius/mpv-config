@@ -1,8 +1,6 @@
 // ITU-R BT.2446 Conversion Method A
 // https://www.itu.int/pub/R-REP-BT.2446
 
-// TODO: this curve makes things brighter.
-
 //!PARAM L_hdr
 //!TYPE float
 //!MINIMUM 0
@@ -19,11 +17,7 @@
 //!BIND HOOKED
 //!DESC tone mapping (bt.2446a)
 
-vec3 bt2446a(vec3 YCbCr) {
-    float Y  = YCbCr.r;
-    float Cb = YCbCr.g;
-    float Cr = YCbCr.b;
-
+float f(float Y) {
     const float pHDR = 1.0 + 32.0 * pow(L_hdr / 10000.0, 1.0 / 2.4);
     const float pSDR = 1.0 + 32.0 * pow(L_sdr / 10000.0, 1.0 / 2.4);
 
@@ -35,6 +29,17 @@ vec3 bt2446a(vec3 YCbCr) {
     else                    Yc = Yp * 0.5000 + 0.5000;
 
     const float Ysdr = (pow(pSDR, Yc) - 1.0) / (pSDR - 1.0);
+
+    return Ysdr;
+}
+
+vec3 tone_mapping(vec3 YCbCr) {
+    float Y  = YCbCr.r;
+    float Cb = YCbCr.g;
+    float Cr = YCbCr.b;
+
+    const float W = L_hdr / L_sdr;
+    const float Ysdr = f(Y) / f(W);
 
     const float Yr = Ysdr / (1.1 * Y);
     Cb *= Yr;
@@ -68,7 +73,7 @@ vec3 YCbCr_to_RGB(float Y, float Cb, float Cr) {
 vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
     color.rgb = RGB_to_YCbCr(color.r, color.g, color.b);
-    color.rgb = bt2446a(color.rgb);
+    color.rgb = tone_mapping(color.rgb);
     color.rgb = YCbCr_to_RGB(color.r, color.g, color.b);
     return color;
 }
