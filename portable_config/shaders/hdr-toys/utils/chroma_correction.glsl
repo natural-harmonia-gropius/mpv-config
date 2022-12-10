@@ -117,5 +117,6 @@ vec4 hook() {
     color.rgb = LCHab_to_Lab(color.r, color.g, color.b);
     color.rgb = Lab_to_XYZ(color.r, color.g, color.b);
     color.rgb = XYZ_to_RGB(color.r, color.g, color.b);
+    color.rgb = max(color.rgb, 0.0);
     return color;
 }
