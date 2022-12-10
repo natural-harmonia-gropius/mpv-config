@@ -10,6 +10,7 @@
 
 //!HOOK OUTPUT
 //!BIND HOOKED
+//!WHEN alpha
 //!DESC crosstalk
 
 vec3 crosstalk(vec3 x, float a) {

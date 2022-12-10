@@ -9,6 +9,7 @@
 
 //!HOOK OUTPUT
 //!BIND HOOKED
+//!WHEN alpha
 //!DESC crosstalk-inverse
 
 vec3 crosstalk_inv(vec3 x, float a) {

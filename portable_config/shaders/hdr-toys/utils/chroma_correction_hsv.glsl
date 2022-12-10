@@ -28,6 +28,7 @@
 
 //!HOOK OUTPUT
 //!BIND HOOKED
+//!WHEN sigma
 //!DESC chroma correction (hsv)
 
 vec3 RGB_to_HSV(vec3 c) {

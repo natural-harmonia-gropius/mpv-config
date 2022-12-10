@@ -31,6 +31,7 @@
 
 //!HOOK OUTPUT
 //!BIND HOOKED
+//!WHEN sigma
 //!DESC chroma correction
 
 vec3 RGB_to_XYZ(float R, float G, float B) {
