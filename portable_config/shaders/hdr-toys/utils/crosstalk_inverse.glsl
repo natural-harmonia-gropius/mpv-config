@@ -19,7 +19,7 @@ vec3 crosstalk_inv(vec3 x, float a) {
          b, -a, -a,
         -a,  b, -a,
         -a, -a,  b) / c;
-    return M * x;
+    return x * M;
 }
 
 vec4 color = HOOKED_tex(HOOKED_pos);

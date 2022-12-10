@@ -28,7 +28,7 @@ vec3 RGB_to_XYZ(float R, float G, float B) {
         0.6370, 0.1446, 0.1689,
         0.2627, 0.6780, 0.0593,
         0.0000, 0.0281, 1.0610);
-    return M * vec3(R, G, B);
+    return vec3(R, G, B) * M;
 }
 
 vec3 XYZ_to_xyY(float X, float Y, float Z) {
@@ -44,7 +44,7 @@ vec3 XYZ_to_xyY(float X, float Y, float Z) {
 vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
     float L = 0.0;
-    if (enabled == 1) {
+    if (enabled == 4) {
         // Relative luminance
         L = dot(color.rgb, vec3(0.2627, 0.6780, 0.0593));
     } else if (enabled == 2) {
@@ -53,7 +53,7 @@ vec4 hook() {
     } else if (enabled == 3) {
         // Average Code Value
         L = (color.r + color.g + color.b) / 3;
-    } else if (enabled == 4) {
+    } else if (enabled == 1) {
         // CIE xyY;
         vec3 XYZ = RGB_to_XYZ(color.r, color.g, color.b);
         vec3 xyY = XYZ_to_xyY(XYZ.x, XYZ.y, XYZ.z);

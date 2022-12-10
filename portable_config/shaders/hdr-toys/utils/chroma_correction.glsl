@@ -6,11 +6,6 @@
 // when the converted SDR content requires a degree of consistency for SDR production content. This
 // processing is applied as needed before the tone-mapping processing.
 
-// TODO: fix green tint. (I can't)
-// I don't know why, but LCH(150, 100, 0) is not white blanced,
-// and the round-trip of functions from BT.2446 are not work properly.
-// So I do this in HSV, use "chroma_correction_hsv.glsl" instead.
-
 //!PARAM L_hdr
 //!TYPE float
 //!MINIMUM 0
@@ -39,7 +34,7 @@ vec3 RGB_to_XYZ(float R, float G, float B) {
         0.6370, 0.1446, 0.1689,
         0.2627, 0.6780, 0.0593,
         0.0000, 0.0281, 1.0610);
-    return M * vec3(R, G, B);
+    return vec3(R, G, B) * M;
 }
 
 vec3 XYZ_to_RGB(float X, float Y, float Z) {
@@ -47,7 +42,7 @@ vec3 XYZ_to_RGB(float X, float Y, float Z) {
          1.7167, -0.3557, -0.2534,
         -0.6667,  1.6165,  0.0158,
          0.0176, -0.0428,  0.9421);
-    return M * vec3(X, Y, Z);
+    return vec3(X, Y, Z) * M;
 }
 
 float Xn = 192.93;
