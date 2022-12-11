@@ -34,12 +34,14 @@ float f(float Y) {
 }
 
 vec3 tone_mapping(vec3 YCbCr) {
+    const float W = L_hdr / L_sdr;
+    YCbCr /= W;
+
     float Y  = YCbCr.r;
     float Cb = YCbCr.g;
     float Cr = YCbCr.b;
 
-    const float W = L_hdr / L_sdr;
-    const float Ysdr = f(Y) / f(W);
+    const float Ysdr = f(Y);
 
     const float Yr = Ysdr / (1.1 * Y);
     Cb *= Yr;
