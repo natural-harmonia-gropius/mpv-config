@@ -19,7 +19,8 @@ float f(float Y, float k1, float k3, float ip) {
 }
 
 float curve(float x) {
-    return f(x, k1, k3, ip);
+    const float over_white = 1023.0 / 940.0;
+    return f(x, k1, k3, ip) / over_white;
 }
 
 vec3 RGB_to_XYZ(float R, float G, float B) {
