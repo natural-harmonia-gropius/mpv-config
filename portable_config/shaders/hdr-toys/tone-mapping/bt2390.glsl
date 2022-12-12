@@ -1,11 +1,23 @@
 // ITU-R BT.2390 EETF
 // https://www.itu.int/pub/R-REP-BT.2390
 
+//!PARAM L_hdr
+//!TYPE float
+//!MINIMUM 0
+//!MAXIMUM 10000
+1000.0
+
 //!PARAM L_sdr
 //!TYPE float
 //!MINIMUM 0
 //!MAXIMUM 1000
 203.0
+
+//!PARAM CONTRAST_sdr
+//!TYPE float
+//!MINIMUM 0
+//!MAXIMUM 1000000
+1000.0
 
 //!HOOK OUTPUT
 //!BIND HOOKED
@@ -37,11 +49,13 @@ float ST2084_2_Y(float N) {
 }
 
 float curve(float x) {
-    const float L_w = Y_2_ST2084(pq_C);
+    // Metadata of input
+    const float L_w = Y_2_ST2084(L_hdr);
     const float L_b = Y_2_ST2084(0.0);
 
+    // Metadata of output
     const float L_max = Y_2_ST2084(L_sdr);
-    const float L_min = Y_2_ST2084(0.0);
+    const float L_min = Y_2_ST2084(L_sdr / CONTRAST_sdr);
 
     // E'
     x = Y_2_ST2084(x * L_sdr);
@@ -74,7 +88,13 @@ float curve(float x) {
     // E4
     x = x * (L_w - L_b) + L_b;
 
-    return ST2084_2_Y(x) / L_sdr;
+    // E
+    x = ST2084_2_Y(x) / L_sdr;
+
+    // Clip black
+    x = (x - 1.0 / CONTRAST_sdr) / (1.0 - 1.0 / CONTRAST_sdr);
+
+    return x;
 }
 
 vec4 color = HOOKED_tex(HOOKED_pos);
