@@ -3,7 +3,7 @@
 
 //!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC gamut mapping (bt.2407 matrix)
+//!DESC gamut mapping (matrix)
 
 mat3 M = mat3(
      1.6605, -0.5876, -0.0728,
