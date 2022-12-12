@@ -19,7 +19,7 @@ float f(float Y, float k1, float k3, float ip) {
 }
 
 float curve(float x) {
-    const float over_white = 1023.0 / 940.0;
+    const float over_white = 1019.0 / 940.0;    // 109%
     return f(x, k1, k3, ip) / over_white;
 }
 
