@@ -57,8 +57,11 @@ float curve(float x) {
     const float L_max = Y_2_ST2084(L_sdr);
     const float L_min = Y_2_ST2084(L_sdr / CONTRAST_sdr);
 
+    // Y in
+    x = x * L_sdr;
+
     // E'
-    x = Y_2_ST2084(x * L_sdr);
+    x = Y_2_ST2084(x);
 
     // E1
     x = (x - L_b) / (L_w - L_b);
@@ -88,11 +91,11 @@ float curve(float x) {
     // E4
     x = x * (L_w - L_b) + L_b;
 
-    // E
-    x = ST2084_2_Y(x) / L_sdr;
+    // Y out
+    x = ST2084_2_Y(x);
 
-    // Clip black
-    x = (x - 1.0 / CONTRAST_sdr) / (1.0 - 1.0 / CONTRAST_sdr);
+    // Output
+    x = (x - L_sdr / CONTRAST_sdr) / (L_sdr - L_sdr / CONTRAST_sdr);
 
     return x;
 }
