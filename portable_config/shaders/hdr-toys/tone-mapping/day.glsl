@@ -25,11 +25,18 @@ const float c = 2.0;    // Cross-over point. Point where the toe and shoulder ar
 float curve(float x) {
     const float w = L_hdr / L_sdr;
     const float k = (1.0 - t) * (c - b) / ((1.0 - s) * (w - c) + (1.0 - t) * (c - b));
-    float a = x < c ?
-        k * (1.0 - t) * (x - b) / (c - (1.0 - t) * b - t * x) :
-        (1.0 - k) * (x - c) / (s * x + (1.0 - s) * w - c) + k;
-    return max(a, 0.0);
+    const float toe_coeffs = k * (1.0 - t) * (x - b) / (c - (1.0 - t) * b - t * x);
+    const float shoulder_coeffs = (1.0 - k) * (x - c) / (s * x + (1.0 - s) * w - c) + k;
+    const float a = x < c ? toe_coeffs : shoulder_coeffs;
+    return a;
 }
+
+// float Remap(float x)
+// {
+//  float4 coeffs = (x < cross_over_point) ? toe_coeffs : shoulder_coeffs;
+//  float2 fraction = coeffs.xy * x + coeffs.zw;
+//  return fraction.x / fraction.y;
+// }
 
 vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
