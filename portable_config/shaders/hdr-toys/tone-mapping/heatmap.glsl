@@ -25,6 +25,13 @@
 
 vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
+    const float l0 =     1.0 / CONTRAST_sdr;
+    const float l1 =     1.0;
+    const float l2 =  1000.0 / L_sdr;
+    const float l3 =  2000.0 / L_sdr;
+    const float l4 =  4000.0 / L_sdr;
+    const float l5 = 10000.0 / L_sdr;
+
     float L = 0.0;
     if (enabled == 1) {
         // Relative Luminance
@@ -36,13 +43,6 @@ vec4 hook() {
         // Average Code Value
         L = (color.r + color.g + color.b) / 3;
     }
-
-    const float l0 =     1.0 / CONTRAST_sdr;
-    const float l1 =     1.0;
-    const float l2 =  1000.0 / L_sdr;
-    const float l3 =  2000.0 / L_sdr;
-    const float l4 =  4000.0 / L_sdr;
-    const float l5 = 10000.0 / L_sdr;
 
     if (L > l5) {
         color.rgb = vec3(1.0, 0.0, 0.6);
