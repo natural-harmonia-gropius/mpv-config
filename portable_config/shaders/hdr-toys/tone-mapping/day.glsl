@@ -29,14 +29,11 @@ float curve(float x) {
     const float shoulder_coeffs = (1.0 - k) * (x - c) / (s * x + (1.0 - s) * w - c) + k;
     const float a = x < c ? toe_coeffs : shoulder_coeffs;
     return a;
-}
 
-// float Remap(float x)
-// {
-//  float4 coeffs = (x < cross_over_point) ? toe_coeffs : shoulder_coeffs;
-//  float2 fraction = coeffs.xy * x + coeffs.zw;
-//  return fraction.x / fraction.y;
-// }
+    // vec4 coeffs = vec4(a);   // ?
+    // vec2 fraction = coeffs.xy * x + coeffs.zw;
+    // return fraction.x / fraction.y;
+}
 
 vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
