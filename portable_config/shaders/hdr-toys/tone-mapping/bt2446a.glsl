@@ -18,6 +18,8 @@
 //!DESC tone mapping (bt.2446a)
 
 float f(float Y) {
+    Y = pow(Y, 1.0 / 2.4);
+
     const float pHDR = 1.0 + 32.0 * pow(L_hdr / 10000.0, 1.0 / 2.4);
     const float pSDR = 1.0 + 32.0 * pow(L_sdr / 10000.0, 1.0 / 2.4);
 
@@ -30,7 +32,9 @@ float f(float Y) {
 
     const float Ysdr = (pow(pSDR, Yc) - 1.0) / (pSDR - 1.0);
 
-    return Ysdr;
+    Y = pow(Ysdr, 2.4);
+
+    return Y;
 }
 
 vec3 tone_mapping(vec3 YCbCr) {
