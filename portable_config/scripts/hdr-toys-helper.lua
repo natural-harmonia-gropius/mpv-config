@@ -10,6 +10,11 @@ end
 
 function set_hdr_white(w)
     w = math.clamp(w, 0, 10000)
+
+    if w >= 5000 then
+        return;
+    end
+
     mp.command("no-osd set glsl-shader-opts L_hdr=" .. w)
 end
 
