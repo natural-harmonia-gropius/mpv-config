@@ -3,7 +3,7 @@
 //!PARAM bias
 //!TYPE float
 //!MINIMUM 0
-//!MAXIMUM 100
+//!MAXIMUM 10000
 1.0
 
 //!HOOK OUTPUT
