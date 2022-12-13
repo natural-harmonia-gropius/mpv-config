@@ -20,7 +20,7 @@
 const float o = pow(0.5, 2.4);  // mid-grey of output
 const float i = o;              // mid-grey of input
 const float a = 1.6;            // contrast
-const float d = 0.99;           // shoulder
+const float d = 0.98;           // shoulder
 
 float curve(float x) {
     const float w = L_hdr / L_sdr;
