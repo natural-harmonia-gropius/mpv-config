@@ -6,7 +6,7 @@
 
 //!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC gamut mapping (hue, chroma)
+//!DESC gamut mapping (lightness, chroma)
 
 vec3 RGB_to_XYZ(float R, float G, float B) {
     mat3 M = mat3(
