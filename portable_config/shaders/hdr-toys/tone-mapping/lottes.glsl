@@ -17,19 +17,19 @@
 //!BIND HOOKED
 //!DESC tone mapping (lottes)
 
-const float a      = 1.6;
-const float d      = 0.977;
-const float midIn  = 0.18;
-const float midOut = 0.267;
+const float o = pow(0.5, 2.4);  // mid-grey of output
+const float i = o;              // mid-grey of input
+const float a = 1.44;           // contrast
+const float d = 0.88;           // shoulder
 
 float curve(float x) {
     const float w = L_hdr / L_sdr;
     const float b =
-        (-pow(midIn, a) + pow(w, a) * midOut) /
-        ((pow(w, a * d) - pow(midIn, a * d)) * midOut);
+        (-pow(i, a) + pow(w, a) * o) /
+        ((pow(w, a * d) - pow(i, a * d)) * o);
     const float c =
-        (pow(w, a * d) * pow(midIn, a) - pow(w, a) * pow(midIn, a * d) * midOut) /
-        ((pow(w, a * d) - pow(midIn, a * d)) * midOut);
+        (pow(w, a * d) * pow(i, a) - pow(w, a) * pow(i, a * d) * o) /
+        ((pow(w, a * d) - pow(i, a * d)) * o);
 
     return pow(x, a) / (pow(x, a * d) * b + c);
 }
