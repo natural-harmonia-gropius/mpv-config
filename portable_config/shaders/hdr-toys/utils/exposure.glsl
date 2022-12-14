@@ -1,18 +1,18 @@
-// Adjusts the linear exposure value by scaling the input by the values in bias.
+// https://en.wikipedia.org/wiki/Exposure_value
 
-//!PARAM bias
+//!PARAM ev
 //!TYPE float
-//!MINIMUM 0
-//!MAXIMUM 10000
-1.0
+//!MINIMUM -64
+//!MAXIMUM  64
+0
 
 //!HOOK OUTPUT
 //!BIND HOOKED
-//!WHEN bias 1 -
-//!DESC exposure scaling
+//!WHEN ev
+//!DESC exposure
 
 vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
-    color.rgb *= bias;
+    color.rgb *= pow(2.0, ev);
     return color;
 }
