@@ -120,6 +120,7 @@ vec4 hook() {
     color.rgb = XYZ_to_RGB(color.r, color.g, color.b);
     color.rgb = max(color.rgb, 0.0);
     color.rgb *= M;
+    color.rgb = clamp(color.rgb, 0.0, 1.0);
     color.rgb = RGB_to_XYZ(color.r, color.g, color.b);
     color.rgb = XYZ_to_Lab(color.r, color.g, color.b);
     color.rgb = Lab_to_LCHab(color.r, color.g, color.b);
