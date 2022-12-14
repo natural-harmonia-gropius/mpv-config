@@ -1,6 +1,6 @@
 //!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC clip code value (black & white)
+//!DESC clip code value (black, white)
 
 // Handle out-of-gamut values
 // Clip values < 0 or > 1 (i.e. projecting outside the display primaries)
