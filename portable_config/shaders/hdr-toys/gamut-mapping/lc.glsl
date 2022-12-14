@@ -105,32 +105,30 @@ mat3 M = mat3(
 
 vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
-    // const float C = dot(color.rgb, vec3(104.55, 119.78, 133.81)) / 3.0;
-    // color.g  *= C_ref / C;
-    // const float H_delta = dot(color.rgb, vec3(-0.58, -9.9, 0.69) / 360.0);
-    // color.b  += H_delta;
+    float a = color.a;
+    vec3 color_src = color.rgb;
+    vec3 color_m = color.rgb * M;
+    vec3 color_cliped = clamp(color_m, 0.0, 1.0);
 
-    color.rgb = RGB_to_XYZ(color.r, color.g, color.b);
-    color.rgb = XYZ_to_Lab(color.r, color.g, color.b);
-    color.rgb = Lab_to_LCHab(color.r, color.g, color.b);
-    vec4 color2 = color;
+    if (color_cliped != color_m) {
+        color_cliped = RGB_to_XYZ(color_cliped.r, color_cliped.g, color_cliped.b);
+        color_cliped = XYZ_to_Lab(color_cliped.r, color_cliped.g, color_cliped.b);
+        color_cliped = Lab_to_LCHab(color_cliped.r, color_cliped.g, color_cliped.b);
 
-    color.rgb = LCHab_to_Lab(color.r, color.g, color.b);
-    color.rgb = Lab_to_XYZ(color.r, color.g, color.b);
-    color.rgb = XYZ_to_RGB(color.r, color.g, color.b);
-    color.rgb = max(color.rgb, 0.0);
-    color.rgb *= M;
-    color.rgb = clamp(color.rgb, 0.0, 1.0);
-    color.rgb = RGB_to_XYZ(color.r, color.g, color.b);
-    color.rgb = XYZ_to_Lab(color.r, color.g, color.b);
-    color.rgb = Lab_to_LCHab(color.r, color.g, color.b);
+        color_src = RGB_to_XYZ(color_src.r, color_src.g, color_src.b);
+        color_src = XYZ_to_Lab(color_src.r, color_src.g, color_src.b);
+        color_src = Lab_to_LCHab(color_src.r, color_src.g, color_src.b);
 
-    color2.r = color.r;
-    color2.g = color.g;
-    color2.rgb = LCHab_to_Lab(color2.r, color2.g, color2.b);
-    color2.rgb = Lab_to_XYZ(color2.r, color2.g, color2.b);
-    color2.rgb = XYZ_to_RGB(color2.r, color2.g, color2.b);
-    color2.rgb = max(color2.rgb, 0.0);
+        color_src.r = color_cliped.r;
+        color_src.g = color_cliped.g;
 
-    return color2;
+        color_src = LCHab_to_Lab(color_src.r, color_src.g, color_src.b);
+        color_src = Lab_to_XYZ(color_src.r, color_src.g, color_src.b);
+        color_src = XYZ_to_RGB(color_src.r, color_src.g, color_src.b);
+        color_src = max(color_src.rgb, 0.0);
+
+        return vec4(color_src, a);
+    }
+
+    return vec4(color_cliped, a);
 }
