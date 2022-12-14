@@ -106,8 +106,8 @@ mat3 M = mat3(
 vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
     float a = color.a;
-    vec3 color_src = color.rgb;
-    vec3 color_m = color.rgb * M;
+    vec3 color_src = clamp(color.rgb, 0.0, 1.0);
+    vec3 color_m = color_src * M;
     vec3 color_cliped = clamp(color_m, 0.0, 1.0);
 
     if (color_cliped != color_m) {
