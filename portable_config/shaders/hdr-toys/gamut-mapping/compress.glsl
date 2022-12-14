@@ -11,19 +11,19 @@
 //!TYPE float
 //!MINIMUM 0
 //!MAXIMUM 1
-0.09
+0.147
 
 //!PARAM magenta
 //!TYPE float
 //!MINIMUM 0
 //!MAXIMUM 1
-0.24
+0.264
 
 //!PARAM yellow
 //!TYPE float
 //!MINIMUM 0
 //!MAXIMUM 1
-0.12
+0.006
 
 //!PARAM select
 //!TYPE float
