@@ -48,27 +48,74 @@ float ST2084_2_Y(float N) {
     return L * pq_C;
 }
 
-float curve(float x) {
-    // Metadata of input
-    const float L_w = Y_2_ST2084(L_hdr);
-    const float L_b = Y_2_ST2084(0.0);
+vec3 RGB_to_XYZ(float R, float G, float B) {
+    mat3 M = mat3(
+        0.6370, 0.1446, 0.1689,
+        0.2627, 0.6780, 0.0593,
+        0.0000, 0.0281, 1.0610);
+    return vec3(R, G, B) * M;
+}
 
-    // Metadata of output
-    const float L_max = Y_2_ST2084(L_sdr);
-    const float L_min = Y_2_ST2084(L_sdr / CONTRAST_sdr);
+vec3 XYZ_to_RGB(float X, float Y, float Z) {
+    mat3 M = mat3(
+         1.7167, -0.3557, -0.2534,
+        -0.6667,  1.6165,  0.0158,
+         0.0176, -0.0428,  0.9421);
+    return vec3(X, Y, Z) * M;
+}
 
-    // Y in
-    x = x * L_sdr;
+vec3 XYZ_to_LMS(float X, float Y, float Z) {
+    mat3 M = mat3(
+         0.359, 0.696, -0.036,
+        -0.192, 1.100,  0.075,
+         0.007, 0.075,  0.843);
+    return vec3(X, Y, Z) * M;
+}
 
-    // E'
-    x = Y_2_ST2084(x);
+vec3 LMS_to_XYZ(float L, float M, float S) {
+    mat3 MM = mat3(
+         2.071, -1.327,  0.207,
+         0.365,  0.681, -0.045,
+        -0.049, -0.050,  1.188);
+    return vec3(L, M, S) * MM;
+}
+
+vec3 LMS_to_ICtCp(float L, float M, float S) {
+    vec3 VV = vec3(L, M, S);
+    VV.r = Y_2_ST2084(VV.r);
+    VV.g = Y_2_ST2084(VV.g);
+    VV.b = Y_2_ST2084(VV.b);
+    mat3 MM = mat3(
+         2048,   2048,    0,
+         6610, -13613, 7003,
+        17933, -17390, -543) / 4096;
+    return VV * MM;
+}
+
+vec3 ICtCp_to_LMS(float I, float Ct, float Cp) {
+    vec3 VV = vec3(I, Ct, Cp);
+    mat3 MM = mat3(
+        1.0,  0.009,  0.111,
+        1.0, -0.009, -0.111,
+        1.0,  0.560, -0.321);
+    VV *= MM;
+    VV.r = ST2084_2_Y(VV.r);
+    VV.g = ST2084_2_Y(VV.g);
+    VV.b = ST2084_2_Y(VV.b);
+    return VV;
+}
+
+float EETF(float x, float L_w, float L_b, float L_max, float L_min) {
+    const float maxLum = (L_max - L_b) / (L_w - L_b);
+    const float minLum = (L_min - L_b) / (L_w - L_b);
+
+    const float KS = 1.5 * maxLum - 0.5;
+    const float b = minLum;
 
     // E1
     x = (x - L_b) / (L_w - L_b);
 
     // E2
-    const float maxLum = (L_max - L_b) / (L_w - L_b);
-    const float KS = 1.5 * maxLum - 0.5;
     if (KS <= x && x <= 1.0) {
         const float TB  = (x - KS) / (1.0 - KS);
         const float TB2 = TB * TB;
@@ -82,8 +129,6 @@ float curve(float x) {
     }
 
     // E3
-    const float minLum = (L_min - L_b) / (L_w - L_b);
-    const float b = minLum;
     if (0.0 <= x && x <= 1.0) {
         x = x + b * pow((1 - x), 4.0);
     }
@@ -91,18 +136,29 @@ float curve(float x) {
     // E4
     x = x * (L_w - L_b) + L_b;
 
-    // Y out
-    x = ST2084_2_Y(x);
-
-    // Output
-    x = (x - L_sdr / CONTRAST_sdr) / (L_sdr - L_sdr / CONTRAST_sdr);
-
     return x;
 }
 
 vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
-    const float L = dot(color.rgb, vec3(0.2627, 0.6780, 0.0593));
-    color.rgb *= curve(L) / L;
+    color.rgb *= L_sdr;
+    color.rgb = RGB_to_XYZ(color.r, color.g, color.b);
+    color.rgb = XYZ_to_LMS(color.r, color.g, color.b);
+    color.rgb = LMS_to_ICtCp(color.r, color.g, color.b);
+
+    const float iw = L_hdr;
+    const float ib = 0.0;
+    const float ow = L_sdr;
+    // const float ob = L_sdr / CONTRAST_sdr;
+    const float ob = 0.0;
+
+    float I2  = EETF(color.r, Y_2_ST2084(iw), Y_2_ST2084(ib), Y_2_ST2084(ow), Y_2_ST2084(ob));
+    color.gb *= min(color.r / I2, I2 / color.r);
+    color.r   = I2;
+
+    color.rgb = ICtCp_to_LMS(color.r, color.g, color.b);
+    color.rgb = LMS_to_XYZ(color.r, color.g, color.b);
+    color.rgb = XYZ_to_RGB(color.r, color.g, color.b);
+    color.rgb /= L_sdr;
     return color;
 }

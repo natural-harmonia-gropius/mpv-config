@@ -17,20 +17,15 @@
 //!BIND HOOKED
 //!DESC tone mapping (hejl2015)
 
-float f(float x) {
-    float a = (1.425 * x) + 0.05;
-    return ((x * a + 0.004) / ((x * (a + 0.55) + 0.0491))) - 0.0821;
-}
-
-float curve(float x) {
-    const float w = L_hdr / L_sdr;
-    float a = f(x) / f(w);
-    return max(a, 0.0);
+vec3 curve(vec3 rgb, float w) {
+    vec4 vh = vec4(rgb, w);
+    vec4 va = (1.425 * vh) + 0.05;
+    vec4 vf = ((vh * va + 0.004) / ((vh * (va + 0.55) + 0.0491))) - 0.0821;
+    return vf.rgb / vf.www;
 }
 
 vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
-    const float L = dot(color.rgb, vec3(0.2627, 0.6780, 0.0593));
-    color.rgb *= curve(L) / L;
+    color.rgb = curve(color.rgb, L_hdr / L_sdr);
     return color;
 }

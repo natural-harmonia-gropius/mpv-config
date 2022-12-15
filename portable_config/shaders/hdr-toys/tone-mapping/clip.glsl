@@ -21,7 +21,8 @@ float curve(float x) {
 
 vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
-    const float L = dot(color.rgb, vec3(0.2627, 0.6780, 0.0593));
-    color.rgb *= curve(L) / L;
+    color.r = curve(color.r);
+    color.g = curve(color.g);
+    color.b = curve(color.b);
     return color;
 }
