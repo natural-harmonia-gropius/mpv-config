@@ -13,6 +13,6 @@
 
 vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
-    color.rgb *= pow(2.0, ev);
+    color.rgb *= exp2(ev);
     return color;
 }
