@@ -48,6 +48,24 @@ float ST2084_2_Y(float N) {
     return L * pq_C;
 }
 
+const float DISPGAMMA = 2.4;
+const float L_W = 1.0;
+const float L_B = 0.0;
+
+float bt1886_r(float L, float gamma, float Lw, float Lb) {
+    float a = pow(pow(Lw, 1.0 / gamma) - pow(Lb, 1.0 / gamma), gamma);
+    float b = pow(Lb, 1.0 / gamma) / (pow(Lw, 1.0 / gamma) - pow(Lb, 1.0 / gamma));
+    float V = pow(max(L / a, 0.0), 1.0 / gamma) - b;
+    return V;
+}
+
+float bt1886_f(float V, float gamma, float Lw, float Lb) {
+    float a = pow(pow(Lw, 1.0 / gamma) - pow(Lb, 1.0 / gamma), gamma);
+    float b = pow(Lb, 1.0 / gamma) / (pow(Lw, 1.0 / gamma) - pow(Lb, 1.0 / gamma));
+    float L = a * pow(max(V + b, 0.0), gamma);
+    return L;
+}
+
 vec3 RGB_to_XYZ(float R, float G, float B) {
     mat3 M = mat3(
         0.6370, 0.1446, 0.1689,
@@ -146,13 +164,12 @@ vec4 hook() {
     color.rgb = XYZ_to_LMS(color.r, color.g, color.b);
     color.rgb = LMS_to_ICtCp(color.r, color.g, color.b);
 
-    const float iw = L_hdr;
-    const float ib = 0.0;
-    const float ow = L_sdr;
-    // const float ob = L_sdr / CONTRAST_sdr;
-    const float ob = 0.0;
+    const float iw = Y_2_ST2084(L_hdr);
+    const float ib = Y_2_ST2084(0.0);
+    const float ow = Y_2_ST2084(L_sdr);
+    const float ob = Y_2_ST2084(L_sdr / CONTRAST_sdr);
 
-    float I2  = EETF(color.r, Y_2_ST2084(iw), Y_2_ST2084(ib), Y_2_ST2084(ow), Y_2_ST2084(ob));
+    float I2  = EETF(color.r, iw, ib, ow, ob);
     color.gb *= min(color.r / I2, I2 / color.r);
     color.r   = I2;
 
@@ -160,5 +177,18 @@ vec4 hook() {
     color.rgb = LMS_to_XYZ(color.r, color.g, color.b);
     color.rgb = XYZ_to_RGB(color.r, color.g, color.b);
     color.rgb /= L_sdr;
+
+    color.rgb = vec3(
+        bt1886_r(color.r, DISPGAMMA, L_W, L_W / CONTRAST_sdr),
+        bt1886_r(color.g, DISPGAMMA, L_W, L_W / CONTRAST_sdr),
+        bt1886_r(color.b, DISPGAMMA, L_W, L_W / CONTRAST_sdr)
+    );
+
+    color.rgb = vec3(
+        bt1886_f(color.r, DISPGAMMA, L_W, L_B),
+        bt1886_f(color.g, DISPGAMMA, L_W, L_B),
+        bt1886_f(color.b, DISPGAMMA, L_W, L_B)
+    );
+
     return color;
 }
