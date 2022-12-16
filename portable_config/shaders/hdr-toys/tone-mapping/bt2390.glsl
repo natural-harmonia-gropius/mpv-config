@@ -134,7 +134,7 @@ float EETF(float x, float L_w, float L_b, float L_max, float L_min) {
     x = (x - L_b) / (L_w - L_b);
 
     // E2
-    if (KS <= x && x <= 1.0) {
+    if (KS <= x) {
         const float TB  = (x - KS) / (1.0 - KS);
         const float TB2 = TB * TB;
         const float TB3 = TB * TB2;
@@ -147,7 +147,7 @@ float EETF(float x, float L_w, float L_b, float L_max, float L_min) {
     }
 
     // E3
-    if (0.0 <= x && x <= 1.0) {
+    if (0.0 <= x) {
         x = x + b * pow((1 - x), 4.0);
     }
 
