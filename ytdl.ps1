@@ -1,4 +1,5 @@
 yt-dlp `
+    --cookies-from-browser=edge `
     --embed-metadata `
     --embed-chapters `
     --embed-subs `
