@@ -1,12 +1,12 @@
--- quality-menu 3.0.0 - 2022-Nov-05
+-- quality-menu 3.0.1 - 2022-Dec-11
 -- https://github.com/christoph-heinrich/mpv-quality-menu
 --
 -- Change the stream video and audio quality on the fly.
 --
 -- Usage:
 -- add bindings to input.conf:
--- Ctrl+f script-binding quality_menu/video_formats_toggle
--- Alt+f  script-binding quality_menu/audio_formats_toggle
+-- F     script-binding quality_menu/video_formats_toggle
+-- Alt+f script-binding quality_menu/audio_formats_toggle
 
 local mp = require 'mp'
 local utils = require 'mp.utils'
@@ -19,7 +19,7 @@ local opts = {
     up_binding = "UP WHEEL_UP",
     down_binding = "DOWN WHEEL_DOWN",
     select_binding = "ENTER MBTN_LEFT",
-    close_menu_binding = "ESC MBTN_RIGHT Ctrl+f Alt+f",
+    close_menu_binding = "ESC MBTN_RIGHT F Alt+f",
 
     --youtube-dl version(could be youtube-dl or yt-dlp, or something else)
     ytdl_ver = "yt-dlp",
@@ -31,7 +31,7 @@ local opts = {
     unselected_and_inactive = "○ - ",
 
     --font size scales by window, if false requires larger font and padding sizes
-    scale_playlist_by_window = false,
+    scale_playlist_by_window = true,
 
     --playlist ass style overrides inside curly brackets, \keyvalue is one field, extra \ for escape in lua
     --example {\\fnUbuntu\\fs10\\b0\\bord1} equals: font=Ubuntu, size=10, bold=no, border=1
@@ -129,6 +129,7 @@ opt.read_options(opts, "quality-menu")
 opts.quality_strings = utils.parse_json(opts.quality_strings)
 
 opts.font_size = tonumber(opts.style_ass_tags:match('\\fs(%d+%.?%d*)')) or mp.get_property_number('osd-font-size') or 25
+opts.curtain_opacity = math.max(math.min(opts.curtain_opacity, 1), 0)
 
 -- special thanks to reload.lua (https://github.com/4e6/mpv-reload/)
 local function reload_resume()
@@ -418,7 +419,11 @@ end
 
 local function download_formats(url)
 
-    mp.osd_message("fetching available formats with youtube-dl...", 60)
+    if opts.fetch_on_start and not opts.start_with_menu then
+        msg.info("fetching available formats with youtube-dl...")
+    else
+        mp.osd_message("fetching available formats with youtube-dl...", 60)
+    end
 
     if not (ytdl.searched) then
         local ytdl_mcd = mp.find_config_file(opts.ytdl_ver)
@@ -684,13 +689,15 @@ local function show_menu(isvideo)
     local function draw_menu()
         local ass = assdraw.ass_new()
 
-        local alpha = 255 - math.ceil(255 * opts.curtain_opacity)
-        ass.text = string.format('{\\pos(0,0)\\rDefault\\an7\\1c&H000000&\\alpha&H%X&}', alpha)
-        ass:draw_start()
-        ass:rect_cw(0, 0, width, height)
-        ass:draw_stop()
+        if opts.curtain_opacity > 0 then
+            local alpha = 255 - math.ceil(255 * opts.curtain_opacity)
+            ass.text = string.format('{\\pos(0,0)\\rDefault\\an7\\1c&H000000&\\alpha&H%X&}', alpha)
+            ass:draw_start()
+            ass:rect_cw(0, 0, width, height)
+            ass:draw_stop()
+            ass:new_event()
+        end
 
-        ass:new_event()
         local scrolled_lines = get_scrolled_lines()
         local pos_y = opts.shift_y + margin_top * height + opts.text_padding_y - scrolled_lines * opts.font_size
         ass:pos(opts.shift_x + opts.text_padding_x, pos_y)
