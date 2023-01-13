@@ -60,14 +60,25 @@ function command_invert(command)
     for i, v in ipairs(command_list) do
         local trimed = v:trim()
         local subs = trimed:split("%s*")
-        local prefix = table.has(prefixes, subs[1]) and subs[1] or ""
-        local command = subs[prefix == "" and 1 or 2]
-        local property = subs[prefix == "" and 2 or 3]
+        local prefix = ""
+        local command = ""
+        local property = ""
+
+        for index, value in ipairs(subs) do
+            if table.has(prefixes, value) then
+                prefix = prefix .. value .. " "
+            elseif command == "" then
+                command = value
+            elseif property == "" then
+                property = value
+            end
+        end
+
         local value = mp.get_property(property)
         local semi = i == #command_list and "" or ";"
 
         if table.has(commands, command) then
-            invert = invert .. prefix .. " set " .. property .. " " .. value .. semi
+            invert = invert .. prefix .. "set " .. property .. " " .. value .. semi
         else
             mp.msg.warn("\"" .. trimed .. "\" doesn't support auto restore.")
         end
