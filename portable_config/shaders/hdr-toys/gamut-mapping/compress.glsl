@@ -75,8 +75,7 @@ vec4 hook() {
     // Inverse RGB Ratios to RGB
     vec3 crgb = ac - cd * abs(ac);
 
-    crgb = mix(rgb, crgb, select);
+    color.rgb = mix(rgb, crgb, select);
 
-    color.rgb = crgb;
     return color;
 }
