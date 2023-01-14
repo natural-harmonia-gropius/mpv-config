@@ -1,3 +1,5 @@
+// https://professional.dolby.com/siteassets/pdfs/ictcp_dolbywhitepaper_v071.pdf
+
 //!PARAM L_sdr
 //!TYPE float
 //!MINIMUM 0

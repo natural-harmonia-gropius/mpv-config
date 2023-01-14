@@ -1,4 +1,4 @@
-// Filmic curve by John Hable, see the "Filmic Tonemapping Also known as the "Uncharted 2 curve".
+// Filmic curve by John Hable, Also known as the "Uncharted 2 curve".
 // http://filmicworlds.com/blog/filmic-tonemapping-operators/
 
 //!PARAM L_hdr

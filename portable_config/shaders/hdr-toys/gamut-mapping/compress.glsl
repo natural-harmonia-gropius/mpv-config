@@ -1,4 +1,4 @@
-// compress highly chromatic source colorimetry into a smaller gamut.
+// Compress highly chromatic source colorimetry into a smaller gamut
 // https://github.com/jedypod/gamut-compress
 
 //!PARAM threshold
@@ -42,9 +42,11 @@ mat3 M = mat3(
 
 vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
-    vec3 rgb = color.rgb;
-    rgb = clamp(rgb, 0.0, 1.0);
-    rgb *= M;
+    vec3 color_src = color.rgb;
+    vec3 color_src_cliped = clamp(color_src, 0.0, 1.0);
+    vec3 color_dst = color_src_cliped * M;
+
+    vec3 rgb = color_dst;
 
     // Amount of outer gamut to affect
     vec3 th = 1.0 - vec3(threshold);

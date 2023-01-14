@@ -1,4 +1,4 @@
-// Clip the code value out of sdr range.
+// Crop code values that are out of the SDR range
 
 //!PARAM CONTRAST_sdr
 //!TYPE float
