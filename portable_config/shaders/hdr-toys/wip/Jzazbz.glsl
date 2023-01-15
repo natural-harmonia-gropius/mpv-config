@@ -1,3 +1,5 @@
+// https://observablehq.com/@jrus/jzazbz
+
 //!HOOK OUTPUT
 //!BIND HOOKED
 //!DESC Jzazbz
