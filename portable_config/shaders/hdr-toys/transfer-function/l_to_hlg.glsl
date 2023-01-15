@@ -12,7 +12,7 @@ const float a = 0.17883277;
 const float b = 0.28466892;  // 1 - 4 * a;
 const float c = 0.55991073;  // 0.5 - a * log(4 * a);
 
-vec3 Y_2_HLG(vec3 displayLinear) {
+vec3 Y_to_HLG(vec3 displayLinear) {
     // HLG Inverse EOTF (i.e. HLG inverse OOTF followed by the HLG OETF)
 
     // HLG Inverse OOTF (display linear to scene linear)
@@ -38,6 +38,6 @@ vec3 Y_2_HLG(vec3 displayLinear) {
 
 vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
-    color.rgb = Y_2_HLG(color.rgb);
+    color.rgb = Y_to_HLG(color.rgb);
     return color;
 }

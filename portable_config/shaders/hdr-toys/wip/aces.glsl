@@ -82,16 +82,16 @@ vec4 hook() {
 
 
     const Chromaticities DISPLAY_PRI = REC709_PRI;
-    const float XYZ_2_DISPLAY_PRI_MAT[4][4] = XYZtoRGB(DISPLAY_PRI,1.0);
+    const float XYZ_to_DISPLAY_PRI_MAT[4][4] = XYZtoRGB(DISPLAY_PRI,1.0);
 
-    const mat4 DISPLAY_PRI_2_XYZ_MAT = RGBtoXYZ(DISPLAY_PRI, 1.0);
+    const mat4 DISPLAY_PRI_to_XYZ_MAT = RGBtoXYZ(DISPLAY_PRI, 1.0);
 
     // Convert from display primary encoding
     // Display primaries to CIE XYZ
-    vec3 XYZ = mult_f3_f44( linearCV, DISPLAY_PRI_2_XYZ_MAT);
+    vec3 XYZ = mult_f3_f44( linearCV, DISPLAY_PRI_to_XYZ_MAT);
 
     // CIE XYZ to rendering space RGB
-    linearCV = mult_f3_f44( XYZ, XYZ_2_AP1_MAT);
+    linearCV = mult_f3_f44( XYZ, XYZ_to_AP1_MAT);
 
     // Undo desaturation to compensate for luminance difference
     linearCV = mult_f3_f33( linearCV, invert_f33( ODT_SAT_MAT));
@@ -104,10 +104,10 @@ vec4 hook() {
 
     // Convert to display primary encoding
     // Rendering space RGB to XYZ
-    vec3 XYZ = mult_f3_f44( linearCV, AP1_2_XYZ_MAT);
+    vec3 XYZ = mult_f3_f44( linearCV, AP1_to_XYZ_MAT);
 
     // CIE XYZ to display primaries
-    linearCV = mult_f3_f44( XYZ, XYZ_2_DISPLAY_PRI_MAT);
+    linearCV = mult_f3_f44( XYZ, XYZ_to_DISPLAY_PRI_MAT);
 
     // Handle out-of-gamut values
     // Clip values < 0 or > 1 (i.e. projecting outside the display primaries)

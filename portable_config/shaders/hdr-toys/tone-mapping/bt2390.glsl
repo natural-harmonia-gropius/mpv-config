@@ -31,7 +31,7 @@ const float pq_c3 = 18.6875;
 
 const float pq_C  = 10000.0;
 
-float Y_2_ST2084(float C) {
+float Y_to_ST2084(float C) {
     float L = C / pq_C;
     float Lm = pow(L, pq_m1);
     float N = (pq_c1 + pq_c2 * Lm) / (1.0 + pq_c3 * Lm);
@@ -39,7 +39,7 @@ float Y_2_ST2084(float C) {
     return N;
 }
 
-float ST2084_2_Y(float N) {
+float ST2084_to_Y(float N) {
     float Np = pow(N, 1.0 / pq_m2);
     float L = Np - pq_c1;
     if (L < 0.0 ) L = 0.0;
@@ -100,9 +100,9 @@ vec3 LMS_to_XYZ(float L, float M, float S) {
 
 vec3 LMS_to_ICtCp(float L, float M, float S) {
     vec3 VV = vec3(L, M, S);
-    VV.r = Y_2_ST2084(VV.r);
-    VV.g = Y_2_ST2084(VV.g);
-    VV.b = Y_2_ST2084(VV.b);
+    VV.r = Y_to_ST2084(VV.r);
+    VV.g = Y_to_ST2084(VV.g);
+    VV.b = Y_to_ST2084(VV.b);
     mat3 MM = mat3(
          2048,   2048,    0,
          6610, -13613, 7003,
@@ -117,9 +117,9 @@ vec3 ICtCp_to_LMS(float I, float Ct, float Cp) {
         1.0, -0.009, -0.111,
         1.0,  0.560, -0.321);
     VV *= MM;
-    VV.r = ST2084_2_Y(VV.r);
-    VV.g = ST2084_2_Y(VV.g);
-    VV.b = ST2084_2_Y(VV.b);
+    VV.r = ST2084_to_Y(VV.r);
+    VV.g = ST2084_to_Y(VV.g);
+    VV.b = ST2084_to_Y(VV.b);
     return VV;
 }
 
@@ -164,10 +164,10 @@ vec4 hook() {
     color.rgb = XYZ_to_LMS(color.r, color.g, color.b);
     color.rgb = LMS_to_ICtCp(color.r, color.g, color.b);
 
-    const float iw = Y_2_ST2084(L_hdr);
-    const float ib = Y_2_ST2084(0.0);
-    const float ow = Y_2_ST2084(L_sdr);
-    const float ob = Y_2_ST2084(L_sdr / CONTRAST_sdr);
+    const float iw = Y_to_ST2084(L_hdr);
+    const float ib = Y_to_ST2084(0.0);
+    const float ow = Y_to_ST2084(L_sdr);
+    const float ob = Y_to_ST2084(L_sdr / CONTRAST_sdr);
 
     float I2  = EETF(color.r, iw, ib, ow, ob);
     color.gb *= min(color.r / I2, I2 / color.r);

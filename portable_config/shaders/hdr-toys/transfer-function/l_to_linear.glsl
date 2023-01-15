@@ -16,12 +16,12 @@
 //!BIND HOOKED
 //!DESC luminance to linear
 
-vec3 Y_2_linCV(vec3 Y, float Ymax, float Ymin) {
+vec3 Y_to_linCV(vec3 Y, float Ymax, float Ymin) {
     return (Y - Ymin) / (Ymax - Ymin);
 }
 
 vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
-    color.rgb = Y_2_linCV(color.rgb, L_sdr, Lb_sdr);
+    color.rgb = Y_to_linCV(color.rgb, L_sdr, Lb_sdr);
     return color;
 }

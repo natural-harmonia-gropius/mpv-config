@@ -15,7 +15,7 @@ const float pq_C  = 10000.0;
 // Note that this is in float, and assumes normalization from 0 - 1
 // (0 - pq_C for linear) and does not handle the integer coding in the Annex
 // sections of SMPTE ST 2084-2014
-float ST2084_2_Y(float N) {
+float ST2084_to_Y(float N) {
     // Note that this does NOT handle any of the signal range
     // considerations from 2084 - this assumes full range (0 - 1)
     float Np = pow(N, 1.0 / pq_m2);
@@ -28,12 +28,12 @@ float ST2084_2_Y(float N) {
 
 // ST.2084 EOTF (non-linear PQ to display light)
 // converts from PQ code values to cd/m^2
-vec3 ST2084_2_Y_f3(vec3 rgb) {
-    return vec3(ST2084_2_Y(rgb.r), ST2084_2_Y(rgb.g), ST2084_2_Y(rgb.b));
+vec3 ST2084_to_Y_f3(vec3 rgb) {
+    return vec3(ST2084_to_Y(rgb.r), ST2084_to_Y(rgb.g), ST2084_to_Y(rgb.b));
 }
 
 vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
-    color.rgb = ST2084_2_Y_f3(color.rgb);
+    color.rgb = ST2084_to_Y_f3(color.rgb);
     return color;
 }
