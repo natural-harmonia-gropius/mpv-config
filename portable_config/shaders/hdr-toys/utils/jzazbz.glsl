@@ -83,13 +83,17 @@ vec3 Iab_to_Cone(float I, float a, float b) {
     return vec3(I, a, b) * M;
 }
 
+
+const float b = 1.15;
+const float g = 0.66;
+
+const float d = -0.56;
+const float d0 = 1.6295499532821566e-11;
+
 vec3 RGB_to_Jzazbz(vec3 color, float L_sdr) {
     color *= L_sdr;
 
     color = RGB_to_XYZ(color.r, color.g, color.b);
-
-    float b = 1.15;
-    float g = 0.66;
 
     float Xm = (b * color.x) - ((b - 1.0) * color.z);
     float Ym = (g * color.y) - ((g - 1.0) * color.x);
@@ -102,18 +106,12 @@ vec3 RGB_to_Jzazbz(vec3 color, float L_sdr) {
 
     color = Cone_to_Iab(color.r, color.g, color.b);
 
-    float d = -0.56;
-    float d0 = 1.6295499532821566e-11;
-
     color.r = ((1.0 + d) * color.r) / (1.0 + (d * color.r)) - d0;
 
     return color;
 }
 
 vec3 Jzazbz_to_RGB(vec3 color, float L_sdr) {
-    float d = -0.56;
-    float d0 = 1.6295499532821566e-11;
-
     color.r = (color.r + d0) / (1.0 + d - d * (color.r + d0));
 
     color = Iab_to_Cone(color.r, color.g, color.b);
@@ -123,9 +121,6 @@ vec3 Jzazbz_to_RGB(vec3 color, float L_sdr) {
     color.b = ST2084_to_Y(color.b);
 
     color = Cone_to_XYZ(color.r, color.g, color.b);
-
-    float b = 1.15;
-    float g = 0.66;
 
     float Xa = (color.x + ((b - 1.0) * color.z)) / b;
     float Ya = (color.y + ((g - 1.0) * Xa)) / g;
