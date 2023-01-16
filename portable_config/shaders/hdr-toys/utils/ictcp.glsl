@@ -22,7 +22,7 @@ float Y_to_ST2084(float C) {
     float L = C / pq_C;
     float Lm = pow(L, pq_m1);
     float N = (pq_c1 + pq_c2 * Lm) / (1.0 + pq_c3 * Lm);
-    N = pow(N, pq_m2 );
+    N = pow(N, pq_m2);
     return N;
 }
 
