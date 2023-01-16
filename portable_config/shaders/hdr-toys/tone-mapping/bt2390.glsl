@@ -23,6 +23,24 @@
 //!BIND HOOKED
 //!DESC tone mapping (bt.2390)
 
+const float DISPGAMMA = 2.4;
+const float L_W = 1.0;
+const float L_B = 0.0;
+
+float bt1886_r(float L, float gamma, float Lw, float Lb) {
+    float a = pow(pow(Lw, 1.0 / gamma) - pow(Lb, 1.0 / gamma), gamma);
+    float b = pow(Lb, 1.0 / gamma) / (pow(Lw, 1.0 / gamma) - pow(Lb, 1.0 / gamma));
+    float V = pow(max(L / a, 0.0), 1.0 / gamma) - b;
+    return V;
+}
+
+float bt1886_f(float V, float gamma, float Lw, float Lb) {
+    float a = pow(pow(Lw, 1.0 / gamma) - pow(Lb, 1.0 / gamma), gamma);
+    float b = pow(Lb, 1.0 / gamma) / (pow(Lw, 1.0 / gamma) - pow(Lb, 1.0 / gamma));
+    float L = a * pow(max(V + b, 0.0), gamma);
+    return L;
+}
+
 const float pq_m1 = 0.1593017578125;
 const float pq_m2 = 78.84375;
 const float pq_c1 = 0.8359375;
@@ -46,24 +64,6 @@ float ST2084_to_Y(float N) {
     L = L / (pq_c2 - pq_c3 * Np);
     L = pow(L, 1.0 / pq_m1);
     return L * pq_C;
-}
-
-const float DISPGAMMA = 2.4;
-const float L_W = 1.0;
-const float L_B = 0.0;
-
-float bt1886_r(float L, float gamma, float Lw, float Lb) {
-    float a = pow(pow(Lw, 1.0 / gamma) - pow(Lb, 1.0 / gamma), gamma);
-    float b = pow(Lb, 1.0 / gamma) / (pow(Lw, 1.0 / gamma) - pow(Lb, 1.0 / gamma));
-    float V = pow(max(L / a, 0.0), 1.0 / gamma) - b;
-    return V;
-}
-
-float bt1886_f(float V, float gamma, float Lw, float Lb) {
-    float a = pow(pow(Lw, 1.0 / gamma) - pow(Lb, 1.0 / gamma), gamma);
-    float b = pow(Lb, 1.0 / gamma) / (pow(Lw, 1.0 / gamma) - pow(Lb, 1.0 / gamma));
-    float L = a * pow(max(V + b, 0.0), gamma);
-    return L;
 }
 
 vec3 RGB_to_XYZ(float R, float G, float B) {
@@ -123,6 +123,22 @@ vec3 ICtCp_to_LMS(float I, float Ct, float Cp) {
     return VV;
 }
 
+vec3 RGB_to_Ictcp(vec3 color, float L_sdr) {
+    color *= L_sdr;
+    color = RGB_to_XYZ(color.r, color.g, color.b);
+    color = XYZ_to_LMS(color.r, color.g, color.b);
+    color = LMS_to_ICtCp(color.r, color.g, color.b);
+    return color;
+}
+
+vec3 Ictcp_to_RGB(vec3 color, float L_sdr) {
+    color = ICtCp_to_LMS(color.r, color.g, color.b);
+    color = LMS_to_XYZ(color.r, color.g, color.b);
+    color = XYZ_to_RGB(color.r, color.g, color.b);
+    color /= L_sdr;
+    return color;
+}
+
 float EETF(float x, float L_w, float L_b, float L_max, float L_min) {
     const float maxLum = (L_max - L_b) / (L_w - L_b);
     const float minLum = (L_min - L_b) / (L_w - L_b);
@@ -159,10 +175,7 @@ float EETF(float x, float L_w, float L_b, float L_max, float L_min) {
 
 vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
-    color.rgb *= L_sdr;
-    color.rgb = RGB_to_XYZ(color.r, color.g, color.b);
-    color.rgb = XYZ_to_LMS(color.r, color.g, color.b);
-    color.rgb = LMS_to_ICtCp(color.r, color.g, color.b);
+    color.rgb = RGB_to_Ictcp(color.rgb, L_sdr);
 
     const float iw = Y_to_ST2084(L_hdr);
     const float ib = Y_to_ST2084(0.0);
@@ -173,10 +186,7 @@ vec4 hook() {
     color.gb *= min(color.r / I2, I2 / color.r);
     color.r   = I2;
 
-    color.rgb = ICtCp_to_LMS(color.r, color.g, color.b);
-    color.rgb = LMS_to_XYZ(color.r, color.g, color.b);
-    color.rgb = XYZ_to_RGB(color.r, color.g, color.b);
-    color.rgb /= L_sdr;
+    color.rgb = Ictcp_to_RGB(color.rgb, L_sdr);
 
     color.rgb = vec3(
         bt1886_r(color.r, DISPGAMMA, L_W, L_W / CONTRAST_sdr),

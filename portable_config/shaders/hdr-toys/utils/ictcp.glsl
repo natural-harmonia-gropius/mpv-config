@@ -92,15 +92,25 @@ vec3 ICtCp_to_LMS(float I, float Ct, float Cp) {
     return VV;
 }
 
+vec3 RGB_to_Ictcp(vec3 color, float L_sdr) {
+    color *= L_sdr;
+    color = RGB_to_XYZ(color.r, color.g, color.b);
+    color = XYZ_to_LMS(color.r, color.g, color.b);
+    color = LMS_to_ICtCp(color.r, color.g, color.b);
+    return color;
+}
+
+vec3 Ictcp_to_RGB(vec3 color, float L_sdr) {
+    color = ICtCp_to_LMS(color.r, color.g, color.b);
+    color = LMS_to_XYZ(color.r, color.g, color.b);
+    color = XYZ_to_RGB(color.r, color.g, color.b);
+    color /= L_sdr;
+    return color;
+}
+
 vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
-    color.rgb *= L_sdr;
-    color.rgb = RGB_to_XYZ(color.r, color.g, color.b);
-    color.rgb = XYZ_to_LMS(color.r, color.g, color.b);
-    color.rgb = LMS_to_ICtCp(color.r, color.g, color.b);
-    color.rgb = ICtCp_to_LMS(color.r, color.g, color.b);
-    color.rgb = LMS_to_XYZ(color.r, color.g, color.b);
-    color.rgb = XYZ_to_RGB(color.r, color.g, color.b);
-    color.rgb /= L_sdr;
+    color.rgb = RGB_to_Ictcp(color.rgb, L_sdr);
+    color.rgb = Ictcp_to_RGB(color.rgb, L_sdr);
     return color;
 }
