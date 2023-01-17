@@ -6,7 +6,7 @@
 
 //!HOOK OUTPUT
 //!BIND HOOKED
-//!DESC gamut mapping (lightness, chroma)
+//!DESC gamut mapping (hue)
 
 const float pq_m1 = 0.1593017578125;
 const float pq_m2 = 78.84375;
@@ -168,11 +168,11 @@ vec4 hook() {
     vec3 color_dst_cliped = clamp(color_dst, 0.0, 1.0);
 
     if (color_dst != color_dst_cliped) {
-        color_dst_cliped = RGB_to_Jzazbz(color_dst_cliped, L_sdr);
-        color_dst_cliped = Jzazbz_to_JzCzhz(color_dst_cliped);
-
         color_src_cliped = RGB_to_Jzazbz(color_src_cliped, L_sdr);
         color_src_cliped = Jzazbz_to_JzCzhz(color_src_cliped);
+
+        color_dst_cliped = RGB_to_Jzazbz(color_dst_cliped, L_sdr);
+        color_dst_cliped = Jzazbz_to_JzCzhz(color_dst_cliped);
 
         color_dst_cliped.b = color_src_cliped.b;
 
