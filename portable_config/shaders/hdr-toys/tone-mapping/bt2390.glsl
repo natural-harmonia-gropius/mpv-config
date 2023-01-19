@@ -41,6 +41,21 @@ float bt1886_f(float V, float gamma, float Lw, float Lb) {
     return L;
 }
 
+vec3 tone_mapping_clip(vec3 color) {
+    color.rgb = vec3(
+        bt1886_r(color.r, DISPGAMMA, L_W, L_W / CONTRAST_sdr),
+        bt1886_r(color.g, DISPGAMMA, L_W, L_W / CONTRAST_sdr),
+        bt1886_r(color.b, DISPGAMMA, L_W, L_W / CONTRAST_sdr)
+    );
+
+    color.rgb = vec3(
+        bt1886_f(color.r, DISPGAMMA, L_W, L_B),
+        bt1886_f(color.g, DISPGAMMA, L_W, L_B),
+        bt1886_f(color.b, DISPGAMMA, L_W, L_B)
+    );
+    return color;
+}
+
 const float pq_m1 = 0.1593017578125;
 const float pq_m2 = 78.84375;
 const float pq_c1 = 0.8359375;
@@ -139,7 +154,7 @@ vec3 Ictcp_to_RGB(vec3 color, float L_sdr) {
     return color;
 }
 
-float EETF(float x, float L_w, float L_b, float L_max, float L_min) {
+float f(float x, float L_w, float L_b, float L_max, float L_min) {
     const float maxLum = (L_max - L_b) / (L_w - L_b);
     const float minLum = (L_min - L_b) / (L_w - L_b);
 
@@ -173,32 +188,24 @@ float EETF(float x, float L_w, float L_b, float L_max, float L_min) {
     return x;
 }
 
-vec4 color = HOOKED_tex(HOOKED_pos);
-vec4 hook() {
-    color.rgb = RGB_to_Ictcp(color.rgb, L_sdr);
-
+vec3 tone_mapping(vec3 Ictcp) {
     const float iw = Y_to_ST2084(L_hdr);
     const float ib = Y_to_ST2084(0.0);
     const float ow = Y_to_ST2084(L_sdr);
     const float ob = Y_to_ST2084(L_sdr / CONTRAST_sdr);
 
-    float I2  = EETF(color.r, iw, ib, ow, ob);
-    color.gb *= min(color.r / I2, I2 / color.r);
-    color.r   = I2;
+    float I2  = f(Ictcp.x, iw, ib, ow, ob);
+    Ictcp.yz *= min(Ictcp.x / I2, I2 / Ictcp.x);
+    Ictcp.x   = I2;
 
+    return Ictcp;
+}
+
+vec4 color = HOOKED_tex(HOOKED_pos);
+vec4 hook() {
+    color.rgb = RGB_to_Ictcp(color.rgb, L_sdr);
+    color.rgb = tone_mapping(color.rgb);
     color.rgb = Ictcp_to_RGB(color.rgb, L_sdr);
-
-    color.rgb = vec3(
-        bt1886_r(color.r, DISPGAMMA, L_W, L_W / CONTRAST_sdr),
-        bt1886_r(color.g, DISPGAMMA, L_W, L_W / CONTRAST_sdr),
-        bt1886_r(color.b, DISPGAMMA, L_W, L_W / CONTRAST_sdr)
-    );
-
-    color.rgb = vec3(
-        bt1886_f(color.r, DISPGAMMA, L_W, L_B),
-        bt1886_f(color.g, DISPGAMMA, L_W, L_B),
-        bt1886_f(color.b, DISPGAMMA, L_W, L_B)
-    );
-
+    color.rgb = tone_mapping_clip(color.rgb);
     return color;
 }

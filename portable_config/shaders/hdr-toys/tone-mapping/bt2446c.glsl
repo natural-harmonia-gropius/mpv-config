@@ -5,24 +5,6 @@
 //!BIND HOOKED
 //!DESC tone mapping (bt.2446c)
 
-const float ip = 0.58535;   // linear length
-const float k1 = 0.83802;   // linear strength
-const float k3 = 0.74204;   // shoulder strength
-
-float f(float Y, float k1, float k3, float ip) {
-    ip /= k1;
-    float k2 = (k1 * ip) * (1.0 - k3);
-    float k4 = (k1 * ip) - (k2 * log(1.0 - k3));
-    return Y < ip ?
-        Y * k1 :
-        log((Y / ip) - k3) * k2 + k4;
-}
-
-float curve(float x) {
-    const float over_white = 1019.0 / 940.0;    // 109% range (super-whites)
-    return f(x, k1, k3, ip) / over_white;
-}
-
 vec3 RGB_to_XYZ(float R, float G, float B) {
     mat3 M = mat3(
         0.6370, 0.1446, 0.1689,
@@ -54,6 +36,24 @@ vec3 xyY_to_XYZ(float x, float y, float Y) {
     float Z = (1.0 - x - y) * Y / max(y, 1e-6);
 
     return vec3(X, Y, Z);
+}
+
+const float ip = 0.58535;   // linear length
+const float k1 = 0.83802;   // linear strength
+const float k3 = 0.74204;   // shoulder strength
+
+float f(float Y, float k1, float k3, float ip) {
+    ip /= k1;
+    float k2 = (k1 * ip) * (1.0 - k3);
+    float k4 = (k1 * ip) - (k2 * log(1.0 - k3));
+    return Y < ip ?
+        Y * k1 :
+        log((Y / ip) - k3) * k2 + k4;
+}
+
+float curve(float x) {
+    const float over_white = 1019.0 / 940.0;    // 109% range (super-whites)
+    return f(x, k1, k3, ip) / over_white;
 }
 
 vec4 color = HOOKED_tex(HOOKED_pos);
