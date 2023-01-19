@@ -36,6 +36,17 @@ glsl-shader=~~/shaders/hdr-toys/transfer-function/linear_to_bt1886.glsl
 
 ## What are these? What are they for?
 
+Explain the workflow  
+BT.2100-pq / BT.2100-hlg / HDR10+ / Dolby Vision => BT.2100-pq => BT.2020 => BT.709
+
+```mermaid
+  graph TD;
+      A-->B;
+      A-->C;
+      B-->D;
+      C-->D;
+```
+
 ### Tone mapping
 
 You can change the [tone mapping operator](https://github.com/Natural-Harmonia-Gropius/mpv_config/tree/main/portable_config/shaders/hdr-toys/tone-mapping) by replacing this line.  
