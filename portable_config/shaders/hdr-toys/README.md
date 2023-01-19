@@ -40,7 +40,7 @@ The workflow
 graph TD
     A[BT.2100-pq, BT.2100-hlg, HDR10+, Dolby Vision, etc.] -->|mpv --target-trc=pq --target-prim=bt.2020| B(BT.2100-pq)
     B -->|linearize and normalize| C(BT.2020 linear)
-    C -->|tone mapping| D(BT.2020 linear (tone mapped))
+    C -->|tone mapping| D(BT.2020 linear - tone mapped)
     D -->|gamut mapping| E(BT.709 linear)
     E -->|bt1886| F[BT.709]
 ```
