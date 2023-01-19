@@ -36,7 +36,7 @@ glsl-shader=~~/shaders/hdr-toys/transfer-function/linear_to_bt1886.glsl
 
 ## What are these? What are they for?
 
-### Tone mapping operators
+### Tone mapping
 
 You can change the [tone mapping operator](https://github.com/Natural-Harmonia-Gropius/mpv_config/tree/main/portable_config/shaders/hdr-toys/tone-mapping) by replacing this line.  
 For example, use reinhard instead of bt2446c.
@@ -46,32 +46,41 @@ For example, use reinhard instead of bt2446c.
 + glsl-shader=~~/shaders/hdr-toys/tone-mapping/reinhard.glsl
 ```
 
-This table lists the features of operators.
+This table lists the features of operators.[^1]
 
-| Operator | Applied to | Conversion peak       |
-| -------- | ---------- | --------------------- |
-| bt2390   | Ictcp      | metadata[^1]          |
-| bt2446a  | YCbCr      | metadata              |
-| bt2446c  | xyY        | 1000nit (adjustable)  |
-| reinhard | YRGB       | metadata              |
-| hable    | YRGB       | metadata              |
-| hable2   | YRGB       | metadata              |
-| suzuki   | YRGB       | 10000nit (adjustable) |
-| uchimura | YRGB       | 1000nit               |
-| hejl2015 | RGB        | metadata              |
-| lottes   | maxRGB     | metadata              |
-|          |            |                       |
-| heatmap  | (Various)  | 10000nit              |
-| clip     | RGB        | SDR peak[^2]          |
-| linear   | YRGB       | metadata              |
+| Operator | Applied to  | Conversion peak       |
+| -------- | ----------- | --------------------- |
+| bt2390   | Ictcp       | metadata[^2]          |
+| bt2446a  | YCbCr       | metadata              |
+| bt2446c  | xyY         | 1000nit (adjustable)  |
+| reinhard | YRGB        | metadata              |
+| hable    | YRGB        | metadata              |
+| hable2   | YRGB        | metadata              |
+| suzuki   | YRGB        | 10000nit (adjustable) |
+| uchimura | YRGB        | 1000nit               |
+| hejl2015 | RGB         | metadata              |
+| lottes   | maxRGB      | metadata              |
+|          |             |                       |
+| heatmap  | Various[^4] | 10000nit              |
+| clip     | RGB         | SDR peak[^3]          |
+| linear   | YRGB        | metadata              |
 
-[^1]:
+[^1]: Operators below a blank row are for testing purposes.
+[^2]:
     Default to 1000nit.  
     [hdr-toys-helper.lua](https://github.com/Natural-Harmonia-Gropius/mpv_config/blob/main/portable_config/scripts/hdr-toys-helper.lua) can get it automatically from the video's metadata.  
     You can also set it manually like this `set glsl-shader-opts L_hdr=1000`
 
-[^2]:
+[^3]:
     Default to 203nit.  
     You can also set it manually like this `set glsl-shader-opts L_sdr=203`
 
-### WIP
+[^4]:
+    You can use it for `set glsl-shader-opts heatmap/enabled=N`  
+    N = 1:Y, 2:maxRGB, 3:meanRGB (arithmetic), 4:meanRGB (geometric), 5: Intensity
+
+### Chroma correction
+
+### Crosstalk
+
+### Gamut mapping
