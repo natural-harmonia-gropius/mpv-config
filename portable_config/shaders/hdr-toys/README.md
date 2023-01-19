@@ -1,7 +1,5 @@
 # HDR-toys
 
-## How to use this?
-
 Put this auto-profile in your `mpv.conf`.  
 Default combination matches ITU-R BT.2446 Conversion Method C.
 
@@ -22,7 +20,7 @@ glsl-shader=~~/shaders/hdr-toys/gamut-mapping/compress.glsl
 glsl-shader=~~/shaders/hdr-toys/transfer-function/linear_to_bt1886.glsl
 ```
 
-Also mention that you can also use this to get better playback experience for BT.2020 content.
+Also you can use it to get a better experience to play BT.2020 content.
 
 ```ini
 [bt.2020]
