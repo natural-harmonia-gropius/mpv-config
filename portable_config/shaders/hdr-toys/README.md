@@ -97,7 +97,7 @@ This table lists the features of operators.[^1]
 ### Crosstalk
 
 This is a part of tonemapping, the screenshot below will show you how it works.  
-You can see that for it makes the color less chromatic and the lightness between colors more even.  
+You can see it makes the color less chromatic and the lightness between colors more even.  
 And for non-perceptual conversions it brings highlights desaturation.  
 You can set the intensity of it by `set glsl-shader-opts alpha=N`.
 
