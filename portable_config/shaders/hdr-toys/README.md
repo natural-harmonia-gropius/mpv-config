@@ -92,3 +92,9 @@ This table lists the features of operators.[^1]
 ### Crosstalk
 
 ### Gamut mapping
+
+Samples:
+
+| matrix                                                                                                          | compress                                                                                                        | warning                                                                                                         |
+| --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| ![image](https://user-images.githubusercontent.com/50797982/213413438-06c20760-dac7-4399-86d4-0bea861d96c2.png) | ![image](https://user-images.githubusercontent.com/50797982/213413557-1769ffb3-3b1c-4cc9-9645-5296ca4a3c48.png) | ![image](https://user-images.githubusercontent.com/50797982/213413809-5e40d3c2-b2d4-4b9d-bb40-44069818286f.png) |
