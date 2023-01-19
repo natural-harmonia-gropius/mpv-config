@@ -72,7 +72,7 @@ This table lists the features of operators.[^1]
 | linear   | YRGB        | metadata              |
 | heatmap  | Various[^4] | 10000nit              |
 
-[^1]: Operators below a blank row are for testing purposes.
+[^1]: Operators below the blank row are for testing purposes.
 [^2]:
     Default to 1000nit.  
     You can also set it manually like this `set glsl-shader-opts L_hdr=1000`  
