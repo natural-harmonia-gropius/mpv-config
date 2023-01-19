@@ -77,22 +77,22 @@ This table lists the features of operators.[^1]
 [^1]: Operators below the blank row are for testing purposes.
 [^2]:
     Default to 1000nit.  
-    You can also set it manually like this `set glsl-shader-opts L_hdr=1000`  
+    You can also set it manually like this `set glsl-shader-opts L_hdr=N`  
     [hdr-toys-helper.lua](https://github.com/Natural-Harmonia-Gropius/mpv_config/blob/main/portable_config/scripts/hdr-toys-helper.lua) can get it automatically from the video's metadata.
 
 [^3]:
     Default to 203nit.  
-    You can also set it manually like this `set glsl-shader-opts L_sdr=203`  
+    You can also set it manually like this `set glsl-shader-opts L_sdr=N`  
     In some color grading workflows it is 100nit.
 
 [^4]:
-    You can set it by `set glsl-shader-opts heatmap/enabled=1`  
+    You can set it by `set glsl-shader-opts heatmap/enabled=N`  
     N = 1:Y, 2:maxRGB, 3:meanRGB (arithmetic), 4:meanRGB (geometric), 5: Intensity
 
 [^5]:
     That the BT.2390 EETF designed for display transform,  
-    To get the desired result, you need to set reference white to your monitor's peak white by `set glsl-shader-opts L_sdr=203`.  
-    To adapt the black point, you need to set the contrast to your monitor's contrast by `set glsl-shader-opts CONTRAST_sdr=1000`.
+    To get the desired result, you need to set reference white to your monitor's peak white by `set glsl-shader-opts L_sdr=N`.  
+    To adapt the black point, you need to set the contrast to your monitor's contrast by `set glsl-shader-opts CONTRAST_sdr=N`.
 
 ### Crosstalk
 
