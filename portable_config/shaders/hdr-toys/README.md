@@ -42,8 +42,8 @@ You can change the [tone mapping operator](https://github.com/Natural-Harmonia-G
 For example, use reinhard instead of bt2446c.
 
 ```diff
--glsl-shader=~~/shaders/hdr-toys/tone-mapping/bt2446c.glsl
-+glsl-shader=~~/shaders/hdr-toys/tone-mapping/reinhard.glsl
+- glsl-shader=~~/shaders/hdr-toys/tone-mapping/bt2446c.glsl
++ glsl-shader=~~/shaders/hdr-toys/tone-mapping/reinhard.glsl
 ```
 
 This table lists the features of operators.
@@ -71,7 +71,7 @@ This table lists the features of operators.
     You can also set it manually like this `set glsl-shader-opts L_hdr=1000`
 
 [^2]:
-    Default to 203nit.
+    Default to 203nit.  
     You can also set it manually like this `set glsl-shader-opts L_sdr=203`
 
 ### WIP
