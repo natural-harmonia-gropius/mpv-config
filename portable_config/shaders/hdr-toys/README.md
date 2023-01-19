@@ -97,6 +97,8 @@ This table lists the features of operators.[^1]
 ### Crosstalk
 
 This is a part of tonemapping, the screenshot below will show you how it works.  
+You can see that for it makes the lightness between colors more even.  
+And for non-perceptual conversions it brings highlights desaturation.  
 You can set the intensity of it by `set glsl-shader-opts alpha=N`.
 
 | without crosstalk inverse                                                                                       | heatmap, Y, alpha=0                                                                                             | heatmap, Y, alpha=0.3                                                                                           | hejl2015, RGB, alpha=0                                                                                          | hejl2015, RGB, alpha=0.3                                                                                        |
