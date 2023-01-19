@@ -1,12 +1,6 @@
 // Compress highly chromatic source colorimetry into a smaller gamut
 // https://github.com/jedypod/gamut-compress
 
-//!PARAM threshold
-//!TYPE float
-//!MINIMUM 0.0
-//!MAXIMUM 0.3
-0.15
-
 //!PARAM cyan
 //!TYPE float
 //!MINIMUM 0
@@ -23,7 +17,25 @@
 //!TYPE float
 //!MINIMUM 0
 //!MAXIMUM 1
-0.006
+0.312
+
+//!PARAM cyan_threshold
+//!TYPE float
+//!MINIMUM 0
+//!MAXIMUM 1
+0.185
+
+//!PARAM magenta_threshold
+//!TYPE float
+//!MINIMUM 0
+//!MAXIMUM 1
+0.197
+
+//!PARAM yellow_threshold
+//!TYPE float
+//!MINIMUM 0
+//!MAXIMUM 1
+0.12
 
 //!PARAM select
 //!TYPE float
@@ -48,23 +60,23 @@ vec4 hook() {
 
     vec3 rgb = color_dst;
 
-    // Amount of outer gamut to affect
-    vec3 th = 1.0 - vec3(threshold);
-
     // Distance limit: How far beyond the gamut boundary to compress
     vec3 dl = 1.0 + vec3(cyan, magenta, yellow);
 
-    // Calculate scale so compression function passes through distance limit: (x=dl, y=1)
-    vec3 s;
-    s.x = (1.0 - th.x) / sqrt(max(1.001, dl.x) - 1.0);
-    s.y = (1.0 - th.y) / sqrt(max(1.001, dl.y) - 1.0);
-    s.z = (1.0 - th.z) / sqrt(max(1.001, dl.z) - 1.0);
+    // Amount of outer gamut to affect
+    vec3 th = 1.0 - vec3(cyan_threshold, magenta_threshold, yellow_threshold);
 
     // Achromatic axis
     float ac = max(rgb.x, max(rgb.y, rgb.z));
 
     // Inverse RGB Ratios: distance from achromatic axis
     vec3 d = ac == 0.0 ? vec3(0.0) : (ac - rgb) / abs(ac);
+
+    // Calculate scale so compression function passes through distance limit: (x=dl, y=1)
+    vec3 s;
+    s.x = (1.0 - th.x) / sqrt(max(1.001, dl.x) - 1.0);
+    s.y = (1.0 - th.y) / sqrt(max(1.001, dl.y) - 1.0);
+    s.z = (1.0 - th.z) / sqrt(max(1.001, dl.z) - 1.0);
 
     vec3 cd; // Compressed distance
     // Parabolic compression function: https://www.desmos.com/calculator/nvhp63hmtj
