@@ -61,9 +61,9 @@ This table lists the features of operators.[^1]
 | hejl2015 | RGB         | metadata              |
 | lottes   | maxRGB      | metadata              |
 |          |             |                       |
-| heatmap  | Various[^4] | 10000nit              |
 | clip     | RGB         | SDR peak[^3]          |
 | linear   | YRGB        | metadata              |
+| heatmap  | Various[^4] | 10000nit              |
 
 [^1]: Operators below a blank row are for testing purposes.
 [^2]:
