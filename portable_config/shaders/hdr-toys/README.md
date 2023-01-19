@@ -108,9 +108,11 @@ This is a part of tonemapping, also know as "highlights desaturate".
 In the real world, the brighter the color, the less saturated it becomes, and eventually it turns white.  
 You can set the intensity of it by `set glsl-shader-opts sigma=N`.
 
-| `sigma=0`                                                                                                       | `sigma=1`                                                                                                       |
-| --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| ![image](https://user-images.githubusercontent.com/50797982/213429953-414bf782-02a4-49db-9637-b985fd47d43b.png) | ![image](https://user-images.githubusercontent.com/50797982/213430036-6371574c-6989-4a7d-a711-e9c835e9071a.png) |
+| `sigma=0`                                                                                                       | `sigma=0.06`                                                                                                    | `sigma=1`                                                                                                       |
+| --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| ![image](https://user-images.githubusercontent.com/50797982/213429953-414bf782-02a4-49db-9637-b985fd47d43b.png) | ![image](https://user-images.githubusercontent.com/50797982/213437593-c7e2c38d-0350-4558-90d0-f0eeee798f43.png) | ![image](https://user-images.githubusercontent.com/50797982/213430036-6371574c-6989-4a7d-a711-e9c835e9071a.png) |
+
+You may have noticed that the high lightness blue has turned purple, this is a defect of CIE_LAB, if there is any actual case I will switch to JzCzhz.
 
 ### Gamut mapping
 
