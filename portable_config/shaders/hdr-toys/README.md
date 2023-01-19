@@ -96,7 +96,7 @@ This table lists the features of operators.[^1]
 
 ### Crosstalk
 
-This is a part of tonemapping, the screenshot below will show you how it works.  
+This is a part of tone mapping, the screenshot below will show you how it works.  
 You can see that it makes the color less chromatic when tone mapping and the lightness between colors more even.  
 And for non-perceptual conversions it brings highlights desaturation.  
 You can set the intensity of it by `set glsl-shader-opts alpha=N`.
@@ -107,7 +107,7 @@ You can set the intensity of it by `set glsl-shader-opts alpha=N`.
 
 ### Chroma correction
 
-This is a part of tonemapping, also know as "highlights desaturate".  
+This is a part of tone mapping, also known as "highlights desaturate".  
 In the real world, the brighter the color, the less saturated it becomes, and eventually it turns white.  
 You can set the intensity of it by `set glsl-shader-opts sigma=N`.
 
