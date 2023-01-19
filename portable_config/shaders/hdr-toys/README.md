@@ -82,11 +82,11 @@ This table lists the features of operators.[^1]
 
 [^3]:
     Default to 203nit.  
-    You can also set it manually like this `set glsl-shader-opts L_sdr=203`.  
+    You can also set it manually like this `set glsl-shader-opts L_sdr=203`  
     In some color grading workflows it is 100nit.
 
 [^4]:
-    You can use it for `set glsl-shader-opts heatmap/enabled=N`  
+    You can set it by `set glsl-shader-opts heatmap/enabled=1`  
     N = 1:Y, 2:maxRGB, 3:meanRGB (arithmetic), 4:meanRGB (geometric), 5: Intensity
 
 ### Crosstalk
