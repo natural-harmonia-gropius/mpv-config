@@ -4,7 +4,7 @@
 //!TYPE int
 //!MINIMUM 0
 //!MAXIMUM 5
-0
+1
 
 //!PARAM L_sdr
 //!TYPE float
