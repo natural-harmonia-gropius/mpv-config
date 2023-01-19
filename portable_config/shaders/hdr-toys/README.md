@@ -83,7 +83,7 @@ This table lists the features of operators.[^1]
     [hdr-toys-helper.lua](https://github.com/Natural-Harmonia-Gropius/mpv_config/blob/main/portable_config/scripts/hdr-toys-helper.lua) can get it automatically from the video's metadata.
 
 [^3]:
-    Default to 203nit.
+    Default to 203nit.  
     You can also set it manually like this `set glsl-shader-opts L_sdr=203`.  
     In some color grading workflows it is 100nit.
 
