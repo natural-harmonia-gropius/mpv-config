@@ -70,9 +70,9 @@ This table lists the features of operators.[^1]
 | hejl2015   | RGB         | HDR peak              |                                                                                                                                 |
 | lottes     | maxRGB      | HDR peak              |                                                                                                                                 |
 |            |             |                       |                                                                                                                                 |
-| clip       | RGB         | SDR peak[^3]          | <img width="160" src="https://user-images.githubusercontent.com/50797982/213466806-d2a91be2-9398-40c1-8997-09aa3915ae68.png" /> |
-| linear     | YRGB        | HDR peak              | <img width="160" src="https://user-images.githubusercontent.com/50797982/213466918-43d67448-401d-456c-bae1-c1f4d48151fa.png" /> |
-| heatmap    | Various[^4] | 10000nit              | <img width="160" src="https://user-images.githubusercontent.com/50797982/213466990-f6412af7-84f0-4985-ad08-95c2b1736b8f.png" /> |
+| clip       | RGB         | SDR peak[^3]          | <img width="20%" src="https://user-images.githubusercontent.com/50797982/213466806-d2a91be2-9398-40c1-8997-09aa3915ae68.png" /> |
+| linear     | YRGB        | HDR peak              | <img width="20%" src="https://user-images.githubusercontent.com/50797982/213466918-43d67448-401d-456c-bae1-c1f4d48151fa.png" /> |
+| heatmap    | Various[^4] | 10000nit              | <img width="20%" src="https://user-images.githubusercontent.com/50797982/213466990-f6412af7-84f0-4985-ad08-95c2b1736b8f.png" /> |
 
 [^1]: Operators below the blank row are for testing purposes.
 [^2]:
