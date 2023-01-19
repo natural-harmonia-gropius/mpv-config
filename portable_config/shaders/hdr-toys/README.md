@@ -67,8 +67,8 @@ This table lists the features of operators.[^1]
 | hable2     | YRGB        | HDR peak              |
 | suzuki     | YRGB        | 10000nit (adjustable) |
 | uchimura   | YRGB        | 1000nit               |
-| hejl2015   | RGB         | HDR peak              |
 | lottes     | maxRGB      | HDR peak              |
+| hejl2015   | RGB         | HDR peak              |
 |            |             |                       |
 | clip       | RGB         | SDR peak[^3]          |
 | linear     | YRGB        | HDR peak              |
