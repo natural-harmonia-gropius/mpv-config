@@ -112,7 +112,7 @@ You can set the intensity of it by `set glsl-shader-opts sigma=N`.
 | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | ![image](https://user-images.githubusercontent.com/50797982/213429953-414bf782-02a4-49db-9637-b985fd47d43b.png) | ![image](https://user-images.githubusercontent.com/50797982/213437593-c7e2c38d-0350-4558-90d0-f0eeee798f43.png) | ![image](https://user-images.githubusercontent.com/50797982/213430036-6371574c-6989-4a7d-a711-e9c835e9071a.png) |
 
-You may have noticed that the high lightness blue has turned purple, this is a defect of CIE_LAB, if there is any actual case showing bad results I will switch to JzCzhz to solve this.
+You may have noticed that the high lightness blue has turned purple, this is a defect of LABch, if there is any actual case showing bad results I will switch to JzCzhz to solve this.
 
 ### Gamut mapping
 
