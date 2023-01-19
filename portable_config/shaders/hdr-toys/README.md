@@ -57,22 +57,22 @@ For example, use reinhard instead of bt2446c.
 
 This table lists the features of operators.[^1]
 
-| Operator   | Applied to  | Conversion peak       |
-| ---------- | ----------- | --------------------- |
-| bt2390[^5] | Ictcp       | metadata[^2]          |
-| bt2446a    | YCbCr       | metadata              |
-| bt2446c    | xyY         | 1000nit (adjustable)  |
-| reinhard   | YRGB        | metadata              |
-| hable      | YRGB        | metadata              |
-| hable2     | YRGB        | metadata              |
-| suzuki     | YRGB        | 10000nit (adjustable) |
-| uchimura   | YRGB        | 1000nit               |
-| hejl2015   | RGB         | metadata              |
-| lottes     | maxRGB      | metadata              |
-|            |             |                       |
-| clip       | RGB         | SDR peak[^3]          |
-| linear     | YRGB        | metadata              |
-| heatmap    | Various[^4] | 10000nit              |
+| Operator   | Applied to  | Conversion peak       | Screenshot |
+| ---------- | ----------- | --------------------- | ---------- |
+| bt2390[^5] | Ictcp       | HDR peak[^2]          |            |
+| bt2446a    | YCbCr       | HDR peak              |            |
+| bt2446c    | xyY         | 1000nit (adjustable)  |            |
+| reinhard   | YRGB        | HDR peak              |            |
+| hable      | YRGB        | HDR peak              |            |
+| hable2     | YRGB        | HDR peak              |            |
+| suzuki     | YRGB        | 10000nit (adjustable) |            |
+| uchimura   | YRGB        | 1000nit               |            |
+| hejl2015   | RGB         | HDR peak              |            |
+| lottes     | maxRGB      | HDR peak              |            |
+|            |             |                       |            |
+| clip       | RGB         | SDR peak[^3]          |            |
+| linear     | YRGB        | HDR peak              |            |
+| heatmap    | Various[^4] | 10000nit              |            |
 
 [^1]: Operators below the blank row are for testing purposes.
 [^2]:
@@ -98,10 +98,10 @@ This table lists the features of operators.[^1]
 
 This is a part of tone mapping, the screenshot below will show you how it works.  
 You can see that it makes the color less chromatic when tone mapping and the lightness between colors more even.  
-And for non-perceptual conversions it brings highlights desaturation.  
+And for non-perceptual conversions (e.g. hejl2015) it brings highlights desaturation.  
 You can set the intensity of it by `set glsl-shader-opts alpha=N`.
 
-| without crosstalk inverse                                                                                       | heatmap, Y, alpha=0                                                                                             | heatmap, Y, alpha=0.3                                                                                           | hejl2015, RGB, alpha=0                                                                                          | hejl2015, RGB, alpha=0.3                                                                                        |
+| without crosstalk_inverse                                                                                       | heatmap, Y, alpha=0                                                                                             | heatmap, Y, alpha=0.3                                                                                           | hejl2015, RGB, alpha=0                                                                                          | hejl2015, RGB, alpha=0.3                                                                                        |
 | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | ![image](https://user-images.githubusercontent.com/50797982/213441412-7f43f19c-afc3-4b31-8b5c-55c1ac064ff7.png) | ![image](https://user-images.githubusercontent.com/50797982/213441611-fd6e6afa-e39b-4a44-82da-45a667dfe88a.png) | ![image](https://user-images.githubusercontent.com/50797982/213441631-3f87b965-8206-4e91-a8dd-d867c07cbf0d.png) | ![image](https://user-images.githubusercontent.com/50797982/213442007-411fd942-c930-4629-8dc1-88da8705639e.png) | ![image](https://user-images.githubusercontent.com/50797982/213442036-45e0a832-7d14-40f5-b4ca-1320ad59358d.png) |
 
