@@ -57,22 +57,22 @@ For example, use reinhard instead of bt2446c.
 
 This table lists the features of operators.[^1]
 
-| Operator | Applied to  | Conversion peak       |
-| -------- | ----------- | --------------------- |
-| bt2390   | Ictcp       | metadata[^2]          |
-| bt2446a  | YCbCr       | metadata              |
-| bt2446c  | xyY         | 1000nit (adjustable)  |
-| reinhard | YRGB        | metadata              |
-| hable    | YRGB        | metadata              |
-| hable2   | YRGB        | metadata              |
-| suzuki   | YRGB        | 10000nit (adjustable) |
-| uchimura | YRGB        | 1000nit               |
-| hejl2015 | RGB         | metadata              |
-| lottes   | maxRGB      | metadata              |
-|          |             |                       |
-| clip     | RGB         | SDR peak[^3]          |
-| linear   | YRGB        | metadata              |
-| heatmap  | Various[^4] | 10000nit              |
+| Operator   | Applied to  | Conversion peak       |
+| ---------- | ----------- | --------------------- |
+| bt2390[^5] | Ictcp       | metadata[^2]          |
+| bt2446a    | YCbCr       | metadata              |
+| bt2446c    | xyY         | 1000nit (adjustable)  |
+| reinhard   | YRGB        | metadata              |
+| hable      | YRGB        | metadata              |
+| hable2     | YRGB        | metadata              |
+| suzuki     | YRGB        | 10000nit (adjustable) |
+| uchimura   | YRGB        | 1000nit               |
+| hejl2015   | RGB         | metadata              |
+| lottes     | maxRGB      | metadata              |
+|            |             |                       |
+| clip       | RGB         | SDR peak[^3]          |
+| linear     | YRGB        | metadata              |
+| heatmap    | Various[^4] | 10000nit              |
 
 [^1]: Operators below the blank row are for testing purposes.
 [^2]:
@@ -88,6 +88,11 @@ This table lists the features of operators.[^1]
 [^4]:
     You can set it by `set glsl-shader-opts heatmap/enabled=1`  
     N = 1:Y, 2:maxRGB, 3:meanRGB (arithmetic), 4:meanRGB (geometric), 5: Intensity
+
+[^5]:
+    That the BT.2390 EETF designed for display transform,  
+    To get the desired result, you need to set reference white to your monitor's peak white by `set glsl-shader-opts L_sdr=203`.  
+    To adapt the black point, you need to set the contrast to your monitor's contrast by `set glsl-shader-opts CONTRAST_sdr=1000`.
 
 ### Crosstalk
 
