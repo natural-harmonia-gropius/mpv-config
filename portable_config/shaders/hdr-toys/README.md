@@ -34,7 +34,7 @@ glsl-shader=~~/shaders/hdr-toys/transfer-function/linear_to_bt1886.glsl
 
 ## What are these? What are they for?
 
-The workflow
+### Workflow
 
 ```mermaid
 graph TD
