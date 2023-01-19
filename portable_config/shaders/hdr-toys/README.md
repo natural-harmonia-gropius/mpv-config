@@ -104,8 +104,8 @@ Effects on RGB
 
 ### Chroma correction
 
-This is a part of tonemapping, also know as "highlights desaturate".
-In the real world, the brighter the color, the less saturated it becomes, and eventually it turns white.
+This is a part of tonemapping, also know as "highlights desaturate".  
+In the real world, the brighter the color, the less saturated it becomes, and eventually it turns white.  
 You can set the intensity of it by `set glsl-shader-opts sigma=N`.
 
 | `sigma=0`                                                                                                       | `sigma=1`                                                                                                       |
