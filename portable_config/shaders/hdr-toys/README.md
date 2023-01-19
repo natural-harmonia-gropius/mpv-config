@@ -36,15 +36,13 @@ glsl-shader=~~/shaders/hdr-toys/transfer-function/linear_to_bt1886.glsl
 
 ## What are these? What are they for?
 
-Explain the workflow  
-BT.2100-pq / BT.2100-hlg / HDR10+ / Dolby Vision => BT.2100-pq => BT.2020 => BT.709
+The workflow
 
 ```mermaid
-  graph TD;
-      A-->B;
-      A-->C;
-      B-->D;
-      C-->D;
+graph TD
+    A[BT.2100-pq, BT.2100-hlg, HDR10+, Dolby Vision, etc.] -->|--target-trc --target-prim| B(BT.2100-pq)
+    B -->|Tone mapping| C(BT.2020)
+    C -->|Gamut mapping| D[BT.709]
 ```
 
 ### Tone mapping
