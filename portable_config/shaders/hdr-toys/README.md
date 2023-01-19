@@ -114,9 +114,9 @@ You can set the intensity of it by `set glsl-shader-opts sigma=N`.
 
 ### Gamut mapping
 
-The matrix is aimed at accurate conversion, but the BT.2020 has a larger volume than the BT.709, so the converted result may be less than 0 or more than 1.  
-The compress brings back the colors that are out of volume by reducing the distance of the achromatic axis.  
-The warning shows the excess volume after the conversion in inverted color.
+matrix is aimed at accurate conversion, but the volume of BT.2020 larger than BT.709, so the converted result may out of [0, 1].  
+compress brings back the colors that are out of volume by reducing the distance of the achromatic axis.  
+warning shows the excess volume after the conversion in inverted color.
 
 | matrix                                                                                                          | compress                                                                                                        | warning                                                                                                         |
 | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
