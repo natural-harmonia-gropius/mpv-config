@@ -2,10 +2,11 @@
 
 ## How to use this?
 
-mpv.conf
+Put this auto-profile in your mpv.conf  
+Default combination matches ITU-R BT.2446 Conversion Method C
 
 ```ini
-[hdr]
+[bt.2100]
 profile-cond=get("video-params/sig-peak") > 1
 profile-restore=copy
 target-trc=pq
@@ -21,7 +22,35 @@ glsl-shader=~~/shaders/hdr-toys/gamut-mapping/compress.glsl
 glsl-shader=~~/shaders/hdr-toys/transfer-function/linear_to_bt1886.glsl
 ```
 
-## Third-Party
+Also mention that you can also use this to play with bt2020
 
-<https://github.com/ampas/aces-dev>  
-<https://github.com/tizian/tonemapper>
+```ini
+[bt.2020]
+profile-cond=get("video-params/primaries") == "bt.2020" and get("video-params/sig-peak") == 1
+profile-restore=copy
+target-prim=bt.2020
+glsl-shader=~~/shaders/hdr-toys/transfer-function/bt1886_to_linear.glsl
+glsl-shader=~~/shaders/hdr-toys/gamut-mapping/compress.glsl
+glsl-shader=~~/shaders/hdr-toys/transfer-function/linear_to_bt1886.glsl
+```
+
+## What are these? What are they for?
+
+| Operator | Applied to | Conversion peak       |
+| -------- | ---------- | --------------------- |
+| bt2390   | Ictcp      | metadata[^1]          |
+| bt2446a  | YCbCr      | metadata              |
+| bt2446c  | xyY        | 1000nit (adjustable)  |
+| reinhard | YRGB       | metadata              |
+| hable    | YRGB       | metadata              |
+| hable2   | YRGB       | metadata              |
+| suzuki   | YRGB       | 10000nit (adjustable) |
+| uchimura | YRGB       | 1000nit               |
+| hejl2015 | RGB        | metadata              |
+| lottes   | maxRGB     | metadata              |
+|          |            |                       |
+| heatmap  | (Various)  | 10000nit              |
+| clip     | rgb        | SDR peak              |
+| linear   | YRGB       | metadata              |
+
+[^1]: test
