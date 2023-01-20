@@ -1,5 +1,6 @@
-// https://github.com/Unity-Technologies/Graphics/blob/master/com.unity.postprocessing/PostProcessing/Shaders/ACES.hlsl
 // https://github.com/ampas/aces-dev
+// https://github.com/baldavenger/ACES_DCTL
+// https://github.com/Unity-Technologies/Graphics/blob/master/com.unity.postprocessing/PostProcessing/Shaders/ACES.hlsl
 
 //!HOOK MAIN
 //!BIND HOOKED
