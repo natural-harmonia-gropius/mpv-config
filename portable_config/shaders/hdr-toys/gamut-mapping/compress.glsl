@@ -107,8 +107,8 @@ let m = RGB_2020_to_709([1, 0, 1]);
 let y = RGB_2020_to_709([1, 1, 0]);
 // console.log(c, m, y);
 
-const l = [max(...distance(c)), max(...distance(m)), max(...distance(y))];
-console.log("limit", l);
+const cmy = [distance(c), distance(m), distance(y)];
+console.log("limit", max(...cmy[0]), max(...cmy[1]), max(...cmy[2]));
 
 const color_checker = [
   distance(xyY_to_RGB_709(0.4, 0.35, 10.1)),
@@ -141,7 +141,7 @@ const t = color_checker.reduce((p, c) => [
   max(p[1], c[1]),
   max(p[2], c[2]),
 ]);
-console.log("threshold", t);
+console.log("threshold", ...t);
 */
 
 //!PARAM cyan_limit
