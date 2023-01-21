@@ -1,47 +1,48 @@
 // Compress highly chromatic source colorimetry into a smaller gamut
 // https://github.com/jedypod/gamut-compress
+// https://github.com/ampas/aces-dev/blob/dev/transforms/ctl/lmt/LMT.Academy.ReferenceGamutCompress.ctl
 
-//!PARAM cyan
+//!PARAM cyan_limit
 //!TYPE float
-//!MINIMUM 0
-//!MAXIMUM 1
-0.053
+//!MINIMUM 1
+//!MAXIMUM 2
+1.7118310154721679
 
-//!PARAM magenta
+//!PARAM magenta_limit
 //!TYPE float
-//!MINIMUM 0
-//!MAXIMUM 1
-0.224
+//!MINIMUM 1
+//!MAXIMUM 2
+1.6714059897965612
 
-//!PARAM yellow
+//!PARAM yellow_limit
 //!TYPE float
-//!MINIMUM 0
-//!MAXIMUM 1
-0.031
+//!MINIMUM 1
+//!MAXIMUM 2
+1.1836279336378042
 
 //!PARAM cyan_threshold
 //!TYPE float
 //!MINIMUM 0
 //!MAXIMUM 1
-0.185
+0.4770771960073855
 
 //!PARAM magenta_threshold
 //!TYPE float
 //!MINIMUM 0
 //!MAXIMUM 1
-0.197
+0.43305325213057494
 
 //!PARAM yellow_threshold
 //!TYPE float
 //!MINIMUM 0
 //!MAXIMUM 1
-0.12
+0.8430686842640781
 
 //!PARAM select
 //!TYPE float
 //!MINIMUM 0
 //!MAXIMUM 1
-0.2
+0.16667
 
 //!HOOK OUTPUT
 //!BIND HOOKED
@@ -61,10 +62,10 @@ vec4 hook() {
     vec3 rgb = color_dst;
 
     // Distance limit: How far beyond the gamut boundary to compress
-    vec3 dl = 1.0 + vec3(cyan, magenta, yellow);
+    vec3 dl = vec3(cyan_limit, magenta_limit, yellow_limit);
 
     // Amount of outer gamut to affect
-    vec3 th = 1.0 - vec3(cyan_threshold, magenta_threshold, yellow_threshold);
+    vec3 th = vec3(cyan_threshold, magenta_threshold, yellow_threshold);
 
     // Achromatic axis
     float ac = max(rgb.x, max(rgb.y, rgb.z));
