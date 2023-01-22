@@ -32,8 +32,11 @@ vec3 XYZ_to_xyY(float X, float Y, float Z) {
 }
 
 vec3 xyY_to_XYZ(float x, float y, float Y) {
-    float X = x * Y / max(y, 1e-6);
-    float Z = (1.0 - x - y) * Y / max(y, 1e-6);
+    float multiplo = Y / max(y, 1e-6);
+
+    float z = 1.0 - x - y;
+    float X = x * multiplo;
+    float Z = z * multiplo;
 
     return vec3(X, Y, Z);
 }

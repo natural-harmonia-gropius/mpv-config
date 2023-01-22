@@ -83,6 +83,13 @@ function xyY_to_RGB_709(x, y, Y) {
   const RGB2020 = XYZ_to_RGB_2020(...XYZ);
   const RGB709 = RGB_2020_to_709(RGB2020);
   return RGB709;
+
+  //   const M = [
+  //     [3.2404542, -1.5371385, -0.4985314],
+  //     [-0.969266, 1.8760108, 0.041556],
+  //     [0.0556434, -0.2040259, 1.0572252],
+  //   ];
+  //   return multiplyMatrices(M, XYZ);
 }
 
 function distance(rgb) {
@@ -98,17 +105,20 @@ function distance(rgb) {
     ac - rgb[2] / abs(ac),
   ];
 
-  //   return max(...d);
   return d;
 }
 
-let c = RGB_2020_to_709([0, 1, 1]);
-let m = RGB_2020_to_709([1, 0, 1]);
-let y = RGB_2020_to_709([1, 1, 0]);
-// console.log(c, m, y);
-
-const cmy = [distance(c), distance(m), distance(y)];
-console.log("limit", max(...cmy[0]), max(...cmy[1]), max(...cmy[2]));
+const rgb = [
+  distance(RGB_2020_to_709([1, 0, 0])),
+  distance(RGB_2020_to_709([0, 1, 0])),
+  distance(RGB_2020_to_709([0, 0, 1])),
+];
+const l = rgb.reduce((p, c) => [
+  max(p[0], c[0]),
+  max(p[1], c[1]),
+  max(p[2], c[2]),
+]);
+console.log("limit", ...l);
 
 const color_checker = [
   distance(xyY_to_RGB_709(0.4, 0.35, 10.1)),
@@ -148,19 +158,19 @@ console.log("threshold", ...t);
 //!TYPE float
 //!MINIMUM 1.001
 //!MAXIMUM 2
-1.7118310154721679
+1.6515689028157825
 
 //!PARAM magenta_limit
 //!TYPE float
 //!MINIMUM 1.001
 //!MAXIMUM 2
-1.6714059897965612
+1.7355376392652817
 
 //!PARAM yellow_limit
 //!TYPE float
 //!MINIMUM 1.001
 //!MAXIMUM 2
-1.1836279336378042
+1.671460554049985
 
 //!PARAM cyan_threshold
 //!TYPE float
