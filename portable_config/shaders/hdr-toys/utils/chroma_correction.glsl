@@ -45,11 +45,6 @@ vec3 XYZ_to_RGB(float X, float Y, float Z) {
     return vec3(X, Y, Z) * M;
 }
 
-vec3 XYZn = RGB_to_XYZ(L_sdr, L_sdr, L_sdr);
-float Xn = XYZn.x;
-float Yn = XYZn.y;
-float Zn = XYZn.z;
-
 float delta = 6.0 / 29.0;
 float deltac = delta * 2.0 / 3.0;
 
@@ -65,10 +60,12 @@ float f2(float x, float delta) {
         (x - deltac) * (3.0 * pow(delta, 2.0));
 }
 
+vec3 XYZn = RGB_to_XYZ(L_sdr, L_sdr, L_sdr);
+
 vec3 XYZ_to_Lab(float X, float Y, float Z) {
-    X = f1(X / Xn, delta);
-    Y = f1(Y / Yn, delta);
-    Z = f1(Z / Zn, delta);
+    X = f1(X / XYZn.x, delta);
+    Y = f1(Y / XYZn.y, delta);
+    Z = f1(Z / XYZn.z, delta);
 
     float L = 116.0 * Y - 16.0;
     float a = 500.0 * (X - Y);
@@ -82,9 +79,9 @@ vec3 Lab_to_XYZ(float L, float a, float b) {
     float X = Y + a / 500.0;
     float Z = Y - b / 200.0;
 
-    X = f2(X, delta) * Xn;
-    Y = f2(Y, delta) * Yn;
-    Z = f2(Z, delta) * Zn;
+    X = f2(X, delta) * XYZn.x;
+    Y = f2(Y, delta) * XYZn.y;
+    Z = f2(Z, delta) * XYZn.z;
 
     return vec3(X, Y, Z);
 }
