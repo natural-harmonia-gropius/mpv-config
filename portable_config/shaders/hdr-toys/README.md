@@ -1,9 +1,13 @@
 # HDR-toys
 
-Put this auto-profile in your `mpv.conf`.  
+Put this in your `mpv.conf`.  
 Default combination matches ITU-R BT.2446 Conversion Method C.
 
+Note: `vo=gpu-next` is required, the minimum version of mpv required is v0.35.0.
+
 ```ini
+vo=gpu-next
+
 [bt.2100]
 profile-cond=get("video-params/sig-peak") > 1
 profile-restore=copy
