@@ -22,7 +22,7 @@
 //!TYPE float
 //!MINIMUM 0
 //!MAXIMUM 1
-0.06
+0.2
 
 //!HOOK OUTPUT
 //!BIND HOOKED
@@ -86,16 +86,23 @@ vec3 Lab_to_XYZ(float L, float a, float b) {
     return vec3(X, Y, Z);
 }
 
+float pi = 3.141592653589793;
+float epsilon = 0.02;
+
 vec3 Lab_to_LCHab(float L, float a, float b) {
     float C = length(vec2(a, b));
-    float H = atan(b, a);
-
+    float H = (abs(a) < epsilon && abs(b) < epsilon) ?
+        0.0 :
+        atan(b, a) * 180.0 / pi;
     return vec3(L, C, H);
 }
 
 vec3 LCHab_to_Lab(float L, float C, float H) {
-    vec2 ab = C * vec2(cos(H), sin(H));
-    return vec3(L, ab);
+    C = max(C, 0.0);
+    H *= pi / 180.0;
+    float a = C * cos(H);
+    float b = C * sin(H);
+    return vec3(L, a, b);
 }
 
 float chroma_correction(float L, float Lref, float Lmax, float sigma) {
@@ -108,13 +115,22 @@ float chroma_correction(float L, float Lref, float Lmax, float sigma) {
 
 vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
+    vec3 L_ref;
+    L_ref = RGB_to_XYZ(L_sdr, L_sdr, L_sdr);
+    L_ref = XYZ_to_Lab(L_ref.r, L_ref.g, L_ref.b);
+
+    vec3 L_max;
+    L_max = RGB_to_XYZ(L_hdr, L_hdr, L_hdr);
+    L_max = XYZ_to_Lab(L_max.r, L_max.g, L_max.b);
+
+    color.rgb *= L_sdr;
     color.rgb = RGB_to_XYZ(color.r, color.g, color.b);
     color.rgb = XYZ_to_Lab(color.r, color.g, color.b);
     color.rgb = Lab_to_LCHab(color.r, color.g, color.b);
-    color.g  *= chroma_correction(color.r, 1.0, L_hdr / L_sdr, sigma);
+    color.g  *= chroma_correction(color.r, L_ref.r, L_max.r, sigma);
     color.rgb = LCHab_to_Lab(color.r, color.g, color.b);
     color.rgb = Lab_to_XYZ(color.r, color.g, color.b);
     color.rgb = XYZ_to_RGB(color.r, color.g, color.b);
-    color.rgb = max(color.rgb, 0.0);
+    color.rgb /= L_sdr;
     return color;
 }
