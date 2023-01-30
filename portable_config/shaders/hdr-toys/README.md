@@ -63,7 +63,7 @@ This table lists the features of operators.[^1]
 
 | Operator   | Applied to  | Conversion peak       |
 | ---------- | ----------- | --------------------- |
-| bt2390[^5] | Ictcp       | HDR peak[^2]          |
+| bt2390[^5] | ICtCp       | HDR peak[^2]          |
 | bt2446a    | YCbCr       | HDR peak              |
 | bt2446c    | xyY         | 1000nit (adjustable)  |
 | reinhard   | YRGB        | HDR peak              |
