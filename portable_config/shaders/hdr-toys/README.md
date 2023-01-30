@@ -1,6 +1,6 @@
 # HDR-toys
 
-Note: `vo=gpu-next` is required, the minimum version of mpv required is v0.35.1.
+Note: `vo=gpu-next` is required, the minimum version of mpv required is v0.35.0.
 
 Put this in your `mpv.conf`.  
 Default combination matches ITU-R BT.2446 Conversion Method C.
