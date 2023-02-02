@@ -14,7 +14,7 @@ installer
 vapoursynth64
 misc
 
-portable_config/watch_later
-portable_config/luts/*.cube
 portable_config/fonts/*
 !portable_config/fonts/uosc_textures.ttf
+
+portable_config/watch_later
