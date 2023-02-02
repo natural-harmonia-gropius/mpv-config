@@ -1,7 +1,5 @@
 # HDR-toys
 
-Note: `vo=gpu-next` is required, the minimum version of mpv required is v0.35.0.
-
 Put this in your `mpv.conf`.  
 Default combination matches ITU-R BT.2446 Conversion Method C.
 
@@ -24,6 +22,9 @@ glsl-shader=~~/shaders/hdr-toys/gamut-mapping/compress.glsl
 glsl-shader=~~/shaders/hdr-toys/transfer-function/linear_to_bt1886.glsl
 ```
 
+- `vo=gpu-next` is required, the minimum version of mpv required is v0.35.0.
+- Dolby Vision Profile 5 is not tagged as HDR by mpv, so it wouldn't activate this auto-profile.
+
 Also you can use it to get a better experience to play BT.2020 content.
 
 ```ini
@@ -35,6 +36,8 @@ glsl-shader=~~/shaders/hdr-toys/transfer-function/bt1886_to_linear.glsl
 glsl-shader=~~/shaders/hdr-toys/gamut-mapping/compress.glsl
 glsl-shader=~~/shaders/hdr-toys/transfer-function/linear_to_bt1886.glsl
 ```
+
+- If you use `gamut-mapping/matrix` here, you will see that the result is different from mpv (vo=gpu-next), this is due to the black point of BT.1886, I personally consider that the black point in color conversion is always 0.
 
 ## What are these? What are they for?
 
@@ -78,7 +81,10 @@ This table lists the features of operators.[^1]
 | linear     | YRGB        | HDR peak              |
 | heatmap    | Various[^4] | 10000nit              |
 
-[^1]: Operators below the blank row are for testing purposes.
+[^1]:
+    Operators below the blank row are for testing purposes.  
+    Should not be used for watching
+
 [^2]:
     Default to 1000nit.  
     You can also set it manually like this `set glsl-shader-opts L_hdr=N`  
@@ -87,11 +93,11 @@ This table lists the features of operators.[^1]
 [^3]:
     Default to 203nit.  
     You can also set it manually like this `set glsl-shader-opts L_sdr=N`  
-    In some color grading workflows it is 100nit.
+    In some color grading workflows it is 100nit or 120nit, if so you'll get a dim result, unfortunately you have to guess the value and set it manually.
 
 [^4]:
     You can set it by `set glsl-shader-opts heatmap/enabled=N`  
-    N = 1:Y, 2:maxRGB, 3:meanRGB (arithmetic), 4:meanRGB (geometric), 5: Intensity
+    N = { 1: Y, 2: maxRGB, 3: meanRGB (arithmetic), 4: meanRGB (geometric), 5: Intensity }
 
 [^5]:
     That the BT.2390 EETF designed for display transform,  
@@ -112,20 +118,20 @@ You can set the intensity of it by `set glsl-shader-opts alpha=N`.
 ### Chroma correction
 
 This is a part of tone mapping, also known as "highlights desaturate".  
-In the real world, the brighter the color, the less saturated it becomes, and eventually it turns white.  
+In real world, the brighter the color, the less saturated it becomes, and eventually it turns white.  
 You can set the intensity of it by `set glsl-shader-opts sigma=N`.
 
 | `sigma=0`                                                                                                       | `sigma=0.2`                                                                                                     | `sigma=1`                                                                                                       |
 | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| ![image](https://user-images.githubusercontent.com/50797982/215456856-5e1329db-8b46-4650-86bd-960b334f10b7.png) | ![image](https://user-images.githubusercontent.com/50797982/215456904-efa8eca0-bade-44b2-9f36-078c28a92250.png) | ![image](https://user-images.githubusercontent.com/50797982/215456943-73009f4f-4239-4292-8c7a-30845233ba2d.png) |
+| ![image](https://user-images.githubusercontent.com/50797982/216247628-8647c010-ff70-488c-bc40-1d57612d1d9f.png) | ![image](https://user-images.githubusercontent.com/50797982/216247654-fc3066a1-098b-4f81-b4c5-a9c8eb6720cd.png) | ![image](https://user-images.githubusercontent.com/50797982/216247675-71c50982-2061-49b1-93b7-87ebe85951d6.png) |
 
-You may have noticed that the high lightness blue has turned purple, this is a defect of LABch, if there is any actual case showing bad results I will switch to JzCzhz to solve this.
+- You may have noticed that the high lightness blue has turned purple, this is a defect of Labch, if there is any actual case showing bad results I will switch to JzCzhz to solve this.
 
 ### Gamut mapping
 
-matrix is aimed at accurate conversion, but the volume of BT.2020 larger than BT.709, so the converted result may out of [0, 1].  
-compress brings back the colors that are out of volume by reducing the distance of the achromatic axis.  
-warning shows the excess volume after the conversion in inverted color.
+`matrix` is the exact conversion.  
+`compress` restores the excess color by reducing the distance of the achromatic axis.  
+`warning` shows the excess color after conversion as inverse color.
 
 | matrix                                                                                                          | compress                                                                                                        | warning                                                                                                         |
 | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
