@@ -92,11 +92,11 @@ float curve(float x) {
     float perceptualGamma = 2.4;
 
     // constraints
-    toeLength = pow(clamp(toeLength, 0.0, 1.0), perceptualGamma);
+    toeLength = clamp(pow(toeLength, perceptualGamma), 0.0, 1.0);
     toeStrength = clamp(toeStrength, 0.0, 1.0);
     shoulderAngle = clamp(shoulderAngle, 0.0, 1.0);
-    shoulderLength = max(1e-5, clamp(shoulderLength, 0.0, 1.0));
-    shoulderStrength = max(0.0, shoulderStrength);
+    shoulderLength = clamp(shoulderLength, 1e-6, 1.0 - 1e-6 - toeLength);
+    shoulderStrength = clamp(shoulderStrength, 0.0, 10.0);
 
     // apply base params
     x0 = toeLength * 0.5; // toe goes from 0 to 0.5
