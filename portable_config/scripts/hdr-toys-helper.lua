@@ -23,7 +23,7 @@ mp.observe_property("video-out-params", "native", function(_, value)
         return
     end
 
-    mp.add_timeout(0.1, function ()
+    mp.add_timeout(0.25, function ()
         set_hdr_white(math.round(203 * peak))
     end)
 end)
