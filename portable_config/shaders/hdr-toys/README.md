@@ -67,6 +67,7 @@ For example, use reinhard instead of bt2446c.
 This table lists the features of operators.
 
 - Operators below the blank row are for testing and should not be used for watching.
+- _Experimental_ [Dynamic tone mapping curve](https://github.com/Natural-Harmonia-Gropius/mpv_config/pull/10)
 
 | Operator | Applied to | Conversion peak |
 | -------- | ---------- | --------------- |
