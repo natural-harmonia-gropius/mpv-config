@@ -87,7 +87,6 @@ vec3 Iab_to_Cone(float I, float a, float b) {
     return vec3(I, a, b) * M;
 }
 
-
 const float b = 1.15;
 const float g = 0.66;
 
@@ -179,18 +178,12 @@ vec4 hook() {
     vec3 src = color.rgb;
 
     vec3 rgb = vec3(curve(color.r), curve(color.g), curve(color.b));
-    // return vec4(rgb, 1.0);
 
     float L = dot(color.rgb, vec3(0.2627, 0.6780, 0.0593));
     vec3 lum = color.rgb * curve(L) / L;
-    // return vec4(lum, 1.0);
 
     float norm = max(max(color.r, color.g), color.b);
     vec3 sat = color.rgb * curve(norm) / norm;
-    // return vec4(sat, 1.0);
-
-    // vec3 ref = vec3(1.0);
-    // vec3 peak = vec3(L_hdr / L_sdr);
 
     src = RGB_to_Jzazbz(src, L_sdr);
     src = Jzazbz_to_JzCzhz(src);
@@ -203,12 +196,6 @@ vec4 hook() {
 
     sat = RGB_to_Jzazbz(sat, L_sdr);
     sat = Jzazbz_to_JzCzhz(sat);
-
-    // ref = RGB_to_Jzazbz(ref, L_sdr);
-    // ref = Jzazbz_to_JzCzhz(ref);
-
-    // peak = RGB_to_Jzazbz(peak, L_sdr);
-    // peak = Jzazbz_to_JzCzhz(peak);
 
     color.rgb = vec3(mix(lum.r, sat.r, src.r), mix(lum.g, rgb.g, src.r), src.b);
     color.rgb = JzCzhz_to_Jzazbz(color.rgb);

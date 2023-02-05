@@ -1,7 +1,7 @@
 # HDR-toys
 
 Put this in your `mpv.conf`.  
-Default combination matches ITU-R BT.2446 Conversion Method C.
+The default combination is based on ITU-R BT.2446 Conversion Method C, highlights are optimized.
 
 ```ini
 vo=gpu-next
@@ -16,10 +16,11 @@ glsl-shader=~~/shaders/hdr-toys/transfer-function/pq_to_l.glsl
 glsl-shader=~~/shaders/hdr-toys/transfer-function/l_to_linear.glsl
 glsl-shader=~~/shaders/hdr-toys/utils/crosstalk.glsl
 glsl-shader=~~/shaders/hdr-toys/utils/chroma_correction.glsl
-glsl-shader=~~/shaders/hdr-toys/tone-mapping/bt2446c.glsl
+glsl-shader=~~/shaders/hdr-toys/tone-mapping/hybrid.glsl
 glsl-shader=~~/shaders/hdr-toys/utils/crosstalk_inverse.glsl
 glsl-shader=~~/shaders/hdr-toys/gamut-mapping/compress.glsl
 glsl-shader=~~/shaders/hdr-toys/transfer-function/linear_to_bt1886.glsl
+glsl-shader-opts=alpha=0
 ```
 
 - `vo=gpu-next` is required, the minimum version of mpv required is v0.35.0.
@@ -62,70 +63,62 @@ For example, use reinhard instead of bt2446c.
 + glsl-shader=~~/shaders/hdr-toys/tone-mapping/reinhard.glsl
 ```
 
-This table lists the features of operators.[^1]
+This table lists the features of operators.
 
-| Operator   | Applied to  | Conversion peak       |
-| ---------- | ----------- | --------------------- |
-| bt2390[^5] | ICtCp       | HDR peak[^2]          |
-| bt2446a    | YCbCr       | HDR peak              |
-| bt2446c    | xyY         | 1000nit (adjustable)  |
-| reinhard   | YRGB        | HDR peak              |
-| hable      | YRGB        | HDR peak              |
-| hable2     | YRGB        | HDR peak              |
-| suzuki     | YRGB        | 10000nit (adjustable) |
-| uchimura   | YRGB        | 1000nit               |
-| lottes     | maxRGB      | HDR peak              |
-| hejl2015   | RGB         | HDR peak              |
-|            |             |                       |
-| clip       | RGB         | SDR peak[^3]          |
-| linear     | YRGB        | HDR peak              |
-| heatmap    | Various[^4] | 10000nit              |
+- Operators below the blank row are for testing and should not be used for watching.
 
-[^1]:
-    Operators below the blank row are for testing purposes.  
-    Should not be used for watching
+| Operator | Applied to | Conversion peak |
+| -------- | ---------- | --------------- |
+| hybrid   | JzCzhz     | 1000nit         |
+| bt2390   | ICtCp      | HDR peak        |
+| bt2446a  | YCbCr      | HDR peak        |
+| bt2446c  | xyY        | 1000nit         |
+| reinhard | YRGB       | HDR peak        |
+| hable    | YRGB       | HDR peak        |
+| hable2   | YRGB       | HDR peak        |
+| suzuki   | YRGB       | 10000nit        |
+| uchimura | YRGB       | 1000nit         |
+| lottes   | maxRGB     | HDR peak        |
+| hejl2015 | RGB        | HDR peak        |
+|          |            |                 |
+| clip     | RGB        | SDR peak        |
+| linear   | YRGB       | HDR peak        |
+| heatmap  | Y          | 10000nit        |
 
-[^2]:
-    Default to 1000nit.  
-    You can also set it manually like this `set glsl-shader-opts L_hdr=N`  
-    [hdr-toys-helper.lua](https://github.com/Natural-Harmonia-Gropius/mpv_config/blob/main/portable_config/scripts/hdr-toys-helper.lua) can get it automatically from the video's metadata.
+- HDR peak defaults to 1000nit.  
+  You can set it manually with `set glsl-shader-opts L_hdr=N`  
+  [hdr-toys-helper.lua](https://github.com/Natural-Harmonia-Gropius/mpv_config/blob/main/portable_config/scripts/hdr-toys-helper.lua) can get it automatically from the mpv's video-out-params/sig-peak.
 
-[^3]:
-    Default to 203nit.  
-    You can also set it manually like this `set glsl-shader-opts L_sdr=N`  
-    In some color grading workflows it is 100nit or 120nit, if so you'll get a dim result, unfortunately you have to guess the value and set it manually.
+- SDR peak defaults to 203nit.  
+  You can set it manually with `set glsl-shader-opts L_sdr=N`  
+  In some grading workflows it is 100nit, if so you'll get a dim result, unfortunately you have to guess the value and set it manually.
 
-[^4]:
-    You can set it by `set glsl-shader-opts heatmap/enabled=N`  
-    N = { 1: Y, 2: maxRGB, 3: meanRGB (arithmetic), 4: meanRGB (geometric), 5: Intensity }
-
-[^5]:
-    That the BT.2390 EETF designed for display transform,  
-    To get the desired result, you need to set reference white to your monitor's peak white by `set glsl-shader-opts L_sdr=N`.  
-    To adapt the black point, you need to set the contrast to your monitor's contrast by `set glsl-shader-opts CONTRAST_sdr=N`.
-
-### Crosstalk
-
-This is a part of tone mapping, the screenshot below will show you how it works.  
-You can see that it makes the color less chromatic when tone mapping and the lightness between colors more even.  
-And for non-perceptual conversions (e.g. hejl2015) it brings highlights desaturation.  
-You can set the intensity of it by `set glsl-shader-opts alpha=N`.
-
-| without crosstalk_inverse                                                                                       | heatmap, Y, alpha=0                                                                                             | heatmap, Y, alpha=0.3                                                                                           | hejl2015, RGB, alpha=0                                                                                          | hejl2015, RGB, alpha=0.3                                                                                        |
-| --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| ![image](https://user-images.githubusercontent.com/50797982/213441412-7f43f19c-afc3-4b31-8b5c-55c1ac064ff7.png) | ![image](https://user-images.githubusercontent.com/50797982/213441611-fd6e6afa-e39b-4a44-82da-45a667dfe88a.png) | ![image](https://user-images.githubusercontent.com/50797982/213441631-3f87b965-8206-4e91-a8dd-d867c07cbf0d.png) | ![image](https://user-images.githubusercontent.com/50797982/213442007-411fd942-c930-4629-8dc1-88da8705639e.png) | ![image](https://user-images.githubusercontent.com/50797982/213442036-45e0a832-7d14-40f5-b4ca-1320ad59358d.png) |
+- That the BT.2390 EETF designed for display transform,  
+  To get the desired result, you need to set reference white to your monitor's peak white by `set glsl-shader-opts L_sdr=N`.  
+  To adapt the black point, you need to set the contrast to your monitor's contrast by `set glsl-shader-opts CONTRAST_sdr=N`.
 
 ### Chroma correction
 
 This is a part of tone mapping, also known as "highlights desaturate".  
-In real world, the brighter the color, the less saturated it becomes, and eventually it turns white.  
 You can set the intensity of it by `set glsl-shader-opts sigma=N`.
+
+In real world, the brighter the color, the less saturated it becomes, and eventually it turns white.
 
 | `sigma=0`                                                                                                       | `sigma=0.2`                                                                                                     | `sigma=1`                                                                                                       |
 | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | ![image](https://user-images.githubusercontent.com/50797982/216247628-8647c010-ff70-488c-bc40-1d57612d1d9f.png) | ![image](https://user-images.githubusercontent.com/50797982/216247654-fc3066a1-098b-4f81-b4c5-a9c8eb6720cd.png) | ![image](https://user-images.githubusercontent.com/50797982/216247675-71c50982-2061-49b1-93b7-87ebe85951d6.png) |
 
-- You may have noticed that the high lightness blue has turned purple, this is a defect of Labch, if there is any actual case showing bad results I will switch to JzCzhz to solve this.
+### Crosstalk
+
+This is a part of tone mapping, the screenshot below will show you how it works.  
+You can set the intensity of it by `set glsl-shader-opts alpha=N`.
+
+It makes the color less chromatic when tone mapping and the lightness between colors more even.  
+And for non-perceptual conversions (e.g. hejl2015) it brings achromatically highlights.
+
+| without crosstalk_inverse                                                                                       | heatmap, Y, alpha=0                                                                                             | heatmap, Y, alpha=0.3                                                                                           | hejl2015, RGB, alpha=0                                                                                          | hejl2015, RGB, alpha=0.3                                                                                        |
+| --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| ![image](https://user-images.githubusercontent.com/50797982/213441412-7f43f19c-afc3-4b31-8b5c-55c1ac064ff7.png) | ![image](https://user-images.githubusercontent.com/50797982/213441611-fd6e6afa-e39b-4a44-82da-45a667dfe88a.png) | ![image](https://user-images.githubusercontent.com/50797982/213441631-3f87b965-8206-4e91-a8dd-d867c07cbf0d.png) | ![image](https://user-images.githubusercontent.com/50797982/213442007-411fd942-c930-4629-8dc1-88da8705639e.png) | ![image](https://user-images.githubusercontent.com/50797982/213442036-45e0a832-7d14-40f5-b4ca-1320ad59358d.png) |
 
 ### Gamut mapping
 

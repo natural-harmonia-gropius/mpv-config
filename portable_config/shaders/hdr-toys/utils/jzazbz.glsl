@@ -83,7 +83,6 @@ vec3 Iab_to_Cone(float I, float a, float b) {
     return vec3(I, a, b) * M;
 }
 
-
 const float b = 1.15;
 const float g = 0.66;
 
