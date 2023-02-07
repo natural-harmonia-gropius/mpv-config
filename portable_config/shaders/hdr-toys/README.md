@@ -85,6 +85,7 @@ This table lists the features of operators.
 |          |            |                 |
 | clip     | RGB        | SDR peak        |
 | linear   | YRGB       | HDR peak        |
+| local    | YRGB       | Block peak      |
 | heatmap  | Y          | 10000nit        |
 
 - HDR peak defaults to 1000nit.  
