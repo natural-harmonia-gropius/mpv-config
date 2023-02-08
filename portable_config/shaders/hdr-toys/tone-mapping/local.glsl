@@ -7,8 +7,8 @@ shared float L_max;
 
 void metering() {
     ivec2 base = ivec2(gl_WorkGroupID) * ivec2(gl_WorkGroupSize);
-    for (uint y = gl_LocalInvocationID.y; y < gl_WorkGroupSize.y; y++) {
-        for (uint x = gl_LocalInvocationID.x; x < gl_WorkGroupSize.x; x++) {
+    for (uint x = 0; x < gl_WorkGroupSize.x; x++) {
+        for (uint y = 0; y < gl_WorkGroupSize.y; y++) {
             vec4 texelValue = texelFetch(HOOKED_raw, base + ivec2(x,y), 0);
             float L = dot(texelValue.rgb, vec3(0.2627, 0.6780, 0.0593));
             L_max = max(L_max, L);
