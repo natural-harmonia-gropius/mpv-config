@@ -2,11 +2,15 @@
 
 Personal portable_config for MPV player, The aim is to use it right out of the box.
 
-Optimized uosc, except users of Windows 11 need to put [Segoe Fluent Icons](https://aka.ms/SegoeFluentIcons) and [Segoe UI Variable](https://aka.ms/SegoeUIVariable) into `~~/portable_config/fonts`.
+Optimized HDR to SDR conversion, include dynamic curve and applied to a uniform color space.  
+[~~/portable_config/shaders/hdr-toys](https://github.com/Natural-Harmonia-Gropius/mpv_config/tree/main/portable_config/shaders/hdr-toys)
 
-Optimized svpflow script + optional rife enhancement, see `~~/portable_config/filters/interp.py`
+Optimized svpflow script, and optional rife enhancement.  
+[~~/portable_config/filters/interp.py](https://github.com/Natural-Harmonia-Gropius/mpv_config/blob/main/portable_config/filters/interp.py)
 
-Optimized HDR to SDR conversion, see [hdr-toys](https://github.com/Natural-Harmonia-Gropius/mpv_config/tree/main/portable_config/shaders/hdr-toys).
+Optimized uosc, based on my personal preference.  
+[Natural-Harmonia-Gropius/uosc](https://github.com/Natural-Harmonia-Gropius/uosc)  
+except users of windows 11 need to put [Segoe Fluent Icons](https://aka.ms/SegoeFluentIcons) and [Segoe UI Variable](https://aka.ms/SegoeUIVariable) into `~~/portable_config/fonts` folder.
 
 [mpv-player](https://github.com/shinchiro/mpv-winbuild-cmake/releases)  
 [yt-dlp](https://github.com/yt-dlp/yt-dlp/releases)  
@@ -61,8 +65,3 @@ Optimized HDR to SDR conversion, see [hdr-toys](https://github.com/Natural-Harmo
 - CAS.glsl
 - NVScaler.glsl
 - NVSharpen.glsl
-
-[AN3223/dotfiles](https://github.com/AN3223/dotfiles/tree/master/.config/mpv/shaders)
-
-- nlmeans.glsl
-- nlmeans_next.glsl

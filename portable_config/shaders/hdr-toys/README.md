@@ -1,7 +1,5 @@
 # HDR-toys
 
-- Experimental - [Dynamic tone mapping curves](https://github.com/Natural-Harmonia-Gropius/mpv_config/pull/10) now available.
-
 Put this in your `mpv.conf`.  
 The default combination is based on ITU-R BT.2446 Conversion Method C, highlights are optimized.
 
@@ -72,7 +70,7 @@ This table lists the features of operators.
 
 | Operator | Applied to | Conversion peak |
 | -------- | ---------- | --------------- |
-| hybrid   | JzCzhz     | 1000nit         |
+| dynamic  | JzCzhz     | Frame peak      |
 | bt2390   | ICtCp      | HDR peak        |
 | bt2446a  | YCbCr      | HDR peak        |
 | bt2446c  | xyY        | 1000nit         |
