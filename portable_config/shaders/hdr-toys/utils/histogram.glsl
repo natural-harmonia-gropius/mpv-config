@@ -26,15 +26,15 @@
 
 float drawRect(float i, float valLen, float val, vec2 uv) {
     // draw the rectangle at appropriate place
-	float rect = 0.;
+    float rect = 0.;
 
     if (uv.x > i / valLen && uv.x < (i + 1.0) / valLen) {
         // draw the height of rect according to val
         if (val / (samples * samples * 0.25) < uv.y) {
-        	rect = 1.;
+            rect = 1.;
         }
     }
-	return rect;
+    return rect;
 }
 
 float RGB_to_L(vec3 rgb) {
@@ -63,10 +63,10 @@ vec4 hook() {
             if (enabled == 2) {
                 rgb *= L_sdr / 10000.0;
             }
-        	float L = RGB_to_L(rgb);
+            float L = RGB_to_L(rgb);
             int index = int(floor(L * valLen));
             val[index]++;
-    	}
+        }
     }
 
     // then add values in a array of length 10

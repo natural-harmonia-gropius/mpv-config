@@ -19,28 +19,28 @@
 
 float curve_segment_eval(float x, float lnA, float B, float offsetX, float offsetY, float scaleX, float scaleY) {
     float x0 = (x - offsetX) * scaleX;
-	float y0 = 0.0;
+    float y0 = 0.0;
 
     // log(0) is undefined but our function should evaluate to 0. There are better ways to handle this,
-	// but it's doing it the slow way here for clarity.
-	if (x0 > 0.0) {
-		y0 = exp(lnA + B * log(x0));
-	}
+    // but it's doing it the slow way here for clarity.
+    if (x0 > 0.0) {
+        y0 = exp(lnA + B * log(x0));
+    }
 
     return y0 * scaleY + offsetY;
 }
 
 float curve_segment_eval_inv(float y, float lnA, float B, float offsetX, float offsetY, float scaleX, float scaleY) {
-	float y0 = (y - offsetY) / scaleY;
-	float x0 = 0.0;
+    float y0 = (y - offsetY) / scaleY;
+    float x0 = 0.0;
 
-	// watch out for log(0) again
-	if (y0 > 0.0) {
-		x0 = exp((log(y0) - lnA) / B);
-	}
-	float x = x0 / scaleX + offsetX;
+    // watch out for log(0) again
+    if (y0 > 0.0) {
+        x0 = exp((log(y0) - lnA) / B);
+    }
+    float x = x0 / scaleX + offsetX;
 
-	return x;
+    return x;
 }
 
 // find a function of the form:
@@ -120,7 +120,7 @@ float curve(float x) {
 
     // CreateCurve
 
-	// normalize params to 1.0 range
+    // normalize params to 1.0 range
     float invW = 1.0 / W;
     x0 /= W;
     x1 /= W;

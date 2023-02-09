@@ -78,18 +78,18 @@ shared float shPixelsY[kNumPixelsY][kNumPixelsX];
 // Shader code
 
 vec4 GetEdgeMap(float p[5][5], int i, int j) {
-	const float g_0 = abs(p[0 + i][0 + j] + p[0 + i][1 + j] + p[0 + i][2 + j] - p[2 + i][0 + j] - p[2 + i][1 + j] - p[2 + i][2 + j]);
-	const float g_45 = abs(p[1 + i][0 + j] + p[0 + i][0 + j] + p[0 + i][1 + j] - p[2 + i][1 + j] - p[2 + i][2 + j] - p[1 + i][2 + j]);
-	const float g_90 = abs(p[0 + i][0 + j] + p[1 + i][0 + j] + p[2 + i][0 + j] - p[0 + i][2 + j] - p[1 + i][2 + j] - p[2 + i][2 + j]);
-	const float g_135 = abs(p[1 + i][0 + j] + p[2 + i][0 + j] + p[2 + i][1 + j] - p[0 + i][1 + j] - p[0 + i][2 + j] - p[1 + i][2 + j]);
+    const float g_0 = abs(p[0 + i][0 + j] + p[0 + i][1 + j] + p[0 + i][2 + j] - p[2 + i][0 + j] - p[2 + i][1 + j] - p[2 + i][2 + j]);
+    const float g_45 = abs(p[1 + i][0 + j] + p[0 + i][0 + j] + p[0 + i][1 + j] - p[2 + i][1 + j] - p[2 + i][2 + j] - p[1 + i][2 + j]);
+    const float g_90 = abs(p[0 + i][0 + j] + p[1 + i][0 + j] + p[2 + i][0 + j] - p[0 + i][2 + j] - p[1 + i][2 + j] - p[2 + i][2 + j]);
+    const float g_135 = abs(p[1 + i][0 + j] + p[2 + i][0 + j] + p[2 + i][1 + j] - p[0 + i][1 + j] - p[0 + i][2 + j] - p[1 + i][2 + j]);
 
-	const float g_0_90_max = max(g_0, g_90);
-	const float g_0_90_min = min(g_0, g_90);
-	const float g_45_135_max = max(g_45, g_135);
-	const float g_45_135_min = min(g_45, g_135);
+    const float g_0_90_max = max(g_0, g_90);
+    const float g_0_90_min = min(g_0, g_90);
+    const float g_45_135_max = max(g_45, g_135);
+    const float g_45_135_min = min(g_45, g_135);
 
-	float e_0_90 = 0;
-	float e_45_135 = 0;
+    float e_0_90 = 0;
+    float e_45_135 = 0;
 
     if (g_0_90_max + g_45_135_max == 0)
     {
@@ -112,148 +112,148 @@ vec4 GetEdgeMap(float p[5][5], int i, int j) {
     float weight_45 = (c_45_135 && c_g_45_135) ? f_e_45_135 : 0.0f;
     float weight_135 = (c_45_135 && !c_g_45_135) ? f_e_45_135 : 0.0f;
 
-	return vec4(weight_0, weight_90, weight_45, weight_135);
+    return vec4(weight_0, weight_90, weight_45, weight_135);
 }
 
 float CalcLTIFast(const float y[5]) {
-	const float a_min = min(min(y[0], y[1]), y[2]);
-	const float a_max = max(max(y[0], y[1]), y[2]);
+    const float a_min = min(min(y[0], y[1]), y[2]);
+    const float a_max = max(max(y[0], y[1]), y[2]);
 
-	const float b_min = min(min(y[2], y[3]), y[4]);
-	const float b_max = max(max(y[2], y[3]), y[4]);
+    const float b_min = min(min(y[2], y[3]), y[4]);
+    const float b_max = max(max(y[2], y[3]), y[4]);
 
-	const float a_cont = a_max - a_min;
-	const float b_cont = b_max - b_min;
+    const float a_cont = a_max - a_min;
+    const float b_cont = b_max - b_min;
 
-	const float cont_ratio = max(a_cont, b_cont) / (min(a_cont, b_cont) + kEps);
-	return (1.0f - saturate((cont_ratio - kMinContrastRatio) * kRatioNorm)) * kContrastBoost;
+    const float cont_ratio = max(a_cont, b_cont) / (min(a_cont, b_cont) + kEps);
+    return (1.0f - saturate((cont_ratio - kMinContrastRatio) * kRatioNorm)) * kContrastBoost;
 }
 
 float EvalUSM(const float pxl[5], const float sharpnessStrength, const float sharpnessLimit) {
-	// USM profile
-	float y_usm = -0.6001f * pxl[1] + 1.2002f * pxl[2] - 0.6001f * pxl[3];
-	// boost USM profile
-	y_usm *= sharpnessStrength;
-	// clamp to the limit
-	y_usm = min(sharpnessLimit, max(-sharpnessLimit, y_usm));
-	// reduce ringing
-	y_usm *= CalcLTIFast(pxl);
+    // USM profile
+    float y_usm = -0.6001f * pxl[1] + 1.2002f * pxl[2] - 0.6001f * pxl[3];
+    // boost USM profile
+    y_usm *= sharpnessStrength;
+    // clamp to the limit
+    y_usm = min(sharpnessLimit, max(-sharpnessLimit, y_usm));
+    // reduce ringing
+    y_usm *= CalcLTIFast(pxl);
 
-	return y_usm;
+    return y_usm;
 }
 
 vec4 GetDirUSM(const float p[5][5]) {
-	// sharpness boost & limit are the same for all directions
-	const float scaleY = 1.0f - saturate((p[2][2] - kSharpStartY) * kSharpScaleY);
-	// scale the ramp to sharpen as a function of luma
-	const float sharpnessStrength = scaleY * kSharpStrengthScale + kSharpStrengthMin;
-	// scale the ramp to limit USM as a function of luma
-	const float sharpnessLimit = (scaleY * kSharpLimitScale + kSharpLimitMin) * p[2][2];
+    // sharpness boost & limit are the same for all directions
+    const float scaleY = 1.0f - saturate((p[2][2] - kSharpStartY) * kSharpScaleY);
+    // scale the ramp to sharpen as a function of luma
+    const float sharpnessStrength = scaleY * kSharpStrengthScale + kSharpStrengthMin;
+    // scale the ramp to limit USM as a function of luma
+    const float sharpnessLimit = (scaleY * kSharpLimitScale + kSharpLimitMin) * p[2][2];
 
-	vec4 rval;
-	// 0 deg filter
-	float interp0Deg[5];
-	{
-		for (int i = 0; i < 5; ++i)
-		{
-			interp0Deg[i] = p[i][2];
-		}
-	}
+    vec4 rval;
+    // 0 deg filter
+    float interp0Deg[5];
+    {
+        for (int i = 0; i < 5; ++i)
+        {
+            interp0Deg[i] = p[i][2];
+        }
+    }
 
-	rval.x = EvalUSM(interp0Deg, sharpnessStrength, sharpnessLimit);
+    rval.x = EvalUSM(interp0Deg, sharpnessStrength, sharpnessLimit);
 
-	// 90 deg filter
-	float interp90Deg[5];
-	{
-		for (int i = 0; i < 5; ++i)
-		{
-			interp90Deg[i] = p[2][i];
-		}
-	}
+    // 90 deg filter
+    float interp90Deg[5];
+    {
+        for (int i = 0; i < 5; ++i)
+        {
+            interp90Deg[i] = p[2][i];
+        }
+    }
 
-	rval.y = EvalUSM(interp90Deg, sharpnessStrength, sharpnessLimit);
+    rval.y = EvalUSM(interp90Deg, sharpnessStrength, sharpnessLimit);
 
-	//45 deg filter
-	float interp45Deg[5];
-	interp45Deg[0] = p[1][1];
-	interp45Deg[1] = lerp(p[2][1], p[1][2], 0.5f);
-	interp45Deg[2] = p[2][2];
-	interp45Deg[3] = lerp(p[3][2], p[2][3], 0.5f);
-	interp45Deg[4] = p[3][3];
+    //45 deg filter
+    float interp45Deg[5];
+    interp45Deg[0] = p[1][1];
+    interp45Deg[1] = lerp(p[2][1], p[1][2], 0.5f);
+    interp45Deg[2] = p[2][2];
+    interp45Deg[3] = lerp(p[3][2], p[2][3], 0.5f);
+    interp45Deg[4] = p[3][3];
 
-	rval.z = EvalUSM(interp45Deg, sharpnessStrength, sharpnessLimit);
+    rval.z = EvalUSM(interp45Deg, sharpnessStrength, sharpnessLimit);
 
-	//135 deg filter
-	float interp135Deg[5];
-	interp135Deg[0] = p[3][1];
-	interp135Deg[1] = lerp(p[3][2], p[2][1], 0.5f);
-	interp135Deg[2] = p[2][2];
-	interp135Deg[3] = lerp(p[2][3], p[1][2], 0.5f);
-	interp135Deg[4] = p[1][3];
+    //135 deg filter
+    float interp135Deg[5];
+    interp135Deg[0] = p[3][1];
+    interp135Deg[1] = lerp(p[3][2], p[2][1], 0.5f);
+    interp135Deg[2] = p[2][2];
+    interp135Deg[3] = lerp(p[2][3], p[1][2], 0.5f);
+    interp135Deg[4] = p[1][3];
 
-	rval.w = EvalUSM(interp135Deg, sharpnessStrength, sharpnessLimit);
-	return rval;
+    rval.w = EvalUSM(interp135Deg, sharpnessStrength, sharpnessLimit);
+    return rval;
 }
 
 void hook() {
-	uvec2 blockIdx = gl_WorkGroupID.xy;
-	uint threadIdx = gl_LocalInvocationID.x;
+    uvec2 blockIdx = gl_WorkGroupID.xy;
+    uint threadIdx = gl_LocalInvocationID.x;
 
-	const int dstBlockX = int(NIS_BLOCK_WIDTH * blockIdx.x);
-	const int dstBlockY = int(NIS_BLOCK_HEIGHT * blockIdx.y);
+    const int dstBlockX = int(NIS_BLOCK_WIDTH * blockIdx.x);
+    const int dstBlockY = int(NIS_BLOCK_HEIGHT * blockIdx.y);
 
-	// fill in input luma tile in batches of 2x2 pixels
-	// we use texture gather to get extra support necessary
-	// to compute 2x2 edge map outputs too
-	const float kShift = 0.5f - kSupportSize / 2;
+    // fill in input luma tile in batches of 2x2 pixels
+    // we use texture gather to get extra support necessary
+    // to compute 2x2 edge map outputs too
+    const float kShift = 0.5f - kSupportSize / 2;
 
-	for (int i = int(threadIdx) * 2; i < kNumPixelsX * kNumPixelsY / 2; i += NIS_THREAD_GROUP_SIZE * 2) {
-		uvec2 pos = uvec2(uint(i) % uint(kNumPixelsX), uint(i) / uint(kNumPixelsX) * 2);
+    for (int i = int(threadIdx) * 2; i < kNumPixelsX * kNumPixelsY / 2; i += NIS_THREAD_GROUP_SIZE * 2) {
+        uvec2 pos = uvec2(uint(i) % uint(kNumPixelsX), uint(i) / uint(kNumPixelsX) * 2);
 
-		for (int dy = 0; dy < 2; dy++) {
-			for (int dx = 0; dx < 2; dx++) {
-				const float tx = (dstBlockX + pos.x + dx + kShift) * kSrcNormX;
-				const float ty = (dstBlockY + pos.y + dy + kShift) * kSrcNormY;
-				const float px = HOOKED_tex(vec2(tx, ty)).r;
-				shPixelsY[pos.y + dy][pos.x + dx] = px;
-			}
-		}
-	}
+        for (int dy = 0; dy < 2; dy++) {
+            for (int dx = 0; dx < 2; dx++) {
+                const float tx = (dstBlockX + pos.x + dx + kShift) * kSrcNormX;
+                const float ty = (dstBlockY + pos.y + dy + kShift) * kSrcNormY;
+                const float px = HOOKED_tex(vec2(tx, ty)).r;
+                shPixelsY[pos.y + dy][pos.x + dx] = px;
+            }
+        }
+    }
 
-	groupMemoryBarrier();
-	barrier();
+    groupMemoryBarrier();
+    barrier();
 
-	for (int k = int(threadIdx); k < NIS_BLOCK_WIDTH * NIS_BLOCK_HEIGHT; k += NIS_THREAD_GROUP_SIZE)
-	{
-		const ivec2 pos = ivec2(uint(k) % uint(NIS_BLOCK_WIDTH), uint(k) / uint(NIS_BLOCK_WIDTH));
+    for (int k = int(threadIdx); k < NIS_BLOCK_WIDTH * NIS_BLOCK_HEIGHT; k += NIS_THREAD_GROUP_SIZE)
+    {
+        const ivec2 pos = ivec2(uint(k) % uint(NIS_BLOCK_WIDTH), uint(k) / uint(NIS_BLOCK_WIDTH));
 
-		// load 5x5 support to regs
-		float p[5][5];
+        // load 5x5 support to regs
+        float p[5][5];
 
-		for (int i = 0; i < 5; ++i)
-		{
-			for (int j = 0; j < 5; ++j)
-			{
-				p[i][j] = shPixelsY[pos.y + i][pos.x + j];
-			}
-		}
+        for (int i = 0; i < 5; ++i)
+        {
+            for (int j = 0; j < 5; ++j)
+            {
+                p[i][j] = shPixelsY[pos.y + i][pos.x + j];
+            }
+        }
 
-		// get directional filter bank output
-		vec4 dirUSM = GetDirUSM(p);
+        // get directional filter bank output
+        vec4 dirUSM = GetDirUSM(p);
 
-		// generate weights for directional filters
-		vec4 w = GetEdgeMap(p, kSupportSize / 2 - 1, kSupportSize / 2 - 1);
+        // generate weights for directional filters
+        vec4 w = GetEdgeMap(p, kSupportSize / 2 - 1, kSupportSize / 2 - 1);
 
-		// final USM is a weighted sum filter outputs
-		const float usmY = (dirUSM.x * w.x + dirUSM.y * w.y + dirUSM.z * w.z + dirUSM.w * w.w);
+        // final USM is a weighted sum filter outputs
+        const float usmY = (dirUSM.x * w.x + dirUSM.y * w.y + dirUSM.z * w.z + dirUSM.w * w.w);
 
-		// do bilinear tap and correct luma texel so it produces new sharpened luma
-		const int dstX = dstBlockX + pos.x;
-		const int dstY = dstBlockY + pos.y;
+        // do bilinear tap and correct luma texel so it produces new sharpened luma
+        const int dstX = dstBlockX + pos.x;
+        const int dstY = dstBlockY + pos.y;
 
-		vec4 op = HOOKED_tex(vec2((dstX + 0.5f) * kDstNormX, (dstY + 0.5f) * kDstNormY));
-		op.x += usmY;
+        vec4 op = HOOKED_tex(vec2((dstX + 0.5f) * kDstNormX, (dstY + 0.5f) * kDstNormY));
+        op.x += usmY;
 
-		imageStore(out_image, ivec2(dstX, dstY), op);
-	}
+        imageStore(out_image, ivec2(dstX, dstY), op);
+    }
 }
