@@ -26,112 +26,41 @@
 //!HOOK OUTPUT
 //!BIND HOOKED
 //!SAVE BLURRED
-//!COMPUTE 16 16
-//!DESC luminance analysis (gaussian blur)
+//!DESC luminance analysis (gaussian blur horizonal)
+// Fast pixel shader gaussian blur by butterw pass1
 
-const int GROUP_SIZE = 16;
+#define Offsets vec3(0.0, 1.3846153846, 3.2307692308)
+#define K		vec3(0.2270270270, 0.3162162162, 0.0702702703)
 
-const int M = 16;
-const int N = 2 * M + 1;
+vec4 hook(){
+	vec4 c0 = HOOKED_tex(HOOKED_pos) * K[0];
+	uint i = 1;
+    c0 += HOOKED_tex(HOOKED_pos + HOOKED_pt * vec2(Offsets[i], 0)) * K[i];
+    c0 += HOOKED_tex(HOOKED_pos - HOOKED_pt * vec2(Offsets[i], 0)) * K[i];
+	i = 2;
+    c0 += HOOKED_tex(HOOKED_pos + HOOKED_pt * vec2(Offsets[i], 0)) * K[i];
+    c0 += HOOKED_tex(HOOKED_pos - HOOKED_pt * vec2(Offsets[i], 0)) * K[i];
+	return c0;
+}
 
-// sigma = 10
-const float coeffs[N] = float[N](
-    0.012318109844189502,
-    0.014381474814203989,
-    0.016623532195728208,
-    0.019024086115486723,
-    0.02155484948872149,
-    0.02417948052890078,
-    0.02685404941667096,
-    0.0295279624870386,
-    0.03214534135442581,
-    0.03464682117793548,
-    0.0369716985390341,
-    0.039060328279673276,
-    0.040856643282313365,
-    0.04231065439216247,
-    0.043380781642569775,
-    0.044035873841196206,
-    0.04425662519949865,
-    0.044035873841196206,
-    0.043380781642569775,
-    0.04231065439216247,
-    0.040856643282313365,
-    0.039060328279673276,
-    0.0369716985390341,
-    0.03464682117793548,
-    0.03214534135442581,
-    0.0295279624870386,
-    0.02685404941667096,
-    0.02417948052890078,
-    0.02155484948872149,
-    0.019024086115486723,
-    0.016623532195728208,
-    0.014381474814203989,
-    0.012318109844189502
-);
+//!HOOK OUTPUT
+//!BIND BLURRED
+//!SAVE BLURRED
+//!DESC luminance analysis (gaussian blur vertical)
+// Fast pixel shader gaussian blur by butterw pass2
 
-const int CACHE_SIZE = GROUP_SIZE + 2 * M;
-shared vec4 cache[CACHE_SIZE][CACHE_SIZE];
-const int LOAD = (CACHE_SIZE + GROUP_SIZE - 1) / GROUP_SIZE;
+#define Offsets vec3(0.0, 1.3846153846, 3.2307692308)
+#define K		vec3(0.2270270270, 0.3162162162, 0.0702702703)
 
-void hook() {
-    ivec2 size = ivec2(input_size);
-    ivec2 pixel_coord = ivec2(gl_GlobalInvocationID.xy);
-    ivec2 workgroup_origin = ivec2(gl_WorkGroupID.xy) * GROUP_SIZE - ivec2(M, M);
-
-    // Populate shared group cache
-    for (int i = 0; i < LOAD; ++i) {
-        for (int j = 0; j < LOAD; ++j) {
-            ivec2 local = ivec2(gl_LocalInvocationID.xy) * LOAD + ivec2(i, j);
-            ivec2 pc = workgroup_origin + local;
-            if (pc.x >= 0 && pc.y >= 0 && pc.x < size.x && pc.y < size.y && local.x < CACHE_SIZE && local.y < CACHE_SIZE) {
-                cache[local.x][local.y] = texelFetch(HOOKED_raw, pc, 0);
-            }
-        }
-    }
-
-    memoryBarrierShared();
-    barrier();
-
-    // Horizontal blur
-    for (int i = 0; i < LOAD; ++i) {
-        ivec2 local = ivec2(pixel_coord.x - workgroup_origin.x, gl_LocalInvocationID.y * LOAD + i);
-        ivec2 pixel_coord = workgroup_origin + local;
-        if (pixel_coord.y < size.y && local.x < CACHE_SIZE && local.y < CACHE_SIZE) {
-            vec4 sum = vec4(0.0);
-            for (int i = 0; i < N; ++i) {
-                ivec2 pc = pixel_coord + ivec2(i - M, 0);
-                if (pc.x < 0) pc.x = 0;
-                if (pc.y < 0) pc.y = 0;
-                if (pc.x >= size.x) pc.x = size.x - 1;
-                if (pc.y >= size.y) pc.y = size.y - 1;
-                ivec2 local = pc - workgroup_origin;
-                sum += coeffs[i] * cache[local.x][local.y];
-            }
-            memoryBarrierShared();
-            barrier();
-            cache[local.x][local.y] = sum;
-        }
-    }
-
-    memoryBarrierShared();
-    barrier();
-
-    // Vertical blur
-    if (pixel_coord.x < size.x) {
-        vec4 sum = vec4(0.0);
-        for (int i = 0; i < N; ++i) {
-            ivec2 pc = pixel_coord + ivec2(0, i - M);
-            if (pc.x < 0) pc.x = 0;
-            if (pc.y < 0) pc.y = 0;
-            if (pc.x >= size.x) pc.x = size.x - 1;
-            if (pc.y >= size.y) pc.y = size.y - 1;
-            ivec2 local = pc - workgroup_origin;
-            sum += coeffs[i] * cache[local.x][local.y];
-        }
-        imageStore(out_image, pixel_coord, sum);
-    }
+vec4 hook(){
+	vec4 c0 = BLURRED_tex(BLURRED_pos) * K[0];
+	uint i = 1;
+    c0 += BLURRED_tex(BLURRED_pos + BLURRED_pt * vec2(0, Offsets[i])) * K[i];
+    c0 += BLURRED_tex(BLURRED_pos - BLURRED_pt * vec2(0, Offsets[i])) * K[i];
+	i = 2;
+    c0 += BLURRED_tex(BLURRED_pos + BLURRED_pt * vec2(Offsets[i], 0)) * K[i];
+    c0 += BLURRED_tex(BLURRED_pos - BLURRED_pt * vec2(Offsets[i], 0)) * K[i];
+	return c0;
 }
 
 //!HOOK OUTPUT
