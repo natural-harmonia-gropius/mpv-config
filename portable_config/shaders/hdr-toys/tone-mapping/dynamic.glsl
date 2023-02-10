@@ -24,6 +24,21 @@
 //!STORAGE
 
 //!HOOK OUTPUT
+//!BIND FRAME_DATA
+//!SAVE EMPTY
+//!WIDTH 1
+//!HEIGHT 1
+//!COMPUTE 1 1
+//!DESC luminance analysis (initial)
+
+void hook() {
+    L_min = 10000;
+    L_max = 0;
+    L_sum = 0;
+    L_avg = 0.0;
+}
+
+//!HOOK OUTPUT
 //!BIND HOOKED
 //!SAVE BLURRED
 //!DESC luminance analysis (gaussian blur horizonal)
@@ -61,21 +76,6 @@ vec4 hook(){
     c0 += BLURRED_tex(BLURRED_pos + BLURRED_pt * vec2(Offsets[i], 0)) * K[i];
     c0 += BLURRED_tex(BLURRED_pos - BLURRED_pt * vec2(Offsets[i], 0)) * K[i];
 	return c0;
-}
-
-//!HOOK OUTPUT
-//!BIND FRAME_DATA
-//!SAVE EMPTY
-//!WIDTH 1
-//!HEIGHT 1
-//!COMPUTE 1 1
-//!DESC luminance analysis (initial)
-
-void hook() {
-    L_min = 10000;
-    L_max = 0;
-    L_sum = 0;
-    L_avg = 0.0;
 }
 
 //!HOOK OUTPUT
