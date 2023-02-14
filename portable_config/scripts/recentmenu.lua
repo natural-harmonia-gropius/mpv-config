@@ -65,7 +65,7 @@ function utf8_iter(str)
     end
 end
 
-function utf8_substring(str, indexStart, indexEnd)
+function utf8_subwidth(str, indexStart, indexEnd)
     local index = 1
     local substr = ""
     for _, char in utf8_iter(str) do
@@ -79,8 +79,8 @@ function utf8_substring(str, indexStart, indexEnd)
 end
 
 function append_item(path, filename, title)
-    filename = utf8_substring(filename, 1, o.title_length)
-    title = utf8_substring(title, 1, o.title_length)
+    filename = utf8_subwidth(filename, 1, o.title_length)
+    title = utf8_subwidth(title, 1, o.title_length)
 
     local new_items = {}
     new_items[1] = { title = filename, hint = title, value = { "loadfile", path } }
