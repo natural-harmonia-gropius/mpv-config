@@ -4,6 +4,7 @@ local options = require("mp.options")
 local o = {
     path = "~~/recent.json",
     length = 10,
+    title_length = 25,
 }
 options.read_options(o)
 
@@ -38,7 +39,48 @@ function write_json()
     json_file:close()
 end
 
+function utf8_char_bytes(str, i)
+    local char_byte = str:byte(i)
+    if char_byte < 0xC0 then
+        return 1
+    elseif char_byte < 0xE0 then
+        return 2
+    elseif char_byte < 0xF0 then
+        return 3
+    elseif char_byte < 0xF8 then
+        return 4
+    else
+        return 1
+    end
+end
+
+function utf8_iter(str)
+    local byte_start = 1
+    return function()
+        local start = byte_start
+        if #str < start then return nil end
+        local byte_count = utf8_char_bytes(str, start)
+        byte_start = start + byte_count
+        return start, str:sub(start, start + byte_count - 1)
+    end
+end
+
+function utf8_substring(str, indexStart, indexEnd)
+    local index = 1
+    local substr = ""
+    for _, char in utf8_iter(str) do
+        if indexStart <= index and index <= indexEnd then
+            substr = substr .. char
+            index = index + 1
+        end
+    end
+    return substr
+end
+
 function append_item(path, filename, title)
+    filename = utf8_substring(filename, 1, o.title_length)
+    title = utf8_substring(title, 1, o.title_length)
+
     local new_items = {}
     new_items[1] = { title = filename, hint = title, value = { "loadfile", path } }
     for index, value in ipairs(menu.items) do
