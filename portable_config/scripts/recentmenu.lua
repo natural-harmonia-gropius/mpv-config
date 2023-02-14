@@ -56,6 +56,10 @@ function open_menu()
     mp.commandv('script-message-to', 'uosc', 'open-menu', json)
 end
 
+function play_last()
+    mp.command_native(menu.items[1].value)
+end
+
 function get_filename_without_ext(filename)
     local idx = filename:match(".+()%.%w+$")
     if idx then
@@ -77,6 +81,7 @@ function on_load()
 end
 
 mp.add_key_binding(nil, "open", open_menu)
+mp.add_key_binding(nil, "play_last", play_last)
 mp.register_event("file-loaded", on_load)
 
 read_json()
