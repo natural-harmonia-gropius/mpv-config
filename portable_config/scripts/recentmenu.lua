@@ -56,8 +56,8 @@ function open_menu()
     mp.commandv('script-message-to', 'uosc', 'open-menu', json)
 end
 
-function get_filename(filename)
-    local idx = filename:match(".+()%.%w+$") --获取文件后缀
+function get_filename_without_ext(filename)
+    local idx = filename:match(".+()%.%w+$")
     if idx then
         filename = filename:sub(1, idx - 1)
     end
@@ -67,9 +67,12 @@ end
 function on_load()
     local path = mp.get_property("path")
     if not path then return end
-    local filename = get_filename(mp.get_property("filename"))
+    local filename = mp.get_property("filename")
+    local filename_without_ext = get_filename_without_ext(filename)
     local title = mp.get_property("media-title") or path
-    if filename == title then title = "" end
+    if filename == title or filename_without_ext == title then
+        title = ""
+    end
     append_item(path, filename, title)
 end
 
