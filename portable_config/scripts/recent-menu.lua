@@ -1,6 +1,10 @@
-local utils = require('mp.utils')
+local utils = require("mp.utils")
+local options = require("mp.options")
 
-local length = 10
+local o = {
+    length = 10,
+}
+options.read_options(o)
 
 local path = mp.command_native({ "expand-path", "~~/recent.json" })
 
@@ -37,7 +41,7 @@ function append_item(title, path)
     local new_items = {}
     new_items[1] = { title = title, value = { "loadfile", path } }
     for index, value in ipairs(menu.items) do
-        if #new_items < length and value.value ~= "ignore" and value.value[2] ~= path then
+        if #new_items < o.length and value.value ~= "ignore" and value.value[2] ~= path then
             new_items[#new_items + 1] = value
         end
     end
