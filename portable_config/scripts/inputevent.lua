@@ -117,32 +117,33 @@ function command(command)
 end
 
 function command_split(command)
+    local separator = { ";" }
+    local escape = { "\\" }
+    local quotation = { '"', "'" }
+    local quotation_stack = {}
     local result = {}
-    local separator = ";"
-    local quo = {'"', "'"}
-    local quo_stack = {}
-    local temp_str = ""
+    local temp = ""
 
     for i = 1, #command do
-        local char = string.sub(command,i,i)
+        local char = command:sub(i, i)
 
-        if char == separator and #quo_stack == 0 then
-            result = table.push(result, temp_str)
-            temp_str = ""
-        elseif table.has(quo, char) then
-            temp_str = temp_str .. char
-            if quo_stack[#quo_stack] == char then
-                quo_stack = table.filter(quo_stack, function(i, v) return i ~= #quo_stack end)
+        if table.has(separator, char) and #quotation_stack == 0 then
+            result = table.push(result, temp)
+            temp = ""
+        elseif table.has(quotation, char) and not table.has(escape, temp:sub(#temp, #temp)) then
+            temp = temp .. char
+            if quotation_stack[#quotation_stack] == char then
+                quotation_stack = table.filter(quotation_stack, function(i, v) return i ~= #quotation_stack end)
             else
-                quo_stack = table.push(quo_stack, char)
+                quotation_stack = table.push(quotation_stack, char)
             end
         else
-            temp_str = temp_str .. char
+            temp = temp .. char
         end
     end
 
-    if #temp_str then
-        result = table.push(result, temp_str)
+    if #temp then
+        result = table.push(result, temp)
     end
 
     return result
@@ -230,9 +231,9 @@ function InputEvent:emit(event)
         return
     end
 
-    local expand = mp.command_native({'expand-text', cmd})
+    local expand = mp.command_native({ 'expand-text', cmd })
     if #command_split(cmd) == #command_split(expand) then
-        cmd = mp.command_native({'expand-text', cmd})
+        cmd = mp.command_native({ 'expand-text', cmd })
     else
         mp.msg.warn("Unsafe property-expansion: " .. cmd)
     end
@@ -429,7 +430,7 @@ function bind_from_options_configs()
 end
 
 function on_options_configs_update(list)
-    if(list.configs) then
+    if (list.configs) then
         for key, value in pairs(bind_map) do
             unbind(key)
         end
