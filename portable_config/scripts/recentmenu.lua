@@ -79,7 +79,14 @@ function utf8_subwidth(str, indexStart, indexEnd)
 end
 
 function is_same_folder(s1, s2, p1, p2)
-    return p1:sub(1, p1:find(s1) - 1) == p2:sub(1, p2:find(s2) - 1)
+    local i1 = p1:find(s1)
+    local i2 = p2:find(s2)
+    if i1 and i2 then
+        local t1 = p1:sub(1, i1 - 1)
+        local t2 = p2:sub(1, i2 - 1)
+        return t1 == t2
+    end
+    return false
 end
 
 function is_same_series(s1, s2)
