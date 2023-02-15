@@ -109,6 +109,10 @@ function is_same_series(s1, s2, p1, p2)
         if limit > #temp then
             return true
         end
+        local sub1, sub2 = f1:match("(.+%D+)0*%d+"), f2:match("(.+%D+)0*%d+")
+        if sub1 and sub2 and sub1 == sub2 then
+            return true
+        end
     end
     return false
 end
