@@ -84,31 +84,42 @@ function is_same_folder(s1, s2, p1, p2)
     if i1 and i2 then
         local t1 = p1:sub(1, i1 - 1)
         local t2 = p2:sub(1, i2 - 1)
-        return t1 == t2
+        return t1 == t2, p1:sub(i1, #p1), p2:sub(i2, #p2)
     end
     return false
 end
 
-function is_same_series(s1, s2)
-    local ratio = 0.5
-    local limit = #s1 * ratio
-    local temp = ""
-    for start, char in utf8_iter(s1) do
-        local sub1 = char
-        local sub2 = s2:sub(start, start + #char - 1)
-        if sub1 ~= sub2 then
-            temp = temp .. sub1
+function is_same_series(s1, s2, p1, p2)
+    local _is_same_folder, f1, f2 = is_same_folder(s1, s2, p1, p2)
+    if _is_same_folder and
+        f1 and
+        f2 and
+        get_filename_without_ext(f1) ~= get_filename_without_ext(f2)
+    then
+        local ratio = 0.5
+        local limit = #f1 * ratio
+        local temp = ""
+        for start, char in utf8_iter(f1) do
+            local sub1 = char
+            local sub2 = f2:sub(start, start + #char - 1)
+            if sub1 ~= sub2 then
+                temp = temp .. sub1
+            end
         end
-    end
-    if limit > #temp then
-        return true
+        if limit > #temp then
+            return true
+        end
     end
     return false
 end
 
 function append_item(path, filename, title)
-    filename = utf8_subwidth(filename, 1, o.title_length)
-    title = utf8_subwidth(title, 1, o.title_length)
+    if title and title ~= "" then
+        filename = utf8_subwidth(filename, 1, o.title_length * 1.2)
+        title = utf8_subwidth(title, 1, o.title_length * 0.8)
+    else
+        filename = utf8_subwidth(filename, 1, o.title_length * 2)
+    end
 
     local new_items = {}
     new_items[1] = { title = filename, hint = title, value = { "loadfile", path } }
@@ -118,7 +129,7 @@ function append_item(path, filename, title)
         if #new_items < o.length and
             value.value ~= "ignore" and
             opath ~= path and
-            not (is_same_folder(filename, ofilename, path, opath) and is_same_series(filename, ofilename))
+            not is_same_series(filename, ofilename, path, opath)
         then
             new_items[#new_items + 1] = value
         end
