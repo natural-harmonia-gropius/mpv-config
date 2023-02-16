@@ -1,8 +1,4 @@
-// default to SMPTE "legal" signal range
-
-//!PARAM DEPTH
-//!TYPE int
-10
+// from "full" to SMPTE "legal" signal range
 
 //!PARAM BLACK
 //!TYPE float
@@ -18,11 +14,7 @@
 
 vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
-    const float D = pow(2, DEPTH);
-    const float B = BLACK * D / (D - 1);
-    const float W = WHITE * D / (D - 1);
-
-    color.rgb *= W - B;
-    color.rgb += B;
+    color.rgb *= WHITE - BLACK;
+    color.rgb += BLACK;
     return color;
 }

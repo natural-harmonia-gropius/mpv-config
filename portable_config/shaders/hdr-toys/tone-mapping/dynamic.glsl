@@ -23,13 +23,31 @@
 //!VAR float L_avg
 //!STORAGE
 
+//!BUFFER TEMPORAL_MAX
+//!VAR uint L_max_1
+//!VAR uint L_max_2
+//!VAR uint L_max_3
+//!VAR uint L_max_4
+//!VAR uint L_max_5
+//!VAR uint L_max_6
+//!VAR uint L_max_7
+//!STORAGE
+00000064
+00000064
+00000064
+00000064
+00000064
+00000064
+00000064
+
 //!HOOK OUTPUT
 //!BIND FRAME_DATA
+//!BIND TEMPORAL_MAX
 //!SAVE EMPTY
 //!WIDTH 1
 //!HEIGHT 1
 //!COMPUTE 1 1
-//!DESC luminance analysis (initial)
+//!DESC metering (initial)
 
 void hook() {
     L_min = 10000;
@@ -41,7 +59,7 @@ void hook() {
 //!HOOK OUTPUT
 //!BIND HOOKED
 //!SAVE BLURRED
-//!DESC luminance analysis (gaussian blur horizonal)
+//!DESC metering (gaussian blur horizonal)
 // Fast pixel shader gaussian blur by butterw pass1
 
 #define Offsets vec3(0.0, 1.3846153846, 3.2307692308)
@@ -61,7 +79,7 @@ vec4 hook(){
 //!HOOK OUTPUT
 //!BIND BLURRED
 //!SAVE BLURRED
-//!DESC luminance analysis (gaussian blur vertical)
+//!DESC metering (gaussian blur vertical)
 // Fast pixel shader gaussian blur by butterw pass2
 
 #define Offsets vec3(0.0, 1.3846153846, 3.2307692308)
@@ -83,7 +101,7 @@ vec4 hook(){
 //!BIND FRAME_DATA
 //!SAVE EMPTY
 //!COMPUTE 32 32
-//!DESC luminance analysis (min, max, sum)
+//!DESC metering (min, max, sum)
 
 void hook() {
     vec4 texelValue = texelFetch(BLURRED_raw, ivec2(gl_GlobalInvocationID.xy), 0);
@@ -96,13 +114,33 @@ void hook() {
 
 //!HOOK OUTPUT
 //!BIND FRAME_DATA
+//!BIND TEMPORAL_MAX
 //!SAVE EMPTY
 //!WIDTH 1
 //!HEIGHT 1
 //!COMPUTE 1 1
-//!DESC luminance analysis (average)
+//!DESC metering (temporal max, average)
 
 void hook() {
+    const float t_peak = 8.0 / (
+        1.0 / L_max +
+        1.0 / L_max_1 +
+        1.0 / L_max_2 +
+        1.0 / L_max_3 +
+        1.0 / L_max_4 +
+        1.0 / L_max_5 +
+        1.0 / L_max_6 +
+        1.0 / L_max_7
+    );
+    L_max_7 = L_max_6;
+    L_max_6 = L_max_5;
+    L_max_5 = L_max_4;
+    L_max_4 = L_max_3;
+    L_max_3 = L_max_2;
+    L_max_2 = L_max_1;
+    L_max_1 = L_max;
+    L_max = uint(t_peak);
+
     const float size1 = gl_WorkGroupSize.x * gl_WorkGroupSize.y;
     const float size2 = gl_NumWorkGroups.x * gl_NumWorkGroups.y;
     const float size3 = size1 * size2;
@@ -488,7 +526,7 @@ void calc_params() {
     float L_max_ev = log2(L_max / L_sdr);
     float L_avg_ev = log2(L_avg / L_sdr);
 
-    shoulderLength = L_avg_ev / L_max_ev;
+    // shoulderLength = L_avg_ev / L_max_ev;
     shoulderStrength = L_max_ev;
     toeLength = L_max_ev / CONTRAST_sdr;
     toeStrength = 0.5 + 0.5 * (L_min / toeLength);
