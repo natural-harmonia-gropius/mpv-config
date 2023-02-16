@@ -494,7 +494,6 @@ vec3 tone_mapping_hybrid(vec3 color) {
     vec3 dst;
     vec3 rgb;
     vec3 lum;
-    vec3 sat;
 
     src = color;
     src = RGB_to_Jzazbz(src, L_sdr);
@@ -509,12 +508,7 @@ vec3 tone_mapping_hybrid(vec3 color) {
     lum = RGB_to_Jzazbz(lum, L_sdr);
     lum = Jzazbz_to_JzCzhz(lum);
 
-    float norm = max(max(color.r, color.g), color.b);
-    sat = color * curve(norm) / norm;
-    sat = RGB_to_Jzazbz(sat, L_sdr);
-    sat = Jzazbz_to_JzCzhz(sat);
-
-    dst = vec3(mix(lum.r, sat.r, src.r), mix(lum.g, rgb.g, src.r), src.b);
+    dst = vec3(lum.r, mix(lum.g, rgb.g, src.r), src.b);
     dst = JzCzhz_to_Jzazbz(dst);
     dst = Jzazbz_to_RGB(dst, L_sdr);
 
