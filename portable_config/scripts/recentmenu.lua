@@ -4,7 +4,7 @@ local options = require("mp.options")
 local o = {
     path = "~~/recent.json",
     length = 10,
-    title_length = 48,
+    width = 88,
 }
 options.read_options(o)
 
@@ -75,7 +75,7 @@ function utf8_subwidth(str, indexStart, indexEnd)
             substr = substr .. char
         end
     end
-    return substr
+    return substr, index
 end
 
 function is_same_folder(s1, s2, p1, p2)
@@ -119,10 +119,11 @@ end
 
 function append_item(path, filename, title)
     if title and title ~= "" then
-        filename = utf8_subwidth(filename, 1, o.title_length * 1.2)
-        title = utf8_subwidth(title, 1, o.title_length * 0.8)
+        local width
+        filename, width = utf8_subwidth(filename, 1, o.width * 0.618)
+        title = utf8_subwidth(title, 1, o.width - width)
     else
-        filename = utf8_subwidth(filename, 1, o.title_length * 2)
+        filename = utf8_subwidth(filename, 1, o.width)
     end
 
     local new_items = {}
@@ -171,6 +172,8 @@ function is_protocol(path)
     return type(path) == 'string' and (path:find('^%a[%a%d-_]+://') ~= nil or path:find('^%a[%a%d-_]+:\\?') ~= nil)
 end
 
+local current_item = { nil, nil, nil }
+
 function on_load()
     local path = mp.get_property("path")
     if not path then return end
@@ -183,11 +186,20 @@ function on_load()
     if is_protocol(path) and title and title ~= "" then
         filename, title = swap(filename, title)
     end
+    current_item = { path, filename, title }
     append_item(path, filename, title)
+end
+
+function on_end(e)
+    if e and e.reason and e.reason == "quit" then
+        read_json()
+        append_item(current_item[1], current_item[2], current_item[3])
+    end
 end
 
 mp.add_key_binding(nil, "open", open_menu)
 mp.add_key_binding(nil, "play_last", play_last)
 mp.register_event("file-loaded", on_load)
+mp.register_event("end-file", on_end)
 
 read_json()
