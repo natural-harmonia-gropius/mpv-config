@@ -134,7 +134,7 @@ void hook() {
 //!HOOK OUTPUT
 //!BIND HOOKED
 //!BIND FRAME_DATA
-//!DESC tone mapping (hable2, dynamic)
+//!DESC tone mapping (hable2, dynamic, hybrid)
 
 float toeLength = 0.0;
 float toeStrength = 0.5;
@@ -505,7 +505,7 @@ vec3 tone_mapping_hybrid(vec3 color) {
     return dst;
 }
 
-void calc_params() {
+void calc_user_params_from_metered() {
     float L_min_ev = log2(L_min / L_sdr);
     float L_max_ev = log2(L_max / L_sdr);
 
@@ -517,7 +517,7 @@ void calc_params() {
 
 vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
-    calc_params();
+    calc_user_params_from_metered();
     color.rgb = tone_mapping_hybrid(color.rgb);
     return color;
 }
