@@ -32,13 +32,13 @@
 //!VAR uint L_max_6
 //!VAR uint L_max_7
 //!STORAGE
-00000064
-00000064
-00000064
-00000064
-00000064
-00000064
-00000064
+00000000
+00000000
+00000000
+00000000
+00000000
+00000000
+00000000
 
 //!HOOK OUTPUT
 //!BIND FRAME_DATA
@@ -122,24 +122,42 @@ void hook() {
 //!DESC metering (temporal max, average)
 
 void hook() {
-    const float t_peak = 8.0 / (
-        1.0 / L_max +
-        1.0 / L_max_1 +
-        1.0 / L_max_2 +
-        1.0 / L_max_3 +
-        1.0 / L_max_4 +
-        1.0 / L_max_5 +
-        1.0 / L_max_6 +
-        1.0 / L_max_7
-    );
-    L_max_7 = L_max_6;
-    L_max_6 = L_max_5;
-    L_max_5 = L_max_4;
-    L_max_4 = L_max_3;
-    L_max_3 = L_max_2;
-    L_max_2 = L_max_1;
-    L_max_1 = L_max;
-    L_max = uint(t_peak);
+    if (5 <
+        L_max_1 +
+        L_max_2 +
+        L_max_3 +
+        L_max_4 +
+        L_max_5 +
+        L_max_6 +
+        L_max_7
+    ) {
+        const float t_peak = 8.0 / (
+            1.0 / L_max +
+            1.0 / L_max_1 +
+            1.0 / L_max_2 +
+            1.0 / L_max_3 +
+            1.0 / L_max_4 +
+            1.0 / L_max_5 +
+            1.0 / L_max_6 +
+            1.0 / L_max_7
+        );
+        L_max_7 = L_max_6;
+        L_max_6 = L_max_5;
+        L_max_5 = L_max_4;
+        L_max_4 = L_max_3;
+        L_max_3 = L_max_2;
+        L_max_2 = L_max_1;
+        L_max_1 = L_max;
+        L_max = uint(t_peak);
+    } else {
+        L_max_7 = L_max;
+        L_max_6 = L_max;
+        L_max_5 = L_max;
+        L_max_4 = L_max;
+        L_max_3 = L_max;
+        L_max_2 = L_max;
+        L_max_1 = L_max;
+    }
 
     const float size1 = gl_WorkGroupSize.x * gl_WorkGroupSize.y;
     const float size2 = gl_NumWorkGroups.x * gl_NumWorkGroups.y;
