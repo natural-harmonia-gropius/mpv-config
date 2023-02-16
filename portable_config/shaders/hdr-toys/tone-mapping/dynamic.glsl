@@ -19,8 +19,6 @@
 //!BUFFER FRAME_DATA
 //!VAR uint L_min
 //!VAR uint L_max
-//!VAR uint L_sum
-//!VAR float L_avg
 //!STORAGE
 
 //!BUFFER TEMPORAL_MAX
@@ -52,14 +50,12 @@
 void hook() {
     L_min = 10000;
     L_max = 0;
-    L_sum = 0;
-    L_avg = 0.0;
 }
 
 //!HOOK OUTPUT
 //!BIND HOOKED
 //!SAVE BLURRED
-//!DESC metering (gaussian blur horizonal)
+//!DESC metering (spatial stabilization, horizonal)
 // Fast pixel shader gaussian blur by butterw pass1
 
 #define Offsets vec3(0.0, 1.3846153846, 3.2307692308)
@@ -79,7 +75,7 @@ vec4 hook(){
 //!HOOK OUTPUT
 //!BIND BLURRED
 //!SAVE BLURRED
-//!DESC metering (gaussian blur vertical)
+//!DESC metering (spatial stabilization, vertical)
 // Fast pixel shader gaussian blur by butterw pass2
 
 #define Offsets vec3(0.0, 1.3846153846, 3.2307692308)
@@ -101,7 +97,7 @@ vec4 hook(){
 //!BIND FRAME_DATA
 //!SAVE EMPTY
 //!COMPUTE 32 32
-//!DESC metering (min, max, sum)
+//!DESC metering (peak, bottom)
 
 void hook() {
     vec4 texelValue = texelFetch(BLURRED_raw, ivec2(gl_GlobalInvocationID.xy), 0);
@@ -109,7 +105,6 @@ void hook() {
 
     atomicMin(L_min, uint(L));
     atomicMax(L_max, uint(L));
-    atomicAdd(L_sum, uint(L));
 }
 
 //!HOOK OUTPUT
@@ -119,7 +114,7 @@ void hook() {
 //!WIDTH 1
 //!HEIGHT 1
 //!COMPUTE 1 1
-//!DESC metering (temporal max, average)
+//!DESC metering (temporal stabilization, 8 frames)
 
 void hook() {
     if (5 <
@@ -158,11 +153,6 @@ void hook() {
         L_max_2 = L_max;
         L_max_1 = L_max;
     }
-
-    const float size1 = gl_WorkGroupSize.x * gl_WorkGroupSize.y;
-    const float size2 = gl_NumWorkGroups.x * gl_NumWorkGroups.y;
-    const float size3 = size1 * size2;
-    L_avg = L_sum / size3;
 }
 
 //!HOOK OUTPUT
@@ -542,9 +532,8 @@ vec3 tone_mapping_hybrid(vec3 color) {
 void calc_params() {
     float L_min_ev = log2(L_min / L_sdr);
     float L_max_ev = log2(L_max / L_sdr);
-    float L_avg_ev = log2(L_avg / L_sdr);
 
-    // shoulderLength = L_avg_ev / L_max_ev;
+    shoulderLength = 1.0 - 1.0 / L_max_ev;
     shoulderStrength = L_max_ev;
     toeLength = L_max_ev / CONTRAST_sdr;
     toeStrength = 0.5 + 0.5 * (L_min / toeLength);
