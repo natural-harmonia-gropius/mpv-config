@@ -103,29 +103,29 @@ void hook() {
 //!COMPUTE 1 1
 //!DESC metering (temporal stabilization, 8 frames)
 
-#define length 8
+#define len 8
 
 void hook() {
     uint sum = 0;
-    for (uint i = 0; i < length; i++) {
+    for (uint i = 0; i < len; i++) {
         sum += L_max_t[i];
     }
 
-    if (sum > L_sdr * (length - 1)) {
+    if (sum > L_sdr * (len - 1)) {
         float den = 1.0 / L_max;
-        for (uint i = 0; i < length; i++) {
+        for (uint i = 0; i < len - 1; i++) {
             den += 1.0 / L_max_t[i];
         }
-        const float peak = 8.0 / den;
+        const float peak = len / den;
 
-        for (uint i = length - 1; i > 0; i--) {
+        for (uint i = len - 1; i > 0; i--) {
             L_max_t[i] = L_max_t[i - 1];
         }
         L_max_t[0] = L_max;
 
         L_max = uint(peak);
     } else {
-        for (uint i = 0; i < length; i++) {
+        for (uint i = 0; i < len; i++) {
             L_max_t[i] = L_max;
         }
     }
