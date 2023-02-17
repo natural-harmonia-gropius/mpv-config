@@ -111,7 +111,7 @@ void hook() {
         sum += L_max_t[i];
     }
 
-    if (sum > 100 * (length - 1)) {
+    if (sum > L_sdr * (length - 1)) {
         float den = 1.0 / L_max;
         for (uint i = 0; i < length; i++) {
             den += 1.0 / L_max_t[i];
@@ -125,7 +125,7 @@ void hook() {
 
         L_max = uint(peak);
     } else {
-        for (uint i = 0; i < length; i--) {
+        for (uint i = 0; i < length; i++) {
             L_max_t[i] = L_max;
         }
     }
