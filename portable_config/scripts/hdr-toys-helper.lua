@@ -20,7 +20,7 @@ mp.observe_property("video-out-params", "native", function(_, value)
 
     local peak = value["sig-peak"];
     if not peak or peak == 1 then
-        return
+        set_hdr_white(1000)
     end
 
     mp.add_timeout(0.1, function ()
