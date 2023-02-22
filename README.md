@@ -2,16 +2,16 @@
 
 Personal portable_config for MPV player, The aim is to use it right out of the box.
 
-Optimized uosc, based on my personal preference.  
-[natural-harmonia-gropius/uosc](https://github.com/natural-harmonia-gropius/uosc)  
-except users of windows 11 need to put [Segoe Fluent Icons](https://aka.ms/SegoeFluentIcons) and [Segoe UI Variable](https://aka.ms/SegoeUIVariable) into `~~/portable_config/fonts` folder.
+- Optimized uosc, with my personal preference.  
+  [natural-harmonia-gropius/uosc](https://github.com/natural-harmonia-gropius/uosc)  
+  _Non-Windows 11 users need to put [Segoe Fluent Icons](https://aka.ms/SegoeFluentIcons) and [Segoe UI Variable](https://aka.ms/SegoeUIVariable) into `~~/fonts`._
 
-Optimized HDR to SDR conversion, include dynamic curve and applied to a uniform color space.  
-[natural-harmonia-gropius/hdr-toys](https://github.com/natural-harmonia-gropius/hdr-toys)
+- Optimized motion interpolation, a svpflow script with optional rife enhancement.  
+  [~~/filters/interp.py](https://github.com/natural-harmonia-gropius/mpv_config/blob/master/portable_config/filters/interp.py)  
+  _I can't provide the required dll in this repository, sorry._
 
-Optimized svpflow script, and optional rife enhancement.  
-[~~/portable_config/filters/interp.py](https://github.com/natural-harmonia-gropius/mpv_config/blob/master/portable_config/filters/interp.py)  
-I can't provide the required dll in this repository, sorry.
+- Optimized HDR to SDR conversion.  
+  [natural-harmonia-gropius/hdr-toys](https://github.com/natural-harmonia-gropius/hdr-toys)
 
 ## Get executable files from following links
 
@@ -25,10 +25,10 @@ I can't provide the required dll in this repository, sorry.
 
 [mpv-player/TOOLS/lua](https://github.com/mpv-player/mpv/tree/master/TOOLS/lua)
 
-- autocrop.lua (Modified, but I can't remember what was changed)
+- autocrop.lua (modified)
 - autoload.lua
 
-[tomasklaen/uosc](https://github.com/darsain/uosc)
+[natural-harmonia-gropius/uosc](https://github.com/natural-harmonia-gropius/uosc) - forked from [tomasklaen/uosc](https://github.com/darsain/uosc)
 
 - uosc.lua
 
@@ -39,6 +39,10 @@ I can't provide the required dll in this repository, sorry.
 [christoph-heinrich/mpv-quality-menu](https://github.com/christoph-heinrich/mpv-quality-menu)
 
 - quality-menu.lua
+
+[natural-harmonia-gropius/recent-menu](https://github.com/natural-harmonia-gropius/recent-menu)
+
+- recentmenu.lua
 
 [natural-harmonia-gropius/input-event](https://github.com/natural-harmonia-gropius/input-event)
 
@@ -63,3 +67,7 @@ I can't provide the required dll in this repository, sorry.
 - SSimSuperRes.glsl
 - SSimDownscaler.glsl
 - adaptive-sharpen.glsl
+
+[natural-harmonia-gropius/hdr-toys](https://github.com/natural-harmonia-gropius/hdr-toys)
+
+- hdr-toys/\*
