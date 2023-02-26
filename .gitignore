@@ -10,9 +10,10 @@
 /*.*
 !/*.ps1
 
+doc
 installer
+mpv
 vapoursynth64
-misc
 
 portable_config/fonts/*
 !portable_config/fonts/uosc_textures.ttf
