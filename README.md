@@ -28,6 +28,10 @@ Personal portable_config for MPV player, The aim is to use it right out of the b
 - autocrop.lua (modified)
 - autoload.lua
 
+[fbriere/mpv-scripts](https://github.com/fbriere/mpv-scripts)
+
+- sub-fonts-dir-auto.lua
+
 [natural-harmonia-gropius/uosc](https://github.com/natural-harmonia-gropius/uosc) - forked from [tomasklaen/uosc](https://github.com/darsain/uosc)
 
 - uosc.lua
