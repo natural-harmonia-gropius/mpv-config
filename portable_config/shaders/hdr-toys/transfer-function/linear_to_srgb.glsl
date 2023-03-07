@@ -5,6 +5,7 @@
 const float GAMMA  = 2.4;
 const float OFFSET = 0.055;
 
+// moncurve_r with gamma of 2.4 and offset of 0.055 matches the EOTF found in IEC 61966-2-1:1999 (sRGB)
 float moncurve_r(float y, float gamma, float offs) {
     const float yb = pow(offs * gamma / ((gamma - 1.0) * (1.0 + offs)), gamma);
     const float rs = pow((gamma - 1.0) / offs, gamma - 1.0) * pow((1.0 + offs) / gamma, gamma);
