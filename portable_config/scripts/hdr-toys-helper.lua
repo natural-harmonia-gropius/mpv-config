@@ -16,14 +16,14 @@ function round(x)
 end
 
 function set_L_hdr(v)
-    v = clamp(v, 0, 10000)
     v = round(v)
+    v = clamp(v, 0, 10000)
     mp.command("no-osd set glsl-shader-opts L_hdr=" .. v)
 end
 
 function set_temporal_stable_frames(v)
-    v = clamp(v, 0, 120)
     v = round(v)
+    v = clamp(v, 0, 120)
     mp.command("no-osd set glsl-shader-opts temporal_stable_frames=" .. v)
 end
 
