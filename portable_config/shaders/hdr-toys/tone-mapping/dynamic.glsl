@@ -116,6 +116,13 @@ bool sence_changed() {
         return true;
     }
 
+    // hard transition, 1 stop tolerance
+    float prev_ev = log2(L_max_t[0] / L_sdr);
+    float curr_ev = log2(L_max / L_sdr);
+    if (abs(prev_ev - curr_ev) >= 1.0) {
+        return true;
+    }
+
     // soft transition, black frame fade in
     uint sum = 0;
     for (uint i = 0; i < temporal_stable_frames; i++) {
