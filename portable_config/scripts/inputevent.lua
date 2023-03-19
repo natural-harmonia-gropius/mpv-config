@@ -389,7 +389,7 @@ function bind_from_json(path)
     if not json_file then
         return {}
     end
-    local json = json_file:read("a")
+    local json = json_file:read("*all")
     json_file:close()
 
     local parsed = utils.parse_json(json)
