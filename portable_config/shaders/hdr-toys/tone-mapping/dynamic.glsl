@@ -51,22 +51,22 @@ void hook() {
 //!DESC metering (spatial stabilization, horizonal)
 
 #define offset vec3(0.0000000000, 1.3846153846, 3.2307692308)
-#define kernel vec3(0.2270270270, 0.3162162162, 0.0702702703)
+#define weight vec3(0.2270270270, 0.3162162162, 0.0702702703)
 
 vec4 hook(){
     uint i;
     vec4 c;
 
     i = 0;
-    c = HOOKED_texOff(offset[i]) * kernel[i];
+    c = HOOKED_texOff(offset[i]) * weight[i];
 
     i = 1;
-    c += HOOKED_texOff(vec2(offset[i], 0)) * kernel[i];
-    c += HOOKED_texOff(-vec2(offset[i], 0)) * kernel[i];
+    c += HOOKED_texOff(vec2(offset[i], 0)) * weight[i];
+    c += HOOKED_texOff(-vec2(offset[i], 0)) * weight[i];
 
     i = 2;
-    c += HOOKED_texOff(vec2(offset[i], 0)) * kernel[i];
-    c += HOOKED_texOff(-vec2(offset[i], 0)) * kernel[i];
+    c += HOOKED_texOff(vec2(offset[i], 0)) * weight[i];
+    c += HOOKED_texOff(-vec2(offset[i], 0)) * weight[i];
 
     return c;
 }
@@ -77,22 +77,22 @@ vec4 hook(){
 //!DESC metering (spatial stabilization, vertical)
 
 #define offset vec3(0.0000000000, 1.3846153846, 3.2307692308)
-#define kernel vec3(0.2270270270, 0.3162162162, 0.0702702703)
+#define weight vec3(0.2270270270, 0.3162162162, 0.0702702703)
 
 vec4 hook(){
     uint i;
     vec4 c;
 
     i = 0;
-    c = BLURRED_texOff(offset[i]) * kernel[i];
+    c = BLURRED_texOff(offset[i]) * weight[i];
 
     i = 1;
-    c += BLURRED_texOff(vec2(0, offset[i])) * kernel[i];
-    c += BLURRED_texOff(-vec2(0, offset[i])) * kernel[i];
+    c += BLURRED_texOff(vec2(0, offset[i])) * weight[i];
+    c += BLURRED_texOff(-vec2(0, offset[i])) * weight[i];
 
     i = 2;
-    c += BLURRED_texOff(vec2(0, offset[i])) * kernel[i];
-    c += BLURRED_texOff(-vec2(0, offset[i])) * kernel[i];
+    c += BLURRED_texOff(vec2(0, offset[i])) * weight[i];
+    c += BLURRED_texOff(-vec2(0, offset[i])) * weight[i];
 
     return c;
 }
