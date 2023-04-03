@@ -272,10 +272,6 @@ function on_start()
         return
     end
 
-    -- Don't crop shorts
-    local duration = mp.get_property_native("duration")
-    if duration and duration < (60 * 60) then return end
-
     -- If it is the beginning, wait for detect_crop
     -- after auto_delay seconds, otherwise immediately.
     local playback_time = mp.get_property_native("playback-time")
