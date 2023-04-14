@@ -34,16 +34,16 @@ vec4 hook() {
 
     float L = 0.0;
     if (enabled == 1) {
-        // Y (relative luminance) of XYZ, Yxy, Yuv
+        // Y (relative luminance)
         L = dot(color.rgb, vec3(0.2627, 0.6780, 0.0593));
     } else if (enabled == 2) {
-        // Max of RGB
+        // maxRGB
         L = max(max(color.r, color.g), color.b);
     } else if (enabled == 3) {
-        // Mean (arithmetic) of RGB
+        // Mean (arithmetic)
         L = (color.r + color.g + color.b) / 3.0;
     } else if (enabled == 4) {
-        // Mean (geometric) of RGB
+        // Mean (geometric)
         L = pow((color.r * color.g * color.b), 1.0 / 3.0);
     }
 
