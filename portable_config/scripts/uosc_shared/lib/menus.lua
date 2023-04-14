@@ -12,7 +12,7 @@ function open_command_menu(data, opts)
 	---@type MenuOptions
 	local menu_opts = {}
 	if opts then
-		menu_opts.submenu, menu_opts.mouse_nav = opts.submenu, opts.mouse_nav
+		menu_opts.mouse_nav = opts.mouse_nav
 		if opts.on_close then menu_opts.on_close = function() run_command(opts.on_close) end end
 	end
 	local menu = Menu:open(data, run_command, menu_opts)
@@ -26,7 +26,7 @@ function toggle_menu_with_items(opts)
 	else open_command_menu({type = 'menu', items = config.menu_items}, opts) end
 end
 
----@param options {type: string; title: string; list_prop: string; active_prop?: string; serializer: fun(list: any, active: any): MenuDataItem[]; on_select: fun(value: any)}
+---@param options {type: string; title: string; list_prop: string; active_prop?: string; serializer: fun(list: any, active: any): MenuDataItem[]; on_select: fun(value: any); on_move_item?: fun(from_index: integer, to_index: integer, submenu_path: integer[]); on_delete_item?: fun(index: integer, submenu_path: integer[])}
 function create_self_updating_menu_opener(options)
 	return function()
 		if Menu:is_open(options.type) then Menu:close() return end
@@ -65,6 +65,8 @@ function create_self_updating_menu_opener(options)
 				mp.unobserve_property(handle_list_prop_change)
 				mp.unobserve_property(handle_active_prop_change)
 			end,
+			on_move_item = options.on_move_item,
+			on_delete_item = options.on_delete_item,
 		})
 	end
 end
@@ -178,7 +180,7 @@ function open_file_navigation_menu(directory_path, handle_select, opts)
 	local items = {}
 
 	if is_root then
-		if state.os == 'windows' then
+		if state.platform == 'windows' then
 			items[#items + 1] = {title = '..', hint = 'Drives', value = '{drives}', separator = true}
 		end
 	else

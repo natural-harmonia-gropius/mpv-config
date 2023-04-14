@@ -4,10 +4,10 @@ local Element = require('uosc_shared/elements/Element')
 ---@alias MenuData {type?: string; title?: string; hint?: string; keep_open?: boolean; separator?: boolean; items?: MenuDataItem[]; selected_index?: integer;}
 ---@alias MenuDataItem MenuDataValue|MenuData
 ---@alias MenuDataValue {title?: string; hint?: string; icon?: string; value: any; bold?: boolean; italic?: boolean; muted?: boolean; active?: boolean; keep_open?: boolean; separator?: boolean;}
----@alias MenuOptions {mouse_nav?: boolean; on_open?: fun(); on_close?: fun(); on_back?: fun()}
+---@alias MenuOptions {mouse_nav?: boolean; on_open?: fun(); on_close?: fun(); on_back?: fun(); on_move_item?: fun(from_index: integer, to_index: integer, submenu_path: integer[]); on_delete_item?: fun(index: integer, submenu_path: integer[])}
 
 -- Internal data structure created from `Menu`.
----@alias MenuStack {id?: string; type?: string; title?: string; hint?: string; selected_index?: number; keep_open?: boolean; separator?: boolean; items: MenuStackItem[]; parent_menu?: MenuStack; active?: boolean; width: number; height: number; top: number; scroll_y: number; scroll_height: number; title_width: number; hint_width: number; max_width: number; is_root?: boolean; fling?: Fling}
+---@alias MenuStack {id?: string; type?: string; title?: string; hint?: string; selected_index?: number; keep_open?: boolean; separator?: boolean; items: MenuStackItem[]; parent_menu?: MenuStack; submenu_path: integer[]; active?: boolean; width: number; height: number; top: number; scroll_y: number; scroll_height: number; title_width: number; hint_width: number; max_width: number; is_root?: boolean; fling?: Fling}
 ---@alias MenuStackItem MenuStackValue|MenuStack
 ---@alias MenuStackValue {title?: string; hint?: string; icon?: string; value: any; active?: boolean; bold?: boolean; italic?: boolean; muted?: boolean; keep_open?: boolean; separator?: boolean; title_width: number; hint_width: number}
 ---@alias Fling {y: number, distance: number, time: number, easing: fun(x: number), duration: number, update_cursor?: boolean}
@@ -56,6 +56,7 @@ function Menu:close(immediate, callback)
 			menu.is_closing, menu.stack, menu.current, menu.all, menu.by_id = false, nil, nil, {}, {}
 			menu:disable_key_bindings()
 			Elements:update_proximities()
+			cursor.queue_autohide()
 			if callback then callback() end
 			request_render()
 		end
@@ -135,7 +136,7 @@ end
 function Menu:update(data)
 	self.type = data.type
 
-	local new_root = {is_root = true}
+	local new_root = {is_root = true, submenu_path = {}}
 	local new_all = {}
 	local new_by_id = {}
 	local menus_to_serialize = {{new_root, data}}
@@ -169,6 +170,7 @@ function Menu:update(data)
 			-- Submenu
 			if item_data.items then
 				item.parent_menu = menu
+				item.submenu_path = itable_join(menu.submenu_path, {i})
 				menus_to_serialize[#menus_to_serialize + 1] = {item, item_data}
 			end
 
@@ -210,8 +212,10 @@ function Menu:update_content_dimensions()
 	local hint_opts = {size = self.font_size_hint}
 
 	for _, menu in ipairs(self.all) do
+		title_opts.bold, title_opts.italic = true, false
+		local max_width = text_width(menu.title, title_opts) + 2 * self.item_padding
+
 		-- Estimate width of a widest item
-		local max_width = 0
 		for _, item in ipairs(menu.items) do
 			local icon_width = item.icon and self.font_size or 0
 			item.title_width = text_width(item.title, title_opts)
@@ -223,11 +227,6 @@ function Menu:update_content_dimensions()
 			if estimated_width > max_width then max_width = estimated_width end
 		end
 
-		-- Also check menu title
-		title_opts.bold, title_opts.italic = true, false
-		local menu_title_width = text_width(menu.title, title_opts)
-		if menu_title_width > max_width then max_width = menu_title_width end
-
 		menu.max_width = max_width
 	end
 
@@ -236,8 +235,8 @@ end
 
 function Menu:update_dimensions()
 	-- Coordinates and sizes are of the scrollable area to make
-	-- consuming values in rendering and collisions easier. Title drawn above this, so
-	-- we need to account for that in max_height and ay position.
+	-- consuming values in rendering and collisions easier. Title is rendered
+	-- above it, so we need to account for that in max_height and ay position.
 	local min_width = state.fullormaxed and options.menu_min_width_fullscreen or options.menu_min_width
 
 	for _, menu in ipairs(self.all) do
@@ -252,6 +251,11 @@ function Menu:update_dimensions()
 		self:scroll_to(menu.scroll_y, menu) -- clamps scroll_y to scroll limits
 	end
 
+	self:update_coordinates()
+end
+
+-- Updates element coordinates to match currently open (sub)menu.
+function Menu:update_coordinates()
 	local ax = round((display.width - self.current.width) / 2) + self.offset_x
 	self:set_coordinates(ax, self.current.top, ax + self.current.width, self.current.top + self.current.height)
 end
@@ -359,7 +363,7 @@ end
 function Menu:select_value(value, menu)
 	menu = menu or self.current
 	local index = itable_find(menu.items, function(item) return item.value == value end)
-	self:select_index(index, 5)
+	self:select_index(index)
 end
 
 ---@param menu? MenuStack
@@ -400,16 +404,23 @@ function Menu:activate_one_value(value, menu)
 	self:activate_one_index(index, menu)
 end
 
+---@param menu MenuStack One of menus in `self.all`.
+function Menu:activate_menu(menu)
+	if itable_index_of(self.all, menu) then
+		self.current = menu
+		self:update_coordinates()
+		self:reset_navigation()
+		request_render()
+	else
+		msg.error('Attempt to open a menu not in `self.all` list.')
+	end
+end
+
 ---@param id string
 function Menu:activate_submenu(id)
 	local submenu = self.by_id[id]
-	if submenu then
-		self.current = submenu
-		request_render()
-	else
-		msg.error(string.format('Requested submenu id "%s" doesn\'t exist', id))
-	end
-	self:reset_navigation()
+	if submenu then self:activate_menu(submenu)
+	else msg.error(string.format('Requested submenu id "%s" doesn\'t exist', id)) end
 end
 
 ---@param index? integer
@@ -456,8 +467,7 @@ function Menu:back()
 
 	if parent then
 		menu.selected_index = nil
-		self.current = parent
-		self:update_dimensions()
+		self:activate_menu(parent)
 		self:tween(self.offset_x - menu.width / 2, 0, function(offset) self:set_offset_x(offset) end)
 		self.opacity = 1 -- in case tween above canceled fade in animation
 	else
@@ -473,11 +483,10 @@ function Menu:open_selected_item(opts)
 		local item = menu.items[menu.selected_index]
 		-- Is submenu
 		if item.items then
-			self.current = item
 			if opts.preselect_submenu_item then
 				item.selected_index = #item.items > 0 and 1 or nil
 			end
-			self:update_dimensions()
+			self:activate_menu(item)
 			self:tween(self.offset_x + menu.width / 2, 0, function(offset) self:set_offset_x(offset) end)
 			self.opacity = 1 -- in case tween above canceled fade in animation
 		else
@@ -491,10 +500,33 @@ function Menu:open_selected_item_soft() self:open_selected_item({keep_open = tru
 function Menu:open_selected_item_preselect() self:open_selected_item({preselect_submenu_item = true}) end
 function Menu:select_item_below_cursor() self.current.selected_index = self:get_item_index_below_cursor() end
 
+---@param index integer
+function Menu:move_selected_item_to(index)
+	local from, callback = self.current.selected_index, self.opts.on_move_item
+	if callback and from and from ~= index and index >= 1 and index <= #self.current.items then
+		callback(from, index, self.current.submenu_path)
+		self.current.selected_index = index
+		request_render()
+	end
+end
+
+function Menu:move_selected_item_up()
+	if self.current.selected_index then self:move_selected_item_to(self.current.selected_index - 1) end
+end
+
+function Menu:move_selected_item_down()
+	if self.current.selected_index then self:move_selected_item_to(self.current.selected_index + 1) end
+end
+
+function Menu:delete_selected_item()
+	local index, callback = self.current.selected_index, self.opts.on_delete_item
+	if callback and index then callback(index, self.current.submenu_path) end
+end
+
 function Menu:on_display() self:update_dimensions() end
 function Menu:on_prop_fullormaxed() self:update_content_dimensions() end
 
-function Menu:on_global_mbtn_left_down()
+function Menu:handle_cursor_down()
 	if self.proximity_raw == 0 then
 		self.drag_data = {{y = cursor.y, time = mp.get_time()}}
 		self.current.fling = nil
@@ -514,7 +546,7 @@ function Menu:fling_distance()
 	return #self.drag_data < 2 and 0 or ((first.y - last.y) / ((first.time - last.time) / 0.03)) * 10
 end
 
-function Menu:on_global_mbtn_left_up()
+function Menu:handle_cursor_up()
 	if self.proximity_raw == 0 and self.drag_data and not self.is_dragging then
 		self:select_item_below_cursor()
 		self:open_selected_item({preselect_submenu_item = false, keep_open = self.modifiers and self.modifiers.shift})
@@ -546,8 +578,8 @@ function Menu:on_global_mouse_move()
 	request_render()
 end
 
-function Menu:on_wheel_up() self:scroll_by(self.scroll_step * -3, nil, {update_cursor = true}) end
-function Menu:on_wheel_down() self:scroll_by(self.scroll_step * 3, nil, {update_cursor = true}) end
+function Menu:handle_wheel_up() self:scroll_by(self.scroll_step * -3, nil, {update_cursor = true}) end
+function Menu:handle_wheel_down() self:scroll_by(self.scroll_step * 3, nil, {update_cursor = true}) end
 
 function Menu:on_pgup()
 	local menu = self.current
@@ -585,6 +617,8 @@ function Menu:enable_key_bindings()
 	-- doesn't support 'repeatable' flag, so we are stuck with this monster.
 	self:add_key_binding('up', 'menu-prev1', self:create_key_action('prev'), 'repeatable')
 	self:add_key_binding('down', 'menu-next1', self:create_key_action('next'), 'repeatable')
+	self:add_key_binding('ctrl+up', 'menu-move-up', self:create_key_action('move_selected_item_up'), 'repeatable')
+	self:add_key_binding('ctrl+down', 'menu-move-down', self:create_key_action('move_selected_item_down'), 'repeatable')
 	self:add_key_binding('left', 'menu-back1', self:create_key_action('back'))
 	self:add_key_binding('right', 'menu-select1', self:create_key_action('open_selected_item_preselect'))
 	self:add_key_binding('shift+right', 'menu-select-soft1',
@@ -608,6 +642,7 @@ function Menu:enable_key_bindings()
 	self:add_key_binding('pgdwn', 'menu-page-down', self:create_key_action('on_pgdwn'), 'repeatable')
 	self:add_key_binding('home', 'menu-home', self:create_key_action('on_home'))
 	self:add_key_binding('end', 'menu-end', self:create_key_action('on_end'))
+	self:add_key_binding('del', 'menu-delete-item', self:create_key_action('delete_selected_item'))
 end
 
 function Menu:disable_key_bindings()
@@ -620,8 +655,8 @@ function Menu:create_modified_mbtn_left_handler(modifiers)
 	return function()
 		self.mouse_nav = true
 		self.modifiers = modifiers
-		self:on_global_mbtn_left_down()
-		self:on_global_mbtn_left_up()
+		self:handle_cursor_down()
+		self:handle_cursor_up()
 		self.modifiers = nil
 	end
 end
@@ -649,6 +684,13 @@ function Menu:render()
 		end
 	end
 	if update_cursor then self:select_item_below_cursor() end
+
+	cursor.on_primary_down = function() self:handle_cursor_down() end
+	cursor.on_primary_up = function() self:handle_cursor_up() end
+	if self.proximity_raw == 0 then
+		cursor.on_wheel_down = function() self:handle_wheel_down() end
+		cursor.on_wheel_up = function() self:handle_wheel_up() end
+	end
 
 	local ass = assdraw.ass_new()
 	local opacity = options.menu_opacity * self.opacity
