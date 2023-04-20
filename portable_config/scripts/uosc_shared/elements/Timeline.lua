@@ -1,4 +1,4 @@
-local Element = require('elements/Element')
+local Element = require('uosc_shared/elements/Element')
 
 ---@class Timeline : Element
 local Timeline = class(Element)
@@ -257,28 +257,21 @@ function Timeline:render()
 		local diamond_radius = foreground_size < 3 and foreground_size or self.chapter_size
 		local diamond_radius_hovered = diamond_radius * 2
 		local diamond_border = options.timeline_border and math.max(options.timeline_border, 1) or 1
-		if size ~= nil then
-			local opts = {color = options.foreground, opacity = options.timeline_chapters_opacity}
-			local half_width = math.max(4 - foreground_size, 1) / 2
-			local ay, by = fay, fay + size
-			local function draw_chapter(time)
-				if time < 1 then
-					return
-				end
-				local x = t2x(time)
-				local ax, bx = round(x - half_width), round(x + half_width)
-				local cx, dx = math.max(ax, fax), math.min(bx, fbx)
-				if ax < fax then --left of progress
-					ass:rect(ax, ay, math.min(bx, fax), by, opts)
-				end
-				if bx > fbx then --right of progress
-					ass:rect(math.max(ax, fbx), ay, bx, by, opts)
-				end
-				if (dx - cx) > 0 then --intersection
-					opts.color = options.background
-					ass:rect(cx, ay, dx, by, opts)
-					opts.color = options.foreground
-				end
+
+		if diamond_radius > 0 then
+			local function draw_chapter(time, radius)
+				local chapter_x, chapter_y = t2x(time), fay - 1
+				ass:new_event()
+				ass:append(string.format(
+					'{\\pos(0,0)\\rDefault\\an7\\blur0\\yshad0.01\\bord%f\\1c&H%s\\3c&H%s\\4c&H%s\\1a&H%X&\\3a&H00&\\4a&H00&}',
+					diamond_border, fg, bg, bg, opacity_to_alpha(options.timeline_opacity * options.timeline_chapters_opacity)
+				))
+				ass:draw_start()
+				ass:move_to(chapter_x - radius, chapter_y)
+				ass:line_to(chapter_x, chapter_y - radius)
+				ass:line_to(chapter_x + radius, chapter_y)
+				ass:line_to(chapter_x, chapter_y + radius)
+				ass:draw_stop()
 			end
 
 			if #state.chapters > 0 then

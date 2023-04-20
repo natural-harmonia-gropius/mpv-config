@@ -12,7 +12,7 @@ QUARTER_PI_SIN = math.sin(math.pi / 4)
 -- Enables relative requires from `scripts` directory
 package.path = package.path .. ';' .. mp.find_config_file('scripts') .. '/?.lua'
 
-require('lib/std')
+require('uosc_shared/lib/std')
 
 --[[ OPTIONS ]]
 
@@ -109,6 +109,7 @@ defaults = {
 	adjust_osd_margins = true,
 	chapter_ranges = 'openings:30abf964,endings:30abf964,ads:c54e4e80',
 	chapter_range_patterns = 'openings:オープニング;endings:エンディング',
+	languages = 'slang,en',
 }
 options = table_shallow_copy(defaults)
 opt.read_options(options, 'uosc')
@@ -131,37 +132,40 @@ if options.autoload then mp.commandv('set', 'keep-open-pause', 'no') end
 fg, bg = serialize_rgba(options.foreground).color, serialize_rgba(options.background).color
 fgt, bgt = serialize_rgba(options.foreground_text).color, serialize_rgba(options.background_text).color
 
+--[[ INTERNATIONALIZATION ]]
+local t = require('uosc_shared/lib/intl')
+
 --[[ CONFIG ]]
 
 function create_default_menu()
 	return {
-		{title = 'Subtitles', value = 'script-binding uosc/subtitles'},
-		{title = 'Audio tracks', value = 'script-binding uosc/audio'},
-		{title = 'Stream quality', value = 'script-binding uosc/stream-quality'},
-		{title = 'Playlist', value = 'script-binding uosc/items'},
-		{title = 'Chapters', value = 'script-binding uosc/chapters'},
-		{title = 'Navigation', items = {
-			{title = 'Next', hint = 'playlist or file', value = 'script-binding uosc/next'},
-			{title = 'Prev', hint = 'playlist or file', value = 'script-binding uosc/prev'},
-			{title = 'Delete file & Next', value = 'script-binding uosc/delete-file-next'},
-			{title = 'Delete file & Prev', value = 'script-binding uosc/delete-file-prev'},
-			{title = 'Delete file & Quit', value = 'script-binding uosc/delete-file-quit'},
-			{title = 'Open file', value = 'script-binding uosc/open-file'},
+		{title = t('Subtitles'), value = 'script-binding uosc/subtitles'},
+		{title = t('Audio tracks'), value = 'script-binding uosc/audio'},
+		{title = t('Stream quality'), value = 'script-binding uosc/stream-quality'},
+		{title = t('Playlist'), value = 'script-binding uosc/items'},
+		{title = t('Chapters'), value = 'script-binding uosc/chapters'},
+		{title = t('Navigation'), items = {
+			{title = t('Next'), hint = t('playlist or file'), value = 'script-binding uosc/next'},
+			{title = t('Prev'), hint = t('playlist or file'), value = 'script-binding uosc/prev'},
+			{title = t('Delete file & Next'), value = 'script-binding uosc/delete-file-next'},
+			{title = t('Delete file & Prev'), value = 'script-binding uosc/delete-file-prev'},
+			{title = t('Delete file & Quit'), value = 'script-binding uosc/delete-file-quit'},
+			{title = t('Open file'), value = 'script-binding uosc/open-file'},
 		},},
-		{title = 'Utils', items = {
-			{title = 'Aspect ratio', items = {
-				{title = 'Default', value = 'set video-aspect-override "-1"'},
+		{title = t('Utils'), items = {
+			{title = t('Aspect ratio'), items = {
+				{title = t('Default'), value = 'set video-aspect-override "-1"'},
 				{title = '16:9', value = 'set video-aspect-override "16:9"'},
 				{title = '4:3', value = 'set video-aspect-override "4:3"'},
 				{title = '2.35:1', value = 'set video-aspect-override "2.35:1"'},
 			},},
-			{title = 'Audio devices', value = 'script-binding uosc/audio-device'},
-			{title = 'Editions', value = 'script-binding uosc/editions'},
-			{title = 'Screenshot', value = 'async screenshot'},
-			{title = 'Show in directory', value = 'script-binding uosc/show-in-directory'},
-			{title = 'Open config folder', value = 'script-binding uosc/open-config-directory'},
+			{title = t('Audio devices'), value = 'script-binding uosc/audio-device'},
+			{title = t('Editions'), value = 'script-binding uosc/editions'},
+			{title = t('Screenshot'), value = 'async screenshot'},
+			{title = t('Show in directory'), value = 'script-binding uosc/show-in-directory'},
+			{title = t('Open config folder'), value = 'script-binding uosc/open-config-directory'},
 		},},
-		{title = 'Quit', value = 'quit'},
+		{title = t('Quit'), value = 'quit'},
 	}
 end
 
@@ -222,6 +226,7 @@ config = {
 				local title_parts = split(title or '', ' *> *')
 
 				for index, title_part in ipairs(#title_parts > 0 and title_parts or {''}) do
+					title_part = t(title_part)
 					if index < #title_parts then
 						submenu_id = submenu_id .. title_part
 
@@ -413,14 +418,14 @@ state = {
 thumbnail = {width = 0, height = 0, disabled = false}
 external = {} -- Properties set by external scripts
 key_binding_overwrites = {} -- Table of key_binding:mpv_command
-Elements = require('elements/Elements')
-Menu = require('elements/Menu')
+Elements = require('uosc_shared/elements/Elements')
+Menu = require('uosc_shared/elements/Menu')
 
 -- State dependent utilities
-require('lib/utils')
-require('lib/text')
-require('lib/ass')
-require('lib/menus')
+require('uosc_shared/lib/utils')
+require('uosc_shared/lib/text')
+require('uosc_shared/lib/ass')
+require('uosc_shared/lib/menus')
 
 --[[ STATE UPDATERS ]]
 
@@ -472,17 +477,19 @@ end
 function update_margins()
 	if display.height == 0 then return end
 
-	local function is_persistent(element) return element and element.enabled and element:is_persistent() end
+	local function causes_margin(element)
+		return element and element.enabled and (element:is_persistent() or element.min_visibility > 0.5)
+	end
 	local timeline, top_bar, controls, volume = Elements.timeline, Elements.top_bar, Elements.controls, Elements.volume
 	-- margins are normalized to window size
 	local left, right, top, bottom = 0, 0, 0, 0
 
-	if is_persistent(controls) then bottom = (display.height - controls.ay) / display.height
-	elseif is_persistent(timeline) then bottom = (display.height - timeline.ay) / display.height end
+	if causes_margin(controls) then bottom = (display.height - controls.ay) / display.height
+	elseif causes_margin(timeline) then bottom = (display.height - timeline.ay) / display.height end
 
-	if is_persistent(top_bar) then top = top_bar.title_by / display.height end
+	if causes_margin(top_bar) then top = top_bar.title_by / display.height end
 
-	if is_persistent(volume) then
+	if causes_margin(volume) then
 		if options.volume == 'left' then left = volume.bx / display.width
 		elseif options.volume == 'right' then right = volume.ax / display.width end
 	end
@@ -985,7 +992,7 @@ bind_command('editions', create_self_updating_menu_opener({
 		local items = {}
 		for _, edition in ipairs(editions or {}) do
 			items[#items + 1] = {
-				title = edition.title or 'Edition',
+				title = edition.title or t('Edition'),
 				hint = tostring(edition.id + 1),
 				value = edition.id,
 				active = edition.id == current_id,
@@ -1001,7 +1008,7 @@ bind_command('show-in-directory', function()
 
 	if state.platform == 'windows' then
 		utils.subprocess_detached({args = {'explorer', '/select,', state.path}, cancellable = false})
-	elseif state.platform == 'macos' then
+	elseif state.platform == 'darwin' then
 		utils.subprocess_detached({args = {'open', '-R', state.path}, cancellable = false})
 	elseif state.platform == 'linux' then
 		local result = utils.subprocess({args = {'nautilus', state.path}, cancellable = false})
@@ -1186,7 +1193,7 @@ bind_command('open-config-directory', function()
 
 		if state.platform == 'windows' then
 			args = {'explorer', '/select,', config.path}
-		elseif state.platform == 'macos' then
+		elseif state.platform == 'darwin' then
 			args = {'open', '-R', config.path}
 		elseif state.platform == 'linux' then
 			args = {'xdg-open', config.dirname}
@@ -1251,11 +1258,11 @@ mp.register_script_message('overwrite-binding', function(name, command) key_bind
 
 --[[ ELEMENTS ]]
 
-require('elements/WindowBorder'):new()
-require('elements/BufferingIndicator'):new()
-require('elements/PauseIndicator'):new()
-require('elements/TopBar'):new()
-require('elements/Timeline'):new()
-if options.controls and options.controls ~= 'never' then require('elements/Controls'):new() end
-if itable_index_of({'left', 'right'}, options.volume) then require('elements/Volume'):new() end
-require('elements/Curtain'):new()
+require('uosc_shared/elements/WindowBorder'):new()
+require('uosc_shared/elements/BufferingIndicator'):new()
+require('uosc_shared/elements/PauseIndicator'):new()
+require('uosc_shared/elements/TopBar'):new()
+require('uosc_shared/elements/Timeline'):new()
+if options.controls and options.controls ~= 'never' then require('uosc_shared/elements/Controls'):new() end
+if itable_index_of({'left', 'right'}, options.volume) then require('uosc_shared/elements/Volume'):new() end
+require('uosc_shared/elements/Curtain'):new()

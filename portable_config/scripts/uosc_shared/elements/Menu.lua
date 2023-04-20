@@ -1,4 +1,4 @@
-local Element = require('elements/Element')
+local Element = require('uosc_shared/elements/Element')
 
 -- Menu data structure accepted by `Menu:open(menu)`.
 ---@alias MenuData {type?: string; title?: string; hint?: string; keep_open?: boolean; separator?: boolean; items?: MenuDataItem[]; selected_index?: integer;}
@@ -152,7 +152,7 @@ function Menu:update(data)
 		if not menu.is_root then
 			menu.id = (parent_id and parent_id .. ' > ' or '') .. (menu_data.title or i)
 		end
-		menu.icon = ''
+		menu.icon = 'chevron_right'
 
 		-- Update items
 		local first_active_index = nil
@@ -753,9 +753,9 @@ function Menu:render()
 			if item.icon then
 				local x, y = content_bx - (icon_size / 2), item_center_y
 				if item.icon == 'spinner' then
-					ass:spinner(x, y, icon_size * 0.8, {color = font_color, opacity = text_opacity * 0.8})
+					ass:spinner(x, y, icon_size * 1.5, {color = font_color, opacity = text_opacity * 0.8})
 				else
-					ass:icon(x, y, icon_size * 0.8, item.icon, {
+					ass:icon(x, y, icon_size * 1.5, item.icon, {
 						color = font_color, opacity = text_opacity, clip = item_clip,
 						shadow = 1, shadow_color = shadow_color,
 					})
@@ -799,7 +799,7 @@ function Menu:render()
 		if draw_title then
 			local title_ay = ay - self.item_height
 			local title_height = self.item_height - 3
-			menu.ass_safe_title = menu.ass_safe_title or ass_escape(menu.title)
+			menu.ass_safe_title = t(menu.ass_safe_title or ass_escape(menu.title))
 
 			-- Background
 			ass:rect(ax + 2, title_ay, bx - 2, title_ay + title_height, {
