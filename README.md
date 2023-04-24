@@ -4,7 +4,8 @@ Personal portable_config for MPV player, The aim is to use it right out of the b
 
 - Optimized uosc, with my personal preference.  
   [natural-harmonia-gropius/uosc](https://github.com/natural-harmonia-gropius/uosc)  
-  _Non-Windows 11 users need to put [Segoe Fluent Icons](https://aka.ms/SegoeFluentIcons) and [Segoe UI Variable](https://aka.ms/SegoeUIVariable) into `~~/fonts`._
+  _Non-Windows 11 users need to put [Segoe Fluent Icons](https://aka.ms/SegoeFluentIcons) and [Segoe UI Variable](https://aka.ms/SegoeUIVariable) into `~~/fonts`._  
+  _Make UI display in English or other, see: https://github.com/natural-harmonia-gropius/mpv-config/issues/19#issuecomment-1519869648._
 
 - Optimized motion interpolation, a svpflow script with optional rife enhancement.  
   [~~/filters/interp.py](https://github.com/natural-harmonia-gropius/mpv_config/blob/master/portable_config/filters/interp.py)  
