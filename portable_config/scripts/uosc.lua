@@ -133,7 +133,7 @@ fg, bg = serialize_rgba(options.foreground).color, serialize_rgba(options.backgr
 fgt, bgt = serialize_rgba(options.foreground_text).color, serialize_rgba(options.background_text).color
 
 --[[ INTERNATIONALIZATION ]]
-local t = require('uosc_shared/lib/intl')
+t = require('uosc_shared/lib/intl')
 
 --[[ CONFIG ]]
 
