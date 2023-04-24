@@ -122,7 +122,7 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
 
 		if load_command then
 			items[#items + 1] = {
-				title = 'Load', bold = true, italic = true, hint = 'open file', value = '{load}', separator = true,
+				title = t('Load'), bold = true, italic = true, hint = t('open file'), value = '{load}', separator = true,
 			}
 		end
 
