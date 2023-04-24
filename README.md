@@ -10,7 +10,7 @@ Personal portable_config for MPV player, The aim is to use it right out of the b
   [~~/filters/interp.py](https://github.com/natural-harmonia-gropius/mpv_config/blob/master/portable_config/filters/interp.py)  
   _I can't provide the required dll in this repository, sorry._
 
-- Optimized HDR to SDR conversion, featuring dynamic curves and a uniform color space.
+- Optimized HDR to SDR conversion, featuring dynamic curves and a uniform color space.  
   [natural-harmonia-gropius/hdr-toys](https://github.com/natural-harmonia-gropius/hdr-toys)
 
 ## Get executable files from following links
