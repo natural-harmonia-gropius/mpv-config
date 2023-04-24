@@ -1,4 +1,4 @@
-local Element = require('uosc_shared/elements/Element')
+local Element = require('elements/Element')
 
 ---@alias TopBarButtonProps {icon: string; background: string; anchor_id?: string; command: string|fun()}
 
@@ -32,10 +32,15 @@ function TopBarButton:render()
 	end
 
 	local width, height = self.bx - self.ax, self.by - self.ay
-	local icon_size = math.min(width, height) * 0.5
+	local icon_size = math.min(width, height) * 0.33
 	ass:icon(self.ax + width / 2, self.ay + height / 2, icon_size, self.icon, {
 		opacity = visibility, border = options.text_border,
 	})
+
+	if self.id == 'tb_max' then
+		self.icon = state.fullscreen and '' or (state.maximized and '' or '')
+		self.command = state.fullscreen and 'set fullscreen no' or 'cycle window-maximized'
+	end
 
 	return ass
 end
@@ -53,17 +58,11 @@ function TopBar:init()
 	self.show_alt_title = false
 	self.main_title, self.alt_title = nil, nil
 
-	local function get_maximized_command()
-		return state.border
-			and (state.fullscreen and 'set fullscreen no;cycle window-maximized' or 'cycle window-maximized')
-			or 'set window-maximized no;cycle fullscreen'
-	end
-
 	-- Order aligns from right to left
 	self.buttons = {
-		TopBarButton:new('tb_close', {icon = 'close', background = '2311e8', command = 'quit'}),
-		TopBarButton:new('tb_max', {icon = 'crop_square', background = '222222', command = get_maximized_command}),
-		TopBarButton:new('tb_min', {icon = 'minimize', background = '222222', command = 'cycle window-minimized'}),
+		TopBarButton:new('tb_close', {icon = '', background = '2311e8', command = 'quit'}),
+		TopBarButton:new('tb_max', {icon = '', background = '222222', command = 'cycle window-maximized'}),
+		TopBarButton:new('tb_min', {icon = '', background = '222222', command = 'cycle window-minimized'}),
 	}
 
 	self:decide_titles()

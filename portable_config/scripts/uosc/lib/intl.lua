@@ -44,7 +44,7 @@ function make_locale()
 		if (lang:match('.json$')) then
 			table_assign(translations, get_locale_from_json(lang))
 		else
-			table_assign(translations, get_locale_from_json('~~/scripts/uosc_shared/intl/' .. lang:lower() .. '.json'))
+			table_assign(translations, get_locale_from_json(mp.get_script_directory() .. '/intl/' .. lang:lower() .. '.json'))
 		end
 	end
 

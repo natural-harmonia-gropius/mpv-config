@@ -1,4 +1,4 @@
-local Element = require('uosc_shared/elements/Element')
+local Element = require('elements/Element')
 
 ---@class PauseIndicator : Element
 local PauseIndicator = class(Element)
@@ -33,7 +33,7 @@ function PauseIndicator:flash()
 	self.paused = mp.get_property_native('pause')
 	if self.is_manual then self.type = 'flash' end
 	self.opacity = 1
-	self:tween_property('opacity', 1, 0, 0.15)
+	self:tween_property('opacity', 1, 0, 0.05)
 end
 
 -- decides whether static indicator should be visible or not
@@ -65,11 +65,11 @@ function PauseIndicator:render()
 	size = size + size * (1 - self.opacity)
 
 	if self.paused then
-		ass:icon(display.width / 2, display.height / 2, size, 'pause',
+		ass:icon(display.width / 2, display.height / 2, size, '',
 			{border = 1, opacity = self.base_icon_opacity * self.opacity}
 		)
 	else
-		ass:icon(display.width / 2, display.height / 2, size * 1.2, 'play_arrow',
+		ass:icon(display.width / 2, display.height / 2, size * 1.2, '',
 			{border = 1, opacity = self.base_icon_opacity * self.opacity}
 		)
 	end

@@ -1,4 +1,4 @@
-local Element = require('uosc_shared/elements/Element')
+local Element = require('elements/Element')
 
 --[[ MuteButton ]]
 
@@ -14,9 +14,16 @@ function MuteButton:render()
 		cursor.on_primary_down = function() mp.commandv('cycle', 'mute') end
 	end
 	local ass = assdraw.ass_new()
-	local icon_name = state.mute and 'volume_off' or 'volume_up'
+	local icon_name = ''
+	if state.mute then icon_name = ''
+	elseif state.volume <= 0 then icon_name = ''
+	elseif state.volume <= 33 then icon_name = ''
+	elseif state.volume <= 66 then icon_name = ''
+	elseif state.volume <= 100 then icon_name = ''
+	else icon_name = ''
+	end
 	local width = self.bx - self.ax
-	ass:icon(self.ax + (width / 2), self.by, width * 0.7, icon_name,
+	ass:icon(self.ax + (width / 2), self.by, width * 0.6, icon_name,
 		{border = options.text_border, opacity = options.volume_opacity * visibility, align = 2}
 	)
 	return ass
@@ -193,19 +200,6 @@ function VolumeSlider:render()
 		})
 	end
 
-	-- Disabled stripes for no audio
-	if not state.has_audio then
-		local fg_100_path = create_nudged_path(options.volume_border)
-		local texture_opts = {
-			size = 200, color = 'ffffff', opacity = visibility * 0.1, anchor_x = ax,
-			clip = '\\clip(' .. fg_100_path.scale .. ',' .. fg_100_path.text .. ')',
-		}
-		ass:texture(ax, ay, bx, by, 'a', texture_opts)
-		texture_opts.color = '000000'
-		texture_opts.anchor_x = ax + texture_opts.size / 28
-		ass:texture(ax, ay, bx, by, 'a', texture_opts)
-	end
-
 	return ass
 end
 
@@ -223,6 +217,12 @@ end
 
 function Volume:get_visibility()
 	return self.slider.pressed and 1 or Elements.timeline:get_is_hovered() and -1 or Element.get_visibility(self)
+end
+
+function Volume:decide_enabled()
+	local enabled = state.has_audio
+	self.mute.enabled = enabled
+	self.slider.enabled = enabled
 end
 
 function Volume:update_dimensions()
@@ -243,6 +243,7 @@ function Volume:update_dimensions()
 	self.mute.enabled, self.slider.enabled = self.enabled, self.enabled
 	self.mute:set_coordinates(self.ax, self.by - round(width * 0.8), self.bx, self.by)
 	self.slider:set_coordinates(self.ax, self.ay, self.bx, self.mute.ay)
+	self:decide_enabled()
 end
 
 function Volume:on_display() self:update_dimensions() end
