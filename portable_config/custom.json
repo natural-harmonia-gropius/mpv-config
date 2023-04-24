@@ -1,4 +1,9 @@
 {
   "More": "更多",
-  "Recently played": "最近播放"
+  "Open config directory": "打开设置文件夹",
+  "Recently played": "最近播放",
+  "Toggle blackbar crop": "切换黑边裁切",
+  "Toggle hardware decoding": "切换硬件解码",
+  "Toggle loop play": "切换循环播放",
+  "Toggle statistics": "切换播放信息"
 }
