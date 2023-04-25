@@ -1172,8 +1172,14 @@ bind_command('audio-device', create_self_updating_menu_opener({
 			if device.name == 'auto' or string.match(device.name, '^' .. ao) then
 				local hint = string.match(device.name, ao .. '/(.+)')
 				if not hint then hint = device.name end
+				local title = device.description
+				if title == 'Autoselect device' then
+					title = t('Autoselect device')
+				elseif title:sub(1, 7) == 'Default' then
+					title = t('Default') .. title:sub(8)
+				end
 				items[#items + 1] = {
-					title = device.description,
+					title = title,
 					hint = hint,
 					active = device.name == current_device,
 					value = device.name,
