@@ -12,7 +12,7 @@ QUARTER_PI_SIN = math.sin(math.pi / 4)
 -- Enables relative requires from `scripts` directory
 package.path = package.path .. ';' .. mp.find_config_file('scripts') .. '/?.lua'
 
-require('lib/std')
+require('uosc_shared/lib/std')
 
 --[[ OPTIONS ]]
 
@@ -133,7 +133,8 @@ fg, bg = serialize_rgba(options.foreground).color, serialize_rgba(options.backgr
 fgt, bgt = serialize_rgba(options.foreground_text).color, serialize_rgba(options.background_text).color
 
 --[[ INTERNATIONALIZATION ]]
-t = require('lib/intl')
+local intl = require('uosc_shared/lib/intl')
+t = intl.t
 
 --[[ CONFIG ]]
 
@@ -418,14 +419,14 @@ state = {
 thumbnail = {width = 0, height = 0, disabled = false}
 external = {} -- Properties set by external scripts
 key_binding_overwrites = {} -- Table of key_binding:mpv_command
-Elements = require('elements/Elements')
-Menu = require('elements/Menu')
+Elements = require('uosc_shared/elements/Elements')
+Menu = require('uosc_shared/elements/Menu')
 
 -- State dependent utilities
-require('lib/utils')
-require('lib/text')
-require('lib/ass')
-require('lib/menus')
+require('uosc_shared/lib/utils')
+require('uosc_shared/lib/text')
+require('uosc_shared/lib/ass')
+require('uosc_shared/lib/menus')
 
 --[[ STATE UPDATERS ]]
 
@@ -991,9 +992,10 @@ bind_command('editions', create_self_updating_menu_opener({
 	serializer = function(editions, current_id)
 		local items = {}
 		for _, edition in ipairs(editions or {}) do
+			local edition_id_1 = tostring(edition.id + 1)
 			items[#items + 1] = {
-				title = edition.title or t('Edition'),
-				hint = tostring(edition.id + 1),
+				title = edition.title or t('Edition %s', edition_id_1),
+				hint = edition_id_1,
 				value = edition.id,
 				active = edition.id == current_id,
 			}
@@ -1172,14 +1174,8 @@ bind_command('audio-device', create_self_updating_menu_opener({
 			if device.name == 'auto' or string.match(device.name, '^' .. ao) then
 				local hint = string.match(device.name, ao .. '/(.+)')
 				if not hint then hint = device.name end
-				local title = device.description
-				if title == 'Autoselect device' then
-					title = t('Autoselect device')
-				elseif title:sub(1, 7) == 'Default' then
-					title = t('Default') .. title:sub(8)
-				end
 				items[#items + 1] = {
-					title = title,
+					title = device.description:sub(1, 7) == 'Default' and t('Default %s', device.description:sub(9)) or t(device.description),
 					hint = hint,
 					active = device.name == current_device,
 					value = device.name,
@@ -1261,14 +1257,15 @@ mp.register_script_message('set-min-visibility', function(visibility, elements)
 end)
 mp.register_script_message('flash-elements', function(elements) Elements:flash(split(elements, ' *, *')) end)
 mp.register_script_message('overwrite-binding', function(name, command) key_binding_overwrites[name] = command end)
+mp.register_script_message('add-intl-directory', function(path) intl.add_directory(path) end)
 
 --[[ ELEMENTS ]]
 
-require('elements/WindowBorder'):new()
-require('elements/BufferingIndicator'):new()
-require('elements/PauseIndicator'):new()
-require('elements/TopBar'):new()
-require('elements/Timeline'):new()
-if options.controls and options.controls ~= 'never' then require('elements/Controls'):new() end
-if itable_index_of({'left', 'right'}, options.volume) then require('elements/Volume'):new() end
-require('elements/Curtain'):new()
+require('uosc_shared/elements/WindowBorder'):new()
+require('uosc_shared/elements/BufferingIndicator'):new()
+require('uosc_shared/elements/PauseIndicator'):new()
+require('uosc_shared/elements/TopBar'):new()
+require('uosc_shared/elements/Timeline'):new()
+if options.controls and options.controls ~= 'never' then require('uosc_shared/elements/Controls'):new() end
+if itable_index_of({'left', 'right'}, options.volume) then require('uosc_shared/elements/Volume'):new() end
+require('uosc_shared/elements/Curtain'):new()

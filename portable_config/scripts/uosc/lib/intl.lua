@@ -1,4 +1,7 @@
+local intl_directories = {'~~/scripts/uosc/intl/'}
 local locale = {}
+local cache = {}
+local reload_timer = nil
 
 -- https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/supported-languages?pivots=store-installer-msix#list-of-supported-languages
 function get_languages()
@@ -47,18 +50,40 @@ function make_locale()
 		elseif (lang == 'en') then
 			translations = {}
 		else
-			table_assign(translations, get_locale_from_json(mp.get_script_directory() .. '/intl/' .. lang:lower() .. '.json'))
+			for _, path in ipairs(intl_directories) do
+				table_assign(translations, get_locale_from_json(path .. lang:lower() .. '.json'))
+			end
 		end
 	end
 
 	return translations
 end
 
----@param text string
-function t(text)
-	return locale[text] or text
+function reload()
+	reload_timer, cache = nil, {}
+	locale = make_locale()
 end
 
-locale = make_locale()
+---@param path string
+function add_directory(path)
+	path = trim_end(trim_end(path, '\\'), '/') .. '/'
+	if itable_index_of(intl_directories, path) then return end
+	intl_directories[#intl_directories + 1] = path
+	if not reload_timer then
+		reload_timer = mp.add_timeout(0.1, reload)
+	end
+end
 
-return t
+---@param text string
+function t(text, a)
+	if not text then return '' end
+	local key = text
+	if a then key = key .. '|' .. a end
+	if cache[key] then return cache[key] end
+	cache[key] = string.format(locale[text] or text, a or '')
+	return cache[key]
+end
+
+reload()
+
+return {t = t, add_directory = add_directory}
