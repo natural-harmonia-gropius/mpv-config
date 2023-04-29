@@ -1,11 +1,10 @@
 {
-  "Audio Formats": "音频格式",
+  "Chapter %s": "第 %s 章",
   "More": "更多",
   "Open config directory": "打开设置文件夹",
   "Recently played": "最近播放",
   "Toggle blackbar crop": "切换黑边裁切",
   "Toggle hardware decoding": "切换硬件解码",
   "Toggle loop play": "切换循环播放",
-  "Toggle statistics": "切换播放信息",
-  "Video Formats": "视频格式"
+  "Toggle statistics": "切换播放信息"
 }

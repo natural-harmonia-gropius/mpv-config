@@ -910,7 +910,7 @@ end
 ---@param menu_type UIState
 local function uosc_menu_open(formats, active_format, menu_type)
     local menu = {
-        title = menu_type.type_capitalized .. ' Formats',
+        title = menu_type.type_capitalized,
         items = {},
         type = 'quality-menu-' .. menu_type.name,
         keep_open = true,
@@ -1078,7 +1078,7 @@ local function loading_message(menu_type)
     if uosc_available then
         if open_menu_state and open_menu_state == menu_type then return end
         local menu = {
-            title = menu_type.type_capitalized .. ' Formats',
+            title = menu_type.type_capitalized,
             items = { { icon = 'spinner', value = 'ignore' } },
             type = 'quality-menu-' .. menu_type.name,
             keep_open = true,
