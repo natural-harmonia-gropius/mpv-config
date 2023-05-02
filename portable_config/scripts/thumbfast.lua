@@ -43,6 +43,7 @@ mp.options = require "mp.options"
 mp.options.read_options(options, "thumbfast")
 
 local pre_0_30_0 = mp.command_native_async == nil
+local pre_0_33_0 = true
 
 function subprocess(args, async, callback)
     callback = callback or function() end
@@ -117,7 +118,9 @@ end
 local spawned = false
 local network = false
 local disabled = false
+local force_disabled = false
 local spawn_waiting = false
+local spawn_working = false
 
 local dirty = false
 
@@ -158,6 +161,8 @@ local has_vid = 0
 local file_timer = nil
 local file_check_period = 1/60
 local first_file = false
+
+local allow_fast_seek = true
 
 local client_script = [=[
 #!/usr/bin/env bash
@@ -215,6 +220,7 @@ local function get_os()
 end
 
 local os_name = get_os()
+local path_separator = os_name == "Windows" and "\\" or "/"
 
 if options.socket == "" then
     if os_name == "Windows" then
@@ -248,10 +254,25 @@ if options.direct_io then
 end
 
 local mpv_path = options.mpv_path
+local libmpv = false
 
 if mpv_path == "mpv" and os_name == "Mac" and unique then
+    -- TODO: look into ~~osxbundle/
     mpv_path = string.gsub(subprocess({"ps", "-o", "comm=", "-p", tostring(unique)}).stdout, "[\n\r]", "")
-    mpv_path = string.gsub(mpv_path, "/mpv%-bundle$", "/mpv")
+    if mpv_path ~= "mpv" then
+        mpv_path = string.gsub(mpv_path, "/mpv%-bundle$", "/mpv")
+        local mpv_bin = mp.utils.file_info("/usr/local/mpv")
+        if mpv_bin and mpv_bin.is_file then
+            mpv_path = "/usr/local/mpv"
+        else
+            local mpv_app = mp.utils.file_info("/Applications/mpv.app/Contents/MacOS/mpv")
+            if mpv_app and mpv_app.is_file then
+                mp.msg.warn("symlink mpv to fix Dock icons: `sudo ln -s /Applications/mpv.app/Contents/MacOS/mpv /usr/local/mpv`")
+            else
+                mp.msg.warn("drag to your Applications folder and symlink mpv to fix Dock icons: `sudo ln -s /Applications/mpv.app/Contents/MacOS/mpv /usr/local/mpv`")
+            end
+        end
+    end
 end
 
 local function vf_string(filters, full)
@@ -316,7 +337,8 @@ local function info(w, h)
         has_vid == 0 or
         (network and not options.network) or
         (albumart and not options.audio) or
-        (image and not albumart)
+        (image and not albumart) or
+        force_disabled
 
     if info_timer then
         info_timer:kill()
@@ -356,7 +378,8 @@ local function spawn(time)
     has_vid = vid or 0
 
     local args = {
-        mpv_path, path, "--no-config", "--msg-level=all=no", "--idle", "--pause", "--keep-open=always", "--really-quiet", "--no-terminal",
+        mpv_path, "--no-config", "--msg-level=all=no", "--idle", "--pause", "--keep-open=always", "--really-quiet", "--no-terminal",
+        "--load-scripts=no", "--osc=no", "--ytdl=no", "--load-stats-overlay=no", "--load-osd-console=no", "--load-auto-profiles=no",
         "--edition="..(mp.get_property_number("edition") or "auto"), "--vid="..(vid or "auto"), "--no-sub", "--no-audio",
         "--start="..time, "--hr-seek=no",
         "--ytdl-format=worst", "--demuxer-readahead-secs=0", "--demuxer-max-bytes=128KiB",
@@ -371,7 +394,11 @@ local function spawn(time)
         table.insert(args, "--sws-allow-zimg=no")
     end
 
-    if os_name == "Windows" then
+    if os_name == "Mac" and mp.get_property("macos-app-activation-policy") then
+        table.insert(args, "--macos-app-activation-policy=accessory")
+    end
+
+    if os_name == "Windows" or pre_0_33_0 then
         table.insert(args, "--input-ipc-server="..options.socket)
     else
         local client_script_path = options.socket..".run"
@@ -387,15 +414,51 @@ local function spawn(time)
         end
     end
 
+    table.insert(args, "--")
+    table.insert(args, path)
+
     spawned = true
     spawn_waiting = true
 
     subprocess(args, true,
         function(success, result)
-            if spawn_waiting and (success == false or result.status ~= 0) then
+            if spawn_waiting and (success == false or (result.status ~= 0 and result.status ~= -2)) then
+                spawned = false
+                spawn_waiting = false
                 mp.msg.error("mpv subprocess create failed")
+                if not spawn_working then -- notify users of required configuration
+                    if options.mpv_path == "mpv" then
+                        if libmpv then
+                            if options.mpv_path == mpv_path then -- attempt to locate ImPlay
+                                mpv_path = "ImPlay"
+                                spawn(time)
+                            else -- ImPlay not in path
+                                if os_name ~= "Mac" then
+                                    force_disabled = true
+                                    info(real_w or effective_w, real_h or effective_h)
+                                end
+                                mp.commandv("show-text", "thumbfast: ERROR! cannot create mpv subprocess", 5000)
+                                mp.commandv("script-message-to", "implay", "show-message", "thumbfast initial setup", "Set mpv_path=PATH_TO_ImPlay in thumbfast config:\n" .. string.gsub(mp.command_native({"expand-path", "~~/script-opts/thumbfast.conf"}), "[/\\]", path_separator).."\nand restart ImPlay")
+                            end
+                        else
+                            mp.commandv("show-text", "thumbfast: ERROR! cannot create mpv subprocess", 5000)
+                            if os_name == "Windows" then
+                                mp.commandv("script-message-to", "mpvnet", "show-text", "thumbfast: ERROR! install standalone mpv, see README", 5000, 20)
+                                mp.commandv("script-message", "mpv.net", "show-text", "thumbfast: ERROR! install standalone mpv, see README", 5000, 20)
+                            end
+                        end
+                    else
+                        mp.commandv("show-text", "thumbfast: ERROR! cannot create mpv subprocess", 5000)
+                        -- found ImPlay but not defined in config
+                        mp.commandv("script-message-to", "implay", "show-message", "thumbfast", "Set mpv_path=PATH_TO_ImPlay in thumbfast config:\n" .. string.gsub(mp.command_native({"expand-path", "~~/script-opts/thumbfast.conf"}), "[/\\]", path_separator).."\nand restart ImPlay")
+                    end
+                end
+            elseif success == true and (result.status == 0 or result.status == -2) then
+                if not spawn_working and libmpv and options.mpv_path ~= mpv_path then
+                    mp.commandv("script-message-to", "implay", "show-message", "thumbfast initial setup", "Set mpv_path=ImPlay in thumbfast config:\n" .. string.gsub(mp.command_native({"expand-path", "~~/script-opts/thumbfast.conf"}), "[/\\]", path_separator).."\nand restart ImPlay")
+                end
+                spawn_working = true
             end
-            spawned = false
         end
     )
 end
@@ -418,6 +481,9 @@ local function run(command)
     local file = nil
     if os_name == "Windows" then
         file = io.open("\\\\.\\pipe\\"..options.socket, "r+")
+    elseif pre_0_33_0 then
+        subprocess({"/usr/bin/env", "sh", "-c", "echo '" .. command .. "' | socat - " .. options.socket})
+        return
     else
         file = io.open(options.socket, "r+")
     end
@@ -486,12 +552,14 @@ local seek_period_counter = 0
 local seek_timer
 seek_timer = mp.add_periodic_timer(seek_period, function()
     if seek_period_counter == 0 then
-        seek(true)
+        seek(allow_fast_seek)
         seek_period_counter = 1
     else
         if seek_period_counter == 2 then
-            seek_timer:kill()
-            seek()
+            if allow_fast_seek then
+                seek_timer:kill()
+                seek()
+            end
         else seek_period_counter = seek_period_counter + 1 end
     end
 end)
@@ -661,6 +729,7 @@ local function mark_dirty()
 end
 
 local function file_load()
+    libmpv = mp.get_property("current-vo") == "libmpv"
     clear()
     real_w, real_h = nil, nil
     last_real_w, last_real_h = nil, nil
@@ -690,16 +759,25 @@ local function shutdown()
     end
 end
 
+local function on_duration(prop, val)
+    allow_fast_seek = (val or 30) >= 30
+end
+
 mp.observe_property("display-hidpi-scale", "native", mark_dirty)
 mp.observe_property("video-out-params", "native", mark_dirty)
 mp.observe_property("vf", "native", mark_dirty)
 mp.observe_property("vid", "native", sync_changes)
 mp.observe_property("edition", "native", sync_changes)
+mp.observe_property("duration", "native", on_duration)
 
 mp.register_script_message("thumb", thumb)
 mp.register_script_message("clear", clear)
 
 mp.register_event("file-loaded", file_load)
 mp.register_event("shutdown", shutdown)
+
+mp.add_hook("on_before_start_file", 0, function()
+    pre_0_33_0 = false
+end)
 
 mp.register_idle(watch_changes)
