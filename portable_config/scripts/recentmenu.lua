@@ -113,6 +113,24 @@ function get_filename_without_ext(filename)
     return filename
 end
 
+function remove_deleted()
+    local new_items = {}
+    for _, item in ipairs(menu.items) do
+        local path = item.value[2]
+        if not is_protocol(path) then
+            local meta, meta_error = utils.file_info(path)
+            if meta and meta.is_file then
+                new_items[#new_items + 1] = item
+            end
+        end
+    end
+
+    if #menu.items ~= #new_items then
+        menu.items = new_items
+        write_json()
+    end
+end
+
 function read_json()
     local meta, meta_error = utils.file_info(path)
     if not meta or not meta.is_file then
@@ -130,6 +148,7 @@ function read_json()
     json_file:close()
 
     menu.items = utils.parse_json(json)
+    remove_deleted()
 end
 
 function write_json()
