@@ -160,7 +160,6 @@ local has_vid = 0
 
 local file_timer = nil
 local file_check_period = 1/60
-local first_file = false
 
 local allow_fast_seek = true
 
@@ -381,7 +380,7 @@ local function spawn(time)
         mpv_path, "--no-config", "--msg-level=all=no", "--idle", "--pause", "--keep-open=always", "--really-quiet", "--no-terminal",
         "--load-scripts=no", "--osc=no", "--ytdl=no", "--load-stats-overlay=no", "--load-osd-console=no", "--load-auto-profiles=no",
         "--edition="..(mp.get_property_number("edition") or "auto"), "--vid="..(vid or "auto"), "--no-sub", "--no-audio",
-        "--start="..time, "--hr-seek=no",
+        "--start="..time, allow_fast_seek and "--hr-seek=no" or "--hr-seek=yes",
         "--ytdl-format=worst", "--demuxer-readahead-secs=0", "--demuxer-max-bytes=128KiB",
         "--vd-lavc-skiploopfilter=all", "--vd-lavc-software-fallback=1", "--vd-lavc-fast", "--vd-lavc-threads=2", "--hwdec="..(options.hwdec and "auto" or "no"),
         "--vf="..vf_string(filters_all, true),
@@ -458,6 +457,7 @@ local function spawn(time)
                     mp.commandv("script-message-to", "implay", "show-message", "thumbfast initial setup", "Set mpv_path=ImPlay in thumbfast config:\n" .. string.gsub(mp.command_native({"expand-path", "~~/script-opts/thumbfast.conf"}), "[/\\]", path_separator).."\nand restart ImPlay")
                 end
                 spawn_working = true
+                spawn_waiting = false
             end
         end
     )
@@ -570,7 +570,7 @@ local function request_seek()
         seek_period_counter = 0
     else
         seek_timer:resume()
-        seek(true)
+        seek(allow_fast_seek)
         seek_period_counter = 1
     end
 end
@@ -585,10 +585,6 @@ local function check_new_thumb()
     local finfo = mp.utils.file_info(tmp)
     if not finfo then return false end
     spawn_waiting = false
-    if first_file then
-        request_seek()
-        first_file = false
-    end
     local w, h = real_res(effective_w, effective_h, finfo.size)
     if w then -- only accept valid thumbnails
         move_file(tmp, options.thumbnail..".bgra")
@@ -640,7 +636,7 @@ end
 local function clear()
     file_timer:kill()
     seek_timer:kill()
-    last_seek = 0
+    last_seek_time = 0
     show_thumbnail = false
     last_x = nil
     last_y = nil
@@ -746,7 +742,6 @@ local function file_load()
     spawned = false
     if options.spawn_first then
         spawn(mp.get_property_number("time-pos", 0))
-        first_file = true
     end
 end
 
