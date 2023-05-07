@@ -19,6 +19,14 @@ local menu = {
 
 local current_item = { nil, nil, nil }
 
+local locale = {}
+function t(text) return locale[text] or text end
+mp.commandv('script-message-to', 'uosc', 'get-locale', mp.get_script_name(), '~~/other-script/intl')
+mp.register_script_message('uosc-locale', function(json)
+    locale = utils.parse_json(json)
+    menu.title = t(menu.title)
+end)
+
 function utf8_char_bytes(str, i)
     local char_byte = str:byte(i)
     if char_byte < 0xC0 then
