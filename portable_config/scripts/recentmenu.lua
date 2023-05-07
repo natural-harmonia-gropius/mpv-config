@@ -17,34 +17,7 @@ local menu = {
     items = {},
 }
 
-function read_json()
-    local meta, meta_error = utils.file_info(path)
-    if not meta or not meta.is_file then
-        menu.items = {}
-        return
-    end
-
-    local json_file = io.open(path, "r")
-    if not json_file then
-        menu.items = {}
-        return
-    end
-
-    local json = json_file:read("*all")
-    json_file:close()
-
-    menu.items = utils.parse_json(json)
-end
-
-function write_json()
-    local json_file = io.open(path, "w")
-    if not json_file then return end
-
-    local json = utils.format_json(menu.items)
-
-    json_file:write(json)
-    json_file:close()
-end
+local current_item = { nil, nil, nil }
 
 function utf8_char_bytes(str, i)
     local char_byte = str:byte(i)
@@ -83,6 +56,10 @@ function utf8_subwidth(str, indexStart, indexEnd)
         end
     end
     return substr, index
+end
+
+function is_protocol(path)
+    return type(path) == 'string' and (path:find('^%a[%a%d-_]+://') ~= nil or path:find('^%a[%a%d-_]+:\\?') ~= nil)
 end
 
 function is_same_folder(s1, s2, p1, p2)
@@ -128,6 +105,43 @@ function is_same_series(s1, s2, p1, p2)
     return false
 end
 
+function get_filename_without_ext(filename)
+    local idx = filename:match(".+()%.%w+$")
+    if idx then
+        filename = filename:sub(1, idx - 1)
+    end
+    return filename
+end
+
+function read_json()
+    local meta, meta_error = utils.file_info(path)
+    if not meta or not meta.is_file then
+        menu.items = {}
+        return
+    end
+
+    local json_file = io.open(path, "r")
+    if not json_file then
+        menu.items = {}
+        return
+    end
+
+    local json = json_file:read("*all")
+    json_file:close()
+
+    menu.items = utils.parse_json(json)
+end
+
+function write_json()
+    local json_file = io.open(path, "w")
+    if not json_file then return end
+
+    local json = utils.format_json(menu.items)
+
+    json_file:write(json)
+    json_file:close()
+end
+
 function append_item(path, filename, title)
     if title and title ~= "" then
         local width
@@ -161,22 +175,11 @@ function open_menu()
 end
 
 function play_last()
-    mp.command_native(menu.items[1].value)
-end
-
-function get_filename_without_ext(filename)
-    local idx = filename:match(".+()%.%w+$")
-    if idx then
-        filename = filename:sub(1, idx - 1)
+    read_json()
+    if menu.items[1] then
+        mp.command_native(menu.items[1].value)
     end
-    return filename
 end
-
-function is_protocol(path)
-    return type(path) == 'string' and (path:find('^%a[%a%d-_]+://') ~= nil or path:find('^%a[%a%d-_]+:\\?') ~= nil)
-end
-
-local current_item = { nil, nil, nil }
 
 function on_load()
     local path = mp.get_property("path")
@@ -204,5 +207,3 @@ mp.add_key_binding(nil, "open", open_menu)
 mp.add_key_binding(nil, "play_last", play_last)
 mp.register_event("file-loaded", on_load)
 mp.register_event("end-file", on_end)
-
-read_json()
