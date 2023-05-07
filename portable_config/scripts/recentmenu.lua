@@ -176,7 +176,6 @@ function append_item(path, filename, title)
         local ofilename = value.title
         local opath = value.value[2]
         if #new_items < o.length and
-            value.value ~= "ignore" and
             opath ~= path and
             not is_same_series(filename, ofilename, path, opath)
         then
