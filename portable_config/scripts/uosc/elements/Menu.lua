@@ -506,7 +506,7 @@ function Menu:move_selected_item_to(index)
 	if callback and from and from ~= index and index >= 1 and index <= #self.current.items then
 		callback(from, index, self.current.submenu_path)
 		self.current.selected_index = index
-		request_render()
+		self:set_scroll_by((index - from) * self.scroll_step)
 	end
 end
 
@@ -799,7 +799,7 @@ function Menu:render()
 		if draw_title then
 			local title_ay = ay - self.item_height
 			local title_height = self.item_height - 3
-			menu.ass_safe_title = menu.ass_safe_title or ass_escape(t(menu.title))
+			menu.ass_safe_title = menu.ass_safe_title or ass_escape(menu.title)
 
 			-- Background
 			ass:rect(ax + 2, title_ay, bx - 2, title_ay + title_height, {
