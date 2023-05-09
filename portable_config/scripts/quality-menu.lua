@@ -175,8 +175,6 @@ opts.curtain_opacity = math.max(math.min(opts.curtain_opacity, 1), 0)
 
 local locale = {}
 function t(text) return locale[text] or text end
-mp.commandv('script-message-to', 'uosc', 'get-locale', mp.get_script_name())
-mp.register_script_message('uosc-locale', function(json) locale = utils.parse_json(json) end)
 
 ---@param input string
 ---@param separator string
@@ -1265,3 +1263,6 @@ mp.register_script_message('uosc-version', function(version)
     end)
 end)
 mp.commandv('script-message-to', 'uosc', 'get-version', mp.get_script_name())
+
+mp.commandv('script-message-to', 'uosc', 'get-locale', mp.get_script_name())
+mp.register_script_message('uosc-locale', function(json) locale = utils.parse_json(json) end)
