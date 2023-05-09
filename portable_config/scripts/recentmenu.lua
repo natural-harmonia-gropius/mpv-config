@@ -120,11 +120,17 @@ function remove_deleted()
     local new_items = {}
     for _, item in ipairs(menu.items) do
         local path = item.value[2]
+        local deleted = false
+
         if not is_protocol(path) then
             local meta, meta_error = utils.file_info(path)
-            if meta and meta.is_file then
-                new_items[#new_items + 1] = item
+            if not (meta and meta.is_file) then
+                deleted = true
             end
+        end
+
+        if not deleted then
+            new_items[#new_items + 1] = item
         end
     end
 
