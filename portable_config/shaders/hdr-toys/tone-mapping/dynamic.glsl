@@ -22,6 +22,10 @@
 //!MAXIMUM 120
 8
 
+//!BUFFER HISTOGRAM
+//!VAR uint histogram[1024]
+//!STORAGE
+
 //!BUFFER MINMAX
 //!VAR uint L_min
 //!VAR uint L_max
@@ -32,6 +36,7 @@
 //!STORAGE
 
 //!HOOK OUTPUT
+//!BIND HISTOGRAM
 //!BIND MINMAX
 //!BIND TEMPORAL_MAX
 //!SAVE EMPTY
@@ -43,6 +48,10 @@
 void hook() {
     L_min = 10000;
     L_max = 0;
+
+    for (int i = 0; i < 1024; i++) {
+        histogram[i] = 0;
+    }
 }
 
 //!HOOK OUTPUT
@@ -100,9 +109,10 @@ vec4 hook(){
 //!HOOK OUTPUT
 //!BIND BLURRED
 //!BIND MINMAX
+//!BIND HISTOGRAM
 //!SAVE EMPTY
 //!COMPUTE 32 32
-//!DESC metering (min, max)
+//!DESC metering (min, max, histogram)
 
 void hook() {
     vec4 texelValue = texelFetch(BLURRED_raw, ivec2(gl_GlobalInvocationID.xy), 0);
@@ -110,6 +120,9 @@ void hook() {
 
     atomicMin(L_min, uint(L));
     atomicMax(L_max, uint(L));
+
+    uint index = uint(L / 10000 * 1024) - 1;
+    atomicAdd(histogram[index], 1);
 }
 
 //!HOOK OUTPUT
@@ -568,5 +581,15 @@ vec4 hook() {
     calc_user_params_from_metered();
     calc_direct_params_from_user();
     color.rgb = tone_mapping_hybrid(color.rgb);
+    return color;
+}
+
+//!HOOK OUTPUT
+//!BIND HOOKED
+//!BIND HISTOGRAM
+//!DESC test
+
+vec4 color = HOOKED_tex(HOOKED_pos);
+vec4 hook() {
     return color;
 }
