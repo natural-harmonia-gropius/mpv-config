@@ -1,6 +1,5 @@
 local intl_directory = '~~/scripts/uosc/intl/'
 local locale = {}
-local cache = {}
 
 -- https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/supported-languages?pivots=store-installer-msix#list-of-supported-languages
 function get_languages()
@@ -58,7 +57,6 @@ function make_locale(path)
 end
 
 function reload()
-	reload_timer, cache = nil, {}
 	locale = make_locale(intl_directory)
 end
 
@@ -73,13 +71,25 @@ function get_locale(path)
 end
 
 ---@param text string
-function t(text, a)
-	if not text then return '' end
-	local key = text
-	if a then key = key .. '|' .. a end
-	if cache[key] then return cache[key] end
-	cache[key] = string.format(locale[text] or text, a or '')
-	return cache[key]
+function t(text, ...)
+	if not text then
+		return ''
+	end
+
+	local str = locale[text] or text
+	local arg = {...}
+	if #arg then
+		local key = text
+		for _, v in ipairs(arg) do
+			key = key .. '|' .. v
+		end
+		if not locale[key] then
+			locale[key] = string.format(str, unpack(arg))
+		end
+		return locale[key]
+	end
+
+	return str
 end
 
 reload()
