@@ -17,19 +17,18 @@
 //!BIND HOOKED
 //!DESC tone mapping (bt.2446a)
 
-// https://gist.github.com/yohhoy/dafa5a47dade85d8b40625261af3776a
-const float a = 0.2627;
-const float b = 0.6780;
-const float c = 0.0593; // a + b + c = 1
-const float d = 1.8814; // 2 * (a + b)
-const float e = 1.4747; // 2 * (1 - a)
+const float a = 0.2627002120112671;
+const float b = 0.6779980715188708;
+const float c = 0.05930171646986196;
+const float d = 2.0 * (1.0 - c);
+const float e = 2.0 * (1.0 - a);
 
 vec3 RGB_to_YCbCr(vec3 RGB) {
     float R = RGB.r;
     float G = RGB.g;
     float B = RGB.b;
 
-    const float Y  = a * R + b * G + c * B;
+    const float Y  = dot(RGB, vec3(a, b, c));
     const float Cb = (B - Y) / d;
     const float Cr = (R - Y) / e;
 
@@ -86,10 +85,12 @@ vec3 tone_mapping(vec3 YCbCr) {
     return vec3(Y, Cb, Cr);
 }
 
-vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
+    vec4 color = HOOKED_texOff(0);
+
     color.rgb = RGB_to_YCbCr(color.rgb);
     color.rgb = tone_mapping(color.rgb);
     color.rgb = YCbCr_to_RGB(color.rgb);
+
     return color;
 }

@@ -1,11 +1,11 @@
 //!PARAM intensity
-//!DESC Film grain intensity
+//!DESC film grain intensity
 //!TYPE float
 //!MINIMUM 0
 0.1
 
 //!PARAM taps
-//!DESC Film grain smoothing taps
+//!DESC film grain smoothing taps
 //!TYPE DEFINE
 //!MINIMUM 0
 //!MAXIMUM 5
@@ -13,7 +13,7 @@
 
 //!HOOK LUMA
 //!BIND HOOKED
-//!DESC Apply gaussian smoothed film grain
+//!DESC gaussian smoothed film grain
 //!WHEN intensity 0 >
 //!COMPUTE 32 32
 

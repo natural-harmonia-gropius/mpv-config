@@ -1,9 +1,14 @@
 {
+  "Crop black bars": "裁切黑边",
+  "Enabled": "启用",
+  "Flip": "翻转",
+  "Hardware decoding": "硬件解码",
+  "Horizonal": "水平",
+  "Loop": "循环",
   "More": "更多",
-  "Open config directory": "打开设置文件夹",
+  "Motion interpolation": "运动插值",
   "Recently played": "最近播放",
-  "Toggle blackbar crop": "切换黑边裁切",
-  "Toggle hardware decoding": "切换硬件解码",
-  "Toggle loop play": "切换循环播放",
-  "Toggle statistics": "切换播放信息"
+  "Rotate": "旋转",
+  "Single": "单个",
+  "Vertical": "垂直"
 }

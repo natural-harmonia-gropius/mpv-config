@@ -1,6 +1,7 @@
 local options = require("mp.options")
 
 local o = {
+    timout = 0.2,
     temporal_stable_time = 1 / 3,
 }
 options.read_options(o)
@@ -36,7 +37,7 @@ mp.observe_property("video-out-params", "native", function(_, value)
         return
     end
 
-    mp.add_timeout(0.1, function()
+    mp.add_timeout(o.timout, function()
         set_L_hdr(sig_peak * 203)
     end)
 end)
@@ -44,7 +45,7 @@ end)
 mp.observe_property("container-fps", "native", function(_, fps)
     if not fps then return end
 
-    mp.add_timeout(0.1, function()
+    mp.add_timeout(o.timout, function()
         set_temporal_stable_frames(fps * o.temporal_stable_time)
     end)
 end)

@@ -52,6 +52,16 @@ function split(str, pattern)
 	return list
 end
 
+-- Handles common option and message inputs that need to be split by comma when strings.
+---@param input string|string[]|nil
+---@return string[]
+function comma_split(input)
+	if not input then return {} end
+	if type(input) == 'table' then return itable_map(input, tostring) end
+	local str = tostring(input)
+	return str:match('^%s*$') and {} or split(str, ' *, *')
+end
+
 -- Get index of the last appearance of `sub` in `str`.
 ---@param str string
 ---@param sub string
@@ -83,7 +93,7 @@ function itable_has(itable, value)
 end
 
 ---@param itable table
----@param compare fun(value: any, index: number)
+---@param compare fun(value: any, index: number): boolean|integer|string|nil
 ---@param from? number Where to start search, defaults to `1`.
 ---@param to? number Where to end search, defaults to `#itable`.
 ---@return number|nil index
@@ -98,7 +108,7 @@ function itable_find(itable, compare, from, to)
 end
 
 ---@param itable table
----@param decider fun(value: any, index: number)
+---@param decider fun(value: any, index: number): boolean|integer|string|nil
 function itable_filter(itable, decider)
 	local filtered = {}
 	for index, value in ipairs(itable) do
@@ -146,13 +156,13 @@ function itable_slice(itable, start_pos, end_pos)
 end
 
 ---@generic T
----@param a T[]|nil
----@param b T[]|nil
+---@param ...T[]|nil
 ---@return T[]
-function itable_join(a, b)
-	local result = {}
-	if a then for _, value in ipairs(a) do result[#result + 1] = value end end
-	if b then for _, value in ipairs(b) do result[#result + 1] = value end end
+function itable_join(...)
+	local args, result = {...}, {}
+	for i = 1, #args do
+		if args[i] then for _, value in ipairs(args[i]) do result[#result + 1] = value end end
+	end
 	return result
 end
 
@@ -163,24 +173,74 @@ function itable_append(target, source)
 	return target
 end
 
----@param target any[]
----@param source any[]
----@param props? string[]
-function table_assign(target, source, props)
-	if props then
-		for _, name in ipairs(props) do target[name] = source[name] end
-	else
-		for prop, value in pairs(source) do target[prop] = value end
+function itable_clear(itable)
+	for i = #itable, 1, -1 do itable[i] = nil end
+end
+
+---@generic T
+---@param input table<T, any>
+---@return T[]
+function table_keys(input)
+	local keys = {}
+	for key, _ in pairs(input) do keys[#keys + 1] = key end
+	return keys
+end
+
+---@generic T
+---@param input table<any, T>
+---@return T[]
+function table_values(input)
+	local values = {}
+	for _, value in pairs(input) do values[#values + 1] = value end
+	return values
+end
+
+---@generic T: table<any, any>
+---@param target T
+---@param ... T|nil
+---@return T
+function table_assign(target, ...)
+	local args = {...}
+	for i = 1, #args do
+		if args[i] then for key, value in pairs(args[i]) do target[key] = value end end
 	end
 	return target
 end
 
----@generic T
----@param table T
+---@generic T: table<any, any>
+---@param target T
+---@param source T
+---@param props string[]
 ---@return T
-function table_shallow_copy(table)
+function table_assign_props(target, source, props)
+	for _, name in ipairs(props) do target[name] = source[name] end
+	return target
+end
+
+-- `table_assign({}, input)` without loosing types :(
+---@generic T: table<any, any>
+---@param input T
+---@return T
+function table_copy(input) return table_assign({}, input) end
+
+-- Converts itable values into `table<value, true>` map.
+---@param values any[]
+function create_set(values)
 	local result = {}
-	for key, value in pairs(table) do result[key] = value end
+	for _, value in ipairs(values) do result[value] = true end
+	return result
+end
+
+---@generic T: any
+---@param input string
+---@param value_sanitizer? fun(value: string, key: string): T
+---@return table<string, T>
+function serialize_key_value_list(input, value_sanitizer)
+	local result, sanitize = {}, value_sanitizer or function(value) return value end
+	for _, key_value_pair in ipairs(comma_split(input)) do
+		local key, value = key_value_pair:match('^([%w_]+)=([%w%.]+)$')
+		if key and value then result[key] = sanitize(value, key) end
+	end
 	return result
 end
 
@@ -198,7 +258,60 @@ function Class:new(...)
 	object:init(...)
 	return object
 end
-function Class:init() end
+function Class:init(...) end
 function Class:destroy() end
 
 function class(parent) return setmetatable({}, {__index = parent or Class}) end
+
+---@class CircularBuffer<T> : Class
+CircularBuffer = class()
+
+function CircularBuffer:new(max_size) return Class.new(self, max_size) --[[@as CircularBuffer]] end
+function CircularBuffer:init(max_size)
+	self.max_size = max_size
+	self.pos = 0
+	self.data = {}
+end
+
+function CircularBuffer:insert(item)
+	self.pos = self.pos % self.max_size + 1
+	self.data[self.pos] = item
+end
+
+function CircularBuffer:get(i)
+	return i <= #self.data and self.data[(self.pos + i - 1) % #self.data + 1] or nil
+end
+
+local function iter(self, i)
+	if i == #self.data then return nil end
+	i = i + 1
+	return i, self:get(i)
+end
+
+function CircularBuffer:iter()
+	return iter, self, 0
+end
+
+local function iter_rev(self, i)
+	if i == 1 then return nil end
+	i = i - 1
+	return i, self:get(i)
+end
+
+function CircularBuffer:iter_rev()
+	return iter_rev, self, #self.data + 1
+end
+
+function CircularBuffer:head()
+	return self.data[self.pos]
+end
+
+function CircularBuffer:tail()
+	if #self.data < 1 then return nil end
+	return self.data[self.pos % #self.data + 1]
+end
+
+function CircularBuffer:clear()
+	itable_clear(self.data)
+	self.pos = 0
+end

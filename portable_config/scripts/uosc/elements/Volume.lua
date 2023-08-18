@@ -1,34 +1,5 @@
 local Element = require('elements/Element')
 
---[[ MuteButton ]]
-
----@class MuteButton : Element
-local MuteButton = class(Element)
----@param props? ElementProps
-function MuteButton:new(props) return Class.new(self, 'volume_mute', props) --[[@as MuteButton]] end
-function MuteButton:get_visibility() return Elements.volume:get_visibility(self) end
-function MuteButton:render()
-	local visibility = self:get_visibility()
-	if visibility <= 0 then return end
-	if self.proximity_raw == 0 then
-		cursor.on_primary_down = function() mp.commandv('cycle', 'mute') end
-	end
-	local ass = assdraw.ass_new()
-	local icon_name = ''
-	if state.mute then icon_name = ''
-	elseif state.volume <= 0 then icon_name = ''
-	elseif state.volume <= 33 then icon_name = ''
-	elseif state.volume <= 66 then icon_name = ''
-	elseif state.volume <= 100 then icon_name = ''
-	else icon_name = ''
-	end
-	local width = self.bx - self.ax
-	ass:icon(self.ax + (width / 2), self.by, width * 0.6, icon_name,
-		{border = options.text_border, opacity = options.volume_opacity * visibility, align = 2}
-	)
-	return ass
-end
-
 --[[ VolumeSlider ]]
 
 ---@class VolumeSlider : Element
@@ -42,7 +13,12 @@ function VolumeSlider:init(props)
 	self.nudge_size = 0
 	self.draw_nudge = false
 	self.spacing = 0
-	self.radius = 1
+	self.border_size = 0
+	self:update_dimensions()
+end
+
+function VolumeSlider:update_dimensions()
+	self.border_size = math.max(0, round(options.volume_border * state.scale))
 end
 
 function VolumeSlider:get_visibility() return Elements.volume:get_visibility(self) end
@@ -54,10 +30,12 @@ function VolumeSlider:set_volume(volume)
 end
 
 function VolumeSlider:set_from_cursor()
-	local volume_fraction = (self.by - cursor.y - options.volume_border) / (self.by - self.ay - options.volume_border)
+	local volume_fraction = (self.by - cursor.y - self.border_size) / (self.by - self.ay - self.border_size)
 	self:set_volume(volume_fraction * state.volume_max)
 end
 
+function VolumeSlider:on_display() self:update_dimensions() end
+function VolumeSlider:on_options() self:update_dimensions() end
 function VolumeSlider:on_coordinates()
 	if type(state.volume_max) ~= 'number' or state.volume_max <= 0 then return end
 	local width = self.bx - self.ax
@@ -65,7 +43,6 @@ function VolumeSlider:on_coordinates()
 	self.nudge_size = round(width * 0.18)
 	self.draw_nudge = self.ay < self.nudge_y
 	self.spacing = round(width * 0.2)
-	self.radius = math.max(2, (self.bx - self.ax) / 10)
 end
 function VolumeSlider:on_global_mouse_move()
 	if self.pressed then self:set_from_cursor() end
@@ -80,31 +57,26 @@ function VolumeSlider:render()
 
 	if width <= 0 or height <= 0 or visibility <= 0 then return end
 
-	if self.proximity_raw == 0 then
-		cursor.on_primary_down = function()
-			self.pressed = true
-			self:set_from_cursor()
-			cursor.on_primary_up = function() self.pressed = false end
-		end
-		cursor.on_wheel_down = function() self:handle_wheel_down() end
-		cursor.on_wheel_up = function() self:handle_wheel_up() end
-	end
-	if self.pressed then cursor.on_primary_up = function()
-		self.pressed = false end
-	end
+	cursor:zone('primary_down', self, function()
+		self.pressed = true
+		self:set_from_cursor()
+		cursor:once('primary_up', function() self.pressed = false end)
+	end)
+	cursor:zone('wheel_down', self, function() self:handle_wheel_down() end)
+	cursor:zone('wheel_up', self, function() self:handle_wheel_up() end)
 
 	local ass = assdraw.ass_new()
-	local nudge_y, nudge_size = self.draw_nudge and self.nudge_y or -INFINITY, self.nudge_size
-	local volume_y = self.ay + options.volume_border +
-		((height - (options.volume_border * 2)) * (1 - math.min(state.volume / state.volume_max, 1)))
+	local nudge_y, nudge_size = self.draw_nudge and self.nudge_y or -math.huge, self.nudge_size
+	local volume_y = self.ay + self.border_size +
+		((height - (self.border_size * 2)) * (1 - math.min(state.volume / state.volume_max, 1)))
 
 	-- Draws a rectangle with nudge at requested position
 	---@param p number Padding from slider edges.
+	---@param r number Border radius.
 	---@param cy? number A y coordinate where to clip the path from the bottom.
-	function create_nudged_path(p, cy)
+	function create_nudged_path(p, r, cy)
 		cy = cy or ay + p
 		local ax, bx, by = ax + p, bx - p, by - p
-		local r = math.max(1, self.radius - p)
 		local d, rh = r * 2, r / 2
 		local nudge_size = ((QUARTER_PI_SIN * (nudge_size - p)) + p) / QUARTER_PI_SIN
 		local path = assdraw.ass_new()
@@ -162,14 +134,14 @@ function VolumeSlider:render()
 	end
 
 	-- BG & FG paths
-	local bg_path = create_nudged_path(0)
-	local fg_path = create_nudged_path(options.volume_border, volume_y)
+	local bg_path = create_nudged_path(0, state.radius + self.border_size)
+	local fg_path = create_nudged_path(self.border_size, state.radius, volume_y)
 
 	-- Background
 	ass:new_event()
 	ass:append('{\\rDefault\\an7\\blur0\\bord0\\1c&H' .. bg ..
 		'\\iclip(' .. fg_path.scale .. ', ' .. fg_path.text .. ')}')
-	ass:opacity(options.volume_opacity, visibility)
+	ass:opacity(config.opacity.slider, visibility)
 	ass:pos(0, 0)
 	ass:draw_start()
 	ass:append(bg_path.text)
@@ -178,7 +150,7 @@ function VolumeSlider:render()
 	-- Foreground
 	ass:new_event()
 	ass:append('{\\rDefault\\an7\\blur0\\bord0\\1c&H' .. fg .. '}')
-	ass:opacity(options.volume_opacity, visibility)
+	ass:opacity(config.opacity.slider_gauge, visibility)
 	ass:pos(0, 0)
 	ass:draw_start()
 	ass:append(fg_path.text)
@@ -189,13 +161,17 @@ function VolumeSlider:render()
 	local font_size = round(((width * 0.6) - (#volume_string * (width / 20))) * options.font_scale)
 	if volume_y < self.by - self.spacing then
 		ass:txt(self.ax + (width / 2), self.by - self.spacing, 2, volume_string, {
-			size = font_size, color = fgt, opacity = visibility,
+			size = font_size,
+			color = fgt,
+			opacity = visibility,
 			clip = '\\clip(' .. fg_path.scale .. ', ' .. fg_path.text .. ')',
 		})
 	end
 	if volume_y > self.by - self.spacing - font_size then
 		ass:txt(self.ax + (width / 2), self.by - self.spacing, 2, volume_string, {
-			size = font_size, color = bgt, opacity = visibility,
+			size = font_size,
+			color = bgt,
+			opacity = visibility,
 			clip = '\\iclip(' .. fg_path.scale .. ', ' .. fg_path.text .. ')',
 		})
 	end
@@ -210,44 +186,88 @@ local Volume = class(Element)
 
 function Volume:new() return Class.new(self) --[[@as Volume]] end
 function Volume:init()
-	Element.init(self, 'volume')
-	self.mute = MuteButton:new({anchor_id = 'volume'})
-	self.slider = VolumeSlider:new({anchor_id = 'volume'})
+	Element.init(self, 'volume', {render_order = 7})
+	self.size = 0
+	self.mute_ay = 0
+	self.slider = VolumeSlider:new({anchor_id = 'volume', render_order = self.render_order})
+	self:update_dimensions()
+end
+
+function Volume:destroy()
+	self.slider:destroy()
+	Element.destroy(self)
 end
 
 function Volume:get_visibility()
-	return self.slider.pressed and 1 or Elements.timeline:get_is_hovered() and -1 or Element.get_visibility(self)
-end
-
-function Volume:decide_enabled()
-	local enabled = state.has_audio
-	self.mute.enabled = enabled
-	self.slider.enabled = enabled
+	return self.slider.pressed and 1 or Elements:maybe('timeline', 'get_is_hovered') and -1
+		or Element.get_visibility(self)
 end
 
 function Volume:update_dimensions()
-	local width = state.fullormaxed and options.volume_size_fullscreen or options.volume_size
-	local controls, timeline, top_bar = Elements.controls, Elements.timeline, Elements.top_bar
-	local min_y = top_bar.enabled and top_bar.by or 0
-	local max_y = (controls and controls.enabled and controls.ay) or (timeline.enabled and timeline.ay)
-		or display.height - top_bar.size
+	self.size = round(options.volume_size * state.scale)
+	local min_y = Elements:v('top_bar', 'by') or Elements:v('window_border', 'size', 0)
+	local max_y = Elements:v('controls', 'ay') or Elements:v('timeline', 'ay')
+		or display.height - Elements:v('window_border', 'size', 0)
 	local available_height = max_y - min_y
 	local max_height = available_height * 0.8
-	local height = round(math.min(width * 8, max_height))
-	self.enabled = height > width * 2 -- don't render if too small
-	local margin = (width / 2) + Elements.window_border.size
-	self.ax = round(options.volume == 'left' and margin or display.width - margin - width)
+	local height = round(math.min(self.size * 8, max_height))
+	self.enabled = state.has_audio and height > self.size * 2 -- don't render if too small
+	local margin = (self.size / 2) + Elements:v('window_border', 'size', 0)
+	self.ax = round(options.volume == 'left' and margin or display.width - margin - self.size)
 	self.ay = min_y + round((available_height - height) / 2)
-	self.bx = round(self.ax + width)
+	self.bx = round(self.ax + self.size)
 	self.by = round(self.ay + height)
-	self.mute.enabled, self.slider.enabled = self.enabled, self.enabled
-	self.mute:set_coordinates(self.ax, self.by - round(width * 0.8), self.bx, self.by)
-	self.slider:set_coordinates(self.ax, self.ay, self.bx, self.mute.ay)
-	self:decide_enabled()
+	self.mute_ay = self.by - self.size
+	self.slider.enabled = self.enabled
+	self.slider:set_coordinates(self.ax, self.ay, self.bx, self.mute_ay)
 end
 
 function Volume:on_display() self:update_dimensions() end
 function Volume:on_prop_border() self:update_dimensions() end
+function Volume:on_prop_title_bar() self:update_dimensions() end
 function Volume:on_controls_reflow() self:update_dimensions() end
+function Volume:on_options() self:update_dimensions() end
+
+function Volume:render()
+	local visibility = self:get_visibility()
+	if visibility <= 0 then return end
+
+	-- Reset volume on secondary click
+	cursor:zone('secondary_down', self, function()
+		mp.set_property_native('mute', false)
+		mp.set_property_native('volume', 100)
+	end)
+
+	-- Mute button
+	local mute_rect = {ax = self.ax, ay = self.mute_ay, bx = self.bx, by = self.by}
+	cursor:zone('primary_down', mute_rect, function() mp.commandv('cycle', 'mute') end)
+	local ass = assdraw.ass_new()
+	local width_half = (mute_rect.bx - mute_rect.ax) / 2
+	local height_half = (mute_rect.by - mute_rect.ay) / 2
+	local icon_size = math.min(width_half, height_half)
+	local icon_name = ''
+	local icon_back = ''
+	if state.mute then
+		icon_name = ''
+		icon_back = ''
+	elseif state.volume <= 0 then
+		icon_name = ''
+	elseif state.volume <= 33 then
+		icon_name = ''
+	elseif state.volume <= 66 then
+		icon_name = ''
+	elseif state.volume > 100 then
+		icon_name = ''
+		icon_back = ''
+	end
+	local underlay_opacity = {main = visibility * 0.3, border = visibility}
+	ass:icon(mute_rect.ax + width_half, mute_rect.ay + height_half, icon_size, icon_back,
+		{border = options.text_border * state.scale, opacity = underlay_opacity, align = 5}
+	)
+	ass:icon(mute_rect.ax + width_half, mute_rect.ay + height_half, icon_size, icon_name,
+		{opacity = visibility, align = 5}
+	)
+	return ass
+end
 
 return Volume

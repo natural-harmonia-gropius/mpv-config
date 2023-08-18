@@ -23,7 +23,6 @@
 8
 
 //!BUFFER MINMAX
-//!VAR uint L_min
 //!VAR uint L_max
 //!STORAGE
 
@@ -41,12 +40,22 @@
 //!DESC metering (initial)
 
 void hook() {
-    L_min = 10000;
     L_max = 0;
 }
 
 //!HOOK OUTPUT
 //!BIND HOOKED
+//!SAVE BLURRED
+//!WIDTH 512
+//!HEIGHT 288
+//!DESC metering (spatial stabilization, downscaling)
+
+vec4 hook() {
+	return HOOKED_texOff(0);
+}
+
+//!HOOK OUTPUT
+//!BIND BLURRED
 //!SAVE BLURRED
 //!DESC metering (spatial stabilization, horizonal)
 
@@ -55,11 +64,11 @@ void hook() {
 
 vec4 hook(){
     uint i = 0;
-    vec4 c = HOOKED_texOff(offset[i]) * weight[i];
+    vec4 c = BLURRED_texOff(offset[i]) * weight[i];
 
     for (i = 1; i < 3; i++) {
-        c += HOOKED_texOff( vec2(offset[i], 0.0)) * weight[i];
-        c += HOOKED_texOff(-vec2(offset[i], 0.0)) * weight[i];
+        c += BLURRED_texOff( vec2(offset[i], 0.0)) * weight[i];
+        c += BLURRED_texOff(-vec2(offset[i], 0.0)) * weight[i];
     }
 
     return vec4(c.rgb, 1.0);
@@ -90,13 +99,17 @@ vec4 hook(){
 //!BIND MINMAX
 //!SAVE EMPTY
 //!COMPUTE 32 32
-//!DESC metering (min, max)
+//!DESC metering (max)
 
 void hook() {
-    vec4 texelValue = texelFetch(BLURRED_raw, ivec2(gl_GlobalInvocationID.xy), 0);
-    float L = L_sdr * max(max(texelValue.r, texelValue.g), texelValue.b);
+    vec4 color = texelFetch(BLURRED_raw, ivec2(gl_GlobalInvocationID.xy), 0);
 
-    atomicMin(L_min, uint(L + 0.5));
+    float y = dot(color.rgb, vec3(0.2627002120112671, 0.6779980715188708, 0.05930171646986196));
+    float m = max(max(color.r, color.g), color.b);
+
+    // value below 1 doesn't make sense, can also improve fade in.
+    float L = max(max(y, m), 1.0) * L_sdr;
+
     atomicMax(L_max, uint(L + 0.5));
 }
 
@@ -116,10 +129,12 @@ bool sence_changed() {
         return true;
     }
 
-    // hard transition, 1 stop tolerance
+    // hard transition, stops
+    float threshold = 1.5;
     float prev_ev = log2(L_max_t[0] / L_sdr);
     float curr_ev = log2(L_max / L_sdr);
-    if (abs(prev_ev - curr_ev) >= 1.0) {
+    float diff_ev = abs(prev_ev - curr_ev);
+    if (diff_ev >= threshold) {
         return true;
     }
 
@@ -135,12 +150,37 @@ bool sence_changed() {
     return false;
 }
 
+const float pq_m1 = 0.1593017578125;
+const float pq_m2 = 78.84375;
+const float pq_c1 = 0.8359375;
+const float pq_c2 = 18.8515625;
+const float pq_c3 = 18.6875;
+
+const float pq_C  = 10000.0;
+
+float Y_to_ST2084(float C) {
+    float L = C / pq_C;
+    float Lm = pow(L, pq_m1);
+    float N = (pq_c1 + pq_c2 * Lm) / (1.0 + pq_c3 * Lm);
+    N = pow(N, pq_m2);
+    return N;
+}
+
+float ST2084_to_Y(float N) {
+    float Np = pow(N, 1.0 / pq_m2);
+    float L = Np - pq_c1;
+    if (L < 0.0 ) L = 0.0;
+    L = L / (pq_c2 - pq_c3 * Np);
+    L = pow(L, 1.0 / pq_m1);
+    return L * pq_C;
+}
+
 uint peak_harmonic_mean() {
-    float den = 1.0 / max(log2(L_max), 1e-6);
+    float den = 1.0 / max(Y_to_ST2084(L_max), 1e-6);
     for (uint i = 0; i < temporal_stable_frames - 1; i++) {
-        den += 1.0 / max(log2(L_max_t[i]), 1e-6);
+        den += 1.0 / max(Y_to_ST2084(L_max_t[i]), 1e-6);
     }
-    float peak = exp2(temporal_stable_frames / den);
+    float peak = ST2084_to_Y(temporal_stable_frames / den);
     return uint(peak);
 }
 
@@ -532,7 +572,7 @@ vec3 tone_mapping_hybrid(vec3 color) {
     rgb = RGB_to_Jzazbz(rgb);
     rgb = Lab_to_LCH(rgb);
 
-    float L = dot(color, vec3(0.2627, 0.6780, 0.0593));
+    float L = dot(color, vec3(0.2627002120112671, 0.6779980715188708, 0.05930171646986196));
     lum = color * curve(L) / L;
     lum = RGB_to_Jzazbz(lum);
     lum = Lab_to_LCH(lum);
@@ -550,21 +590,22 @@ vec3 tone_mapping_hybrid(vec3 color) {
 }
 
 void calc_user_params_from_metered() {
-    float L_min_ev = log2(L_min / L_sdr);
     float L_max_ev = log2(L_max / L_sdr);
     float L_hdr_ev = log2(L_hdr / L_sdr);
-    float black = 1.0 / CONTRAST_sdr;
 
     shoulderLength = L_max_ev / L_hdr_ev;
     shoulderStrength = L_max_ev;
-    toeLength = L_max_ev / CONTRAST_sdr + black;
-    toeStrength = 0.5 + 0.5 * (L_min / (toeLength - black));
+    shoulderAngle = 1.0;
+    toeLength = pow(2.0, L_max_ev) / CONTRAST_sdr;
+    toeStrength = 0.5;
 }
 
-vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
+    vec4 color = HOOKED_texOff(0);
+
     calc_user_params_from_metered();
     calc_direct_params_from_user();
     color.rgb = tone_mapping_hybrid(color.rgb);
+
     return color;
 }

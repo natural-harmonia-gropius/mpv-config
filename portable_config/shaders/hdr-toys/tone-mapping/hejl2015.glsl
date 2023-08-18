@@ -24,8 +24,10 @@ vec3 tone_mapping(vec3 rgb, float w) {
     return vf.rgb / vf.www;
 }
 
-vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
+    vec4 color = HOOKED_texOff(0);
+
     color.rgb = tone_mapping(color.rgb, L_hdr / L_sdr);
+
     return color;
 }

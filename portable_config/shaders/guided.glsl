@@ -2,31 +2,31 @@
  *
  * Copyright (c) 2022 an3223 <ethanr2048@gmail.com>
  *
- * This program is free software: you can redistribute it and/or modify it 
- * under the terms of the GNU Lesser General Public License as published by 
- * the Free Software Foundation, either version 2.1 of the License, or (at 
+ * This program is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 2.1 of the License, or (at
  * your option) any later version.
  *
- * This program is distributed in the hope that it will be useful, but WITHOUT 
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or 
- * FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License 
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License
  * for more details.
  *
- * You should have received a copy of the GNU Lesser General Public License 
+ * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 // Description: guided.glsl: Guided by the downscaled image
 
-/* The radius can be adjusted with the MEANI stage's downscaling factor. 
+/* The radius can be adjusted with the MEANI stage's downscaling factor.
  * Higher numbers give a bigger radius.
  *
  * The E variable can be found in the A stage.
  *
- * The subsampling (fast guided filter) can be adjusted with the I stage's 
+ * The subsampling (fast guided filter) can be adjusted with the I stage's
  * downscaling factor. Higher numbers are faster.
  *
- * The guide's subsampling can be adjusted with the PREI stage's downscaling 
+ * The guide's subsampling can be adjusted with the PREI stage's downscaling
  * factor. Higher numbers downscale more.
  */
 
@@ -235,4 +235,3 @@ vec4 hook()
 {
 	return MEANA_texOff(0) * HOOKED_texOff(0) + MEANB_texOff(0);
 }
-

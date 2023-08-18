@@ -401,9 +401,7 @@ function bind_from_options_configs()
         local path = value:trim()
         if path == "input.conf" then
             local input_conf = mp.get_property_native("input-conf")
-            if input_conf == "" then
-                path = "~~/input.conf"
-            end
+            path = input_conf == "" and "~~/input.conf" or input_conf
         end
         path = mp.command_native({ "expand-path", path })
 

@@ -6,9 +6,10 @@ W = video_in_dw  # 原始帧宽度
 H = video_in_dh  # 原始帧高度
 FPS = container_fps  # 原始帧率
 FREQ = display_fps  # 屏幕刷新率
+RES = display_res  # 屏幕分辨率
 
-VW = 1920  # 输出宽度
-VH = 1080  # 输出高度
+VW = min(1920, RES[0])  # 输出宽度
+VH = min(1080, RES[1])  # 输出高度
 
 OFPS = 60  # 输出帧率
 ADAPTIVE_OFPS = FREQ > OFPS  # 输出帧率=最大值(输出帧率, 二倍帧率, 半刷新率)
@@ -227,7 +228,7 @@ def rife(
     fps,
     num=2,
     den=1,
-    model=21,
+    model=24,
     tta=False,
     uhd=False,
     sc_threshold=0.2,
