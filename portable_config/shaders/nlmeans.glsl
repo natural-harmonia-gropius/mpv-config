@@ -49,7 +49,9 @@
 //!HOOK CHROMA
 //!BIND HOOKED
 //!DESC Non-local means (nlmeans.glsl)
-//!SAVE RF_LUMA
+//!SAVE G
+
+
 
 // User variables
 
@@ -58,9 +60,9 @@
 
 // Denoising factor (sigma, higher means more blur)
 #ifdef LUMA_raw
-#define S 3.6106872620483514
+#define S 2.171842300643018
 #else
-#define S 3.6106872620483514
+#define S 3.472706940155897
 #endif
 
 /* Noise resistant adaptive sharpening
@@ -79,17 +81,17 @@
  */
 #ifdef LUMA_raw
 #define AS 0
-#define ASF 0.3210768548589939
-#define ASA 0.9397860227779741
-#define ASP 0.7654083023321232
-#define ASS 0.4031301466402857
+#define ASF 0.0
+#define ASA 0.0
+#define ASP 0.0
+#define ASS 0.0
 #define ASI 0
 #else
 #define AS 0
-#define ASF 0.6267063361944475
-#define ASA 1.9701543289754333
-#define ASP 1.0024630095639717
-#define ASS 0.05977279329812535
+#define ASF 0.0
+#define ASA 0.0
+#define ASP 0.0
+#define ASS 0.0
 #define ASI 0
 #endif
 
@@ -98,9 +100,9 @@
  * AKA the center weight, the weight of the pixel-of-interest.
  */
 #ifdef LUMA_raw
-#define SW 0.4495820069946536
+#define SW 0.874631892412684
 #else
-#define SW 0.4495820069946536
+#define SW 0.3493678781214755
 #endif
 
 /* Spatial kernel
@@ -117,12 +119,12 @@
  */
 #ifdef LUMA_raw
 #define SST 1
-#define SS 0.2619270301678927
+#define SS 0.1786363425615082
 #define PST 0
 #define PSS 0.0
 #else
 #define SST 1
-#define SS 0.2619270301678927
+#define SS 0.3241999209926485
 #define PST 0
 #define PSS 0.0
 #endif
@@ -146,8 +148,8 @@
  */
 #ifdef LUMA_raw
 #define EP 0
-#define BP 0.75
-#define DP 0.25
+#define BP 0.0
+#define DP 0.0
 #else
 #define EP 0
 #define BP 0.0
@@ -210,7 +212,7 @@
  */
 #ifdef LUMA_raw
 #define RS 3
-#define PS 3
+#define PS 0
 #else
 #define RS 3
 #define PS 3
@@ -233,26 +235,34 @@
  */
 #ifdef LUMA_raw
 #define WD 1
-#define WDT 0.7655914526377351
-#define WDP 6.840769950844552
+#define WDT 0.2935708849017379
+#define WDP 1.2788519721382683
 #define WDS 1.0
 #else
-#define WD 1
-#define WDT 0.7655914526377351
-#define WDP 6.840769950844552
+#define WD 0
+#define WDT 0.0
+#define WDP 0.0
 #define WDS 1.0
 #endif
 
-/* Robust filtering
+/* Connectivity
  *
- * This setting is dependent on code generation from shader_cfg, so this
- * setting can only be enabled via shader_cfg.
+ * Increases weights that are near high weights, decreases weights that are
+ * near low weights.
  *
- * Computes weights on a guide, which could be a downscaled image or the output
- * of another shader, and applies the weights to the original image
+ * C: Number of passes to do, more increases the effect, 0 does nothing
+ * CD: Distance between each pixel and its furthest neighbor
+ * CS: Strength of effect, higher is more
  */
-#define RF_LUMA 0
-#define RF 0
+#ifdef LUMA_raw
+#define C 0
+#define CD 1.0
+#define CS 1.0
+#else
+#define C 0
+#define CD 1.0
+#define CS 1.0
+#endif
 
 /* Rotational/reflectional invariance
  *
@@ -271,7 +281,7 @@
  */
 #ifdef LUMA_raw
 #define RI 0
-#define RFI 0
+#define RFI 2
 #else
 #define RI 0
 #define RFI 0
@@ -328,8 +338,19 @@
  * List of available kernels:
  *
  * bicubic
- * cos
+ * cosine
+ * cosine_
+ * ffexp
  * gaussian
+ * ginseng
+ * ginseng_ (unclamped)
+ * jinc
+ * jinc3
+ * jinc_ (unclamped)
+ * jincjinc
+ * jincjinc3
+ * jincjinc3_ (unclamped)
+ * jincjinc_ (unclamped)
  * lanczos
  * quadratic
  * quadratic_ (unclamped)
@@ -359,6 +380,26 @@
 #define WD1TK gaussian
 #endif
 
+/* Kernel parameters
+ *
+ * The following kernels take these parameters:
+ *
+ * ffexp: K0
+ * ginseng: KWS
+ * jincjinc3: KWS
+ * jincjinc: KWS
+ * lanczos: KWS
+ */
+#ifdef LUMA_raw
+#define K0 1.0
+#define K1 1.0
+#define KWS 1.0
+#else
+#define K0 1.0
+#define K1 1.0
+#define KWS 1.0
+#endif
+
 /* Negative kernel parameter offsets
  *
  * Usually kernels go high -> low. These parameters allow for a kernel to go
@@ -366,21 +407,12 @@
  *
  * Values of 0.0 mean no effect, higher values increase the effect.
  *
- * SO: spatial kernel
  * RO: range kernel (takes patch differences)
- * ASO: adaptive sharpening kernel
- * PSO: intra-patch spatial kernel
  */
 #ifdef LUMA_raw
-#define SO 0.0
-#define RO 9.325266289290071e-05
-#define PSO 0.0
-#define ASO 0.0
+#define RO 6.373764517041128e-05
 #else
-#define SO 0.0
-#define RO 0.00015152392427859513
-#define PSO 0.0
-#define ASO 0.0
+#define RO 0.0
 #endif
 
 /* Sampling method
@@ -426,15 +458,23 @@
  * 0: off
  * 1: absolute difference between input/output to the power of 0.25
  * 2: difference between input/output centered on 0.5
- * 3: post-WD weight map
- * 4: pre-WD weight map
+ * 3: post-WD average weight map
+ * 4: pre-WD average weight map
  * 5: unsharp mask
  * 6: EP
+ * 7: celled weight map (incompatible with temporal)
  */
 #ifdef LUMA_raw
 #define V 0
 #else
 #define V 0
+#endif
+
+// Fast approximate division
+#ifdef LUMA_raw
+#define FAST_DIV 0
+#else
+#define FAST_DIV 0
 #endif
 
 // Force disable textureGather
@@ -468,33 +508,90 @@
 // Shader code
 
 #define EPSILON 1.2e-38
+#define FLT_EPSILON 1.19209290E-07
 #define M_PI 3.14159265358979323846
+#define M_PI_2 1.57079632679489661923
+#define M_PI_4 0.78539816339744830962
+#define M_1_PI 0.31830988618379067154
+#define M_2_PI 0.63661977236758134308
 #define POW2(x) ((x)*(x))
 #define POW3(x) ((x)*(x)*(x))
-#define bicubic_(x) ((1.0/6.0) * (POW3((x)+2) - 4 * POW3((x)+1) + 6 * POW3(x) - 4 * POW3(max((x)-1, 0))))
-#define bicubic(x) bicubic_(clamp((x), 0.0, 2.0))
-#define gaussian(x) exp(-1 * POW2(x))
-#define quadratic_(x) ((x) < 0.5 ? 0.75 - POW2(x) : 0.5 * POW2((x) - 1.5))
-#define quadratic(x) quadratic_(clamp((x), 0.0, 1.5))
-#define sinc_(x) ((x) < 1e-8 ? 1.0 : sin((x)*M_PI) / ((x)*M_PI))
-#define sinc(x) sinc_(clamp((x), 0.0, 1.0))
-#define sinc3(x) sinc_(clamp((x), 0.0, 3.0))
-#define lanczos(x) (sinc3(x) * sinc(x))
-#define sphinx_(x) ((x) < 1e-8 ? 1.0 : 3.0 * (sin((x)*M_PI) - (x)*M_PI * cos((x)*M_PI)) / POW3((x)*M_PI))
-#define sphinx(x) sphinx_(clamp((x), 0.0, 1.4302966531242027))
-#define triangle_(x) (1 - (x))
-#define triangle(x) triangle_(clamp((x), 0.0, 1.0))
-#define is_zero(x) int(x == 0)
+#define POW4(x) ((x)*(x)*(x)*(x))
+#define POW5(x) ((x)*(x)*(x)*(x)*(x))
+#define POW6(x) ((x)*(x)*(x)*(x)*(x)*(x))
+#define POW7(x) ((x)*(x)*(x)*(x)*(x)*(x)*(x))
 
-// XXX could maybe be better optimized on LGC
+// pow() implementation that gives -pow() when x<0
+// avoids actually calling pow() since apparently it's buggy on nvidia
+#define POW(x,y) (exp(log(abs(x)) * y) * sign(x))
+
+// boolean logic w/ vectors
+// from hdeband
+#define NOT(x) (1 - (x))
+#define AND *
+#define TERNARY(cond, x, y) ((x)*(cond) + (y)*NOT(cond))
+
+// from FSR
+#if FAST_DIV
+#define RECIPROCAL(x) uintBitsToFloat(uint(0x7ef07ebb) - floatBitsToUint(x))
+#define DIV(x,y) ((x) * RECIPROCAL(y))
+#define MED_RCP_B(x) uintBitsToFloat(uint(0x7ef19fff) - floatBitsToUint(x))
+#define MED_RECIPROCAL(x) (MED_RCP_B(x) * (-MED_RCP_B(x) * x + 2))
+#define MED_DIV(x,y) ((x) * MED_RECIPROCAL(y))
+#else
+#define RECIPROCAL(x) (1.0/(x))
+#define MED_RECIPROCAL(x) (1.0/(x))
+#define DIV(x,y) ((x)/(y))
+#define MED_DIV(x,y) ((x)/(y))
+#endif
+
+// adapted from https://github.com/garamond13/Jinc
+#define j1(x) TERNARY(step((x), 2.2931157), ((x) * 0.5) - (POW3(x) * 0.0625) + (POW5(x) * 0.00260416666666666666) - (POW7(x) * 0.00005425347222222222), sqrt(DIV(M_2_PI, (x))) * (1.0 + DIV(0.1875, POW2(x)) - DIV(0.1933594, POW4(x))) * cos((x) - 3.0 * M_PI_4 + DIV(0.375, (x)) - DIV(0.1640625, POW3(x))))
+
+// XXX make kernel params capable of being set per-kernel, e.g., RK0, SK0...
+
+// kernels, most of these are from libplacebo
+// XXX sinc/jinc/sphinx: 1e-3 was selected tentatively;  not sure what the correct value should be (1e-8 is too low, x is never considered to be lower than it for some reason)
+#define bicubic(x) bicubic_(clamp(x, 0.0, 2.0))
+#define bicubic_(x) ((1.0/6.0) * (POW3((x)+2) - 4 * POW3((x)+1) + 6 * POW3(x) - 4 * POW3(max((x)-1, 0))))
+#define cosine(x) cos(clamp(x, 0, M_PI_2))
+#define cosine_ cos
+#define ffexp(x) (POW(cos(max(EPSILON, clamp(x, 0.0, 1.0) * M_PI)), K0) * 0.5 + 0.5) // "experimental" scaler from ffmpeg
+#define gaussian(x) exp(-1 * POW2(x))
+#define ginseng(x) ginseng_(clamp(x, 0.0, 3.0))
+#define ginseng_(x) (jinc(x) * sinc(x*KWS))
+#define is_zero(x) int((x) == 0)
+#define jinc(x) jinc_(clamp(x, 0.0, 1.2196698912665045))
+#define jinc3(x) jinc_(clamp(x, 0.0, 3.2383154841662362))
+#define jinc_(x) TERNARY(step(x, 1e-3), 1.0, DIV(2 * j1((x)*M_PI), (x)*M_PI))
+#define jincjinc(x) jincjinc_(clamp(x, 0.0, 3.2383154841662362))
+#define jincjinc3(x) jincjinc3_(clamp(x, 0.0, 3.2383154841662362))
+#define jincjinc3_(x) (jinc(x) * jinc3(x*KWS))
+#define jincjinc_(x) (jinc(x) * jinc(x*KWS))
+#define lanczos(x) lanczos_(clamp(x, 0.0, 3.0))
+#define lanczos_(x) (sinc3(x) * sinc(x*KWS))
+#define quadratic(x) quadratic_(clamp(x, 0.0, 1.5))
+#define quadratic_(x) TERNARY(step(x, 0.5), 0.75 - POW2(x), 0.5 * POW2((x) - 1.5))
+#define sinc(x) sinc_(clamp(x, 0.0, 1.0))
+#define sinc3(x) sinc_(clamp(x, 0.0, 3.0))
+#define sinc_(x) TERNARY(step(x, 1e-3), 1.0, DIV(sin((x)*M_PI), ((x)*M_PI)))
+#define sphinx(x) sphinx_(clamp(x, 0.0, 1.4302966531242027))
+#define sphinx_(x) TERNARY(step(x, 1e-3), 1.0, DIV(3.0 * (sin((x)*M_PI) - (x)*M_PI * cos((x)*M_PI)), POW3((x)*M_PI)))
+#define triangle(x) triangle_(clamp(x, 0.0, 1.0))
+#define triangle_(x) (1 - (x))
+
+#define MAP1(f,param) f(param)
+#define MAP2(f,param) vec2(f(param.x), f(param.y))
+#define MAP3(f,param) vec3(f(param.x), f(param.y), f(param.z))
+
 #if defined(LUMA_raw)
 #define val float
 #define val_swizz(v) (v.x)
-#define unval(v) vec4(v.x, 0, 0, poi_.a)
+#define unval(v) vec4(v, 0, 0, poi_.a)
 #define val_packed val
 #define val_pack(v) (v)
 #define val_unpack(v) (v)
-#define MAP(f,param) f(param)
+#define MAP MAP1
 #elif defined(CHROMA_raw)
 #define val vec2
 #define val_swizz(v) (v.xy)
@@ -502,7 +599,7 @@
 #define val_packed uint
 #define val_pack(v) packUnorm2x16(v)
 #define val_unpack(v) unpackUnorm2x16(v)
-#define MAP(f,param) vec2(f(param.x), f(param.y))
+#define MAP MAP2
 #else
 #define val vec3
 #define val_swizz(v) (v.xyz)
@@ -510,7 +607,31 @@
 #define val_packed val
 #define val_pack(v) (v)
 #define val_unpack(v) (v)
-#define MAP(f,param) vec3(f(param.x), f(param.y), f(param.z))
+#define MAP MAP3
+#endif
+
+#if D1W // float guide
+#define val_guide float
+#define val_guide_swizz(v) (v.x)
+#define val_guide_packed float
+#define val_guide_pack(v) (v)
+#define val_guide_unpack(v) (v)
+#define MAP_GUIDE MAP1
+#define unval_guide(v) vec4(v, 0, 0, poi2_.a)
+#else // val guide
+#define val_guide val
+#define val_guide_swizz val_swizz
+#define val_guide_packed val_packed
+#define val_guide_pack val_pack
+#define val_guide_unpack val_unpack
+#define MAP_GUIDE MAP
+#if defined(LUMA_raw)
+#define unval_guide(v) vec4(v, 0, 0, poi2_.a)
+#elif defined(CHROMA_raw)
+#define unval_guide(v) vec4(v.x, v.y, 0, poi2_.a)
+#else
+#define unval_guide(v) vec4(v.x, v.y, v.z, poi2_.a)
+#endif
 #endif
 
 #if PS == 6
@@ -592,12 +713,6 @@ const float hr = int(R/2) - 0.5*(1-(R%2));  // sample between pixels for even re
 #define T1 (T+1)
 #define FOR_FRAME(r) for (r.z = 0;  r.z < T1;  r.z++)
 
-#ifdef LUMA_raw
-#define RF_ RF_LUMA
-#else
-#define RF_ RF
-#endif
-
 // donut increment, increments without landing on (0,0,0)
 // much faster than a continue statement
 #define DINCR(z,c,a) ((z.c += a),(z.c += int(z == vec3(0))))
@@ -642,7 +757,7 @@ const int r_area = R_AREA(R*R);
 #define RFI1 (RFI+1)
 
 #if RI
-#define FOR_ROTATION for (float ri = 0;  ri < 360;  ri+=360.0/RI1)
+#define FOR_ROTATION for (float ri = 0;  ri < 360;  ri += DIV(360.0, RI1))
 #else
 #define FOR_ROTATION
 #endif
@@ -695,6 +810,7 @@ const int p_area = P_AREA(P*P);
 #endif
 
 const float r_scale = 1.0/r_area;
+const float r1_scale = 1.0/(r_area+1);
 const float p_scale = 1.0/p_area;
 const float hr_scale = 1.0/hr;
 
@@ -704,26 +820,27 @@ const float hr_scale = 1.0/hr;
 #define sample(tex, pos, size, pt, off) tex((pos) + (pt) * vec2(off))
 #endif
 
+/* Guide images are bound through the G (luma) GC (chroma, or non-luma)
+ * textures. When bound, these are where the weights are computed. Otherwise
+ * the weights are computed on the hooked texture.
+ */
+
 #if GI && defined(LUMA_raw)
-#define GET_(off) sample(RF_LUMA_tex, RF_LUMA_pos, RF_LUMA_size, RF_LUMA_pt, off)
+#define GET_(off) sample(G_tex, G_pos, G_size, G_pt, off)
 #elif GI
-#define GET_(off) sample(RF_tex, RF_pos, RF_size, RF_pt, off)
+#define GET_(off) sample(GC_tex, GC_pos, GC_size, GC_pt, off)
 #else
 #define GET_(off) sample(HOOKED_tex, HOOKED_pos, HOOKED_size, HOOKED_pt, off)
 #endif
 
-#if RF_ && defined(LUMA_raw)
-#define GET_RF_(off) sample(RF_LUMA_tex, RF_LUMA_pos, RF_LUMA_size, RF_LUMA_pt, off)
-#define gather_offs(off, off_arr) (RF_LUMA_mul * vec4(textureGatherOffsets(RF_LUMA_raw, RF_LUMA_pos + vec2(off) * RF_LUMA_pt, off_arr)))
-#define gather(off) RF_LUMA_gather(RF_LUMA_pos + (off) * RF_LUMA_pt, 0)
-#elif RF_ && D1W
-#define GET_RF_(off) sample(RF_tex, RF_pos, RF_size, RF_pt, off)
-#define gather_offs(off, off_arr) (RF_mul * vec4(textureGatherOffsets(RF_raw, RF_pos + vec2(off) * RF_pt, off_arr)))
-#define gather(off) RF_gather(RF_pos + (off) * RF_pt, 0)
-#elif RF_
-#define GET_RF_(off) sample(RF_tex, RF_pos, RF_size, RF_pt, off)
+#if defined(G_raw) && (defined(LUMA_raw) || D1W)
+#define GET_GUIDE_(off) sample(G_tex, G_pos, G_size, G_pt, off)
+#define gather_offs(off, off_arr) (G_mul * vec4(textureGatherOffsets(G_raw, G_pos + vec2(off) * G_pt, off_arr)))
+#define gather(off) G_gather(G_pos + (off) * G_pt, 0)
+#elif defined(GC_raw)
+#define GET_GUIDE_(off) sample(GC_tex, GC_pos, GC_size, GC_pt, off)
 #else
-#define GET_RF_(off) GET_(off)
+#define GET_GUIDE_(off) GET_(off)
 #define gather_offs(off, off_arr) (HOOKED_mul * vec4(textureGatherOffsets(HOOKED_raw, HOOKED_pos + vec2(off) * HOOKED_pt, off_arr)))
 #define gather(off) HOOKED_gather(HOOKED_pos + (off)*HOOKED_pt, 0)
 #endif
@@ -736,18 +853,19 @@ val GET(vec3 off)
 
 	 }
 }
-val GET_RF(vec3 off)
+val GET_GUIDE(vec3 off)
 {
-	 return off.z == 0 ? val_swizz(GET_RF_(off)) : GET(off);
+	 return off.z == 0 ? val_guide_swizz(GET_GUIDE_(off)) : GET(off);
 }
 #else
 #define GET(off) val_swizz(GET_(off))
-#define GET_RF(off) val_swizz(GET_RF_(off))
+#define GET_GUIDE(off) val_guide_swizz(GET_GUIDE_(off))
 #endif
 
-val poi2 = GET_RF(vec3(0));  // guide pixel-of-interest
 vec4 poi_ = GET_(vec3(0));
+vec4 poi2_ = GET_GUIDE_(vec3(0));
 val poi = val_swizz(poi_);  // pixel-of-interest
+val_guide poi2 = val_guide_swizz(poi2_);  // guide pixel-of-interest
 
 #if RI // rotation
 vec2 rot(vec2 p, float d)
@@ -779,7 +897,7 @@ float spatial_r(vec3 v)
 {
 	 v.xy += 0.5 - fract(HOOKED_pos*HOOKED_size);
 	 v.z *= TD;
-	 return SK(abs(length(v) - max(0.0, SO))*SS);
+	 return SK(length(v)*SS);
 }
 #else
 #define spatial_r(v) (1)
@@ -790,55 +908,30 @@ float spatial_r(vec3 v)
 float spatial_as(vec3 v)
 {
 	 v.xy += 0.5 - fract(HOOKED_pos*HOOKED_size);
-	 return ASK(abs(length(v) - max(0.0, ASO))*ASS) * int(v.z == 0);
+	 return ASK(length(v)*ASS) * int(v.z == 0);
 }
 #endif
 
 #if PST && P >= PST
-#define spatial_p(v) PSK(abs(length(v) - max(0.0, PSO))*PSS)
+#define spatial_p(v) PSK(length(v)*PSS)
+#define normalize_p(x,expr) DIV((x), (expr))
 #else
 #define spatial_p(v) (1)
+#define normalize_p(x,expr) ((x) * p_scale)
 #endif
 
-val range(val pdiff_sq)
+const float pdiff_scale = 1.0/max(EPSILON,POW2(S*0.013));
+val_guide range(val_guide pdiff_sq)
 {
-	 const float h = max(EPSILON, S) * 0.013;
-	 const float pdiff_scale = 1.0/(h*h);
-	 pdiff_sq = sqrt(abs(pdiff_sq - max(0.0, RO)) * pdiff_scale);
-	 return MAP(RK, pdiff_sq);
+	 pdiff_sq = sqrt(abs(pdiff_sq - max(EPSILON, RO)) * pdiff_scale);
+	 return RK(pdiff_sq);
 }
 
-val patch_comparison(vec3 r)
-{
-	 vec3 p;
-	 val min_rot = val(p_area);
-
-	 FOR_ROTATION FOR_REFLECTION {
-	 	 val pdiff_sq = val(0);
-	 	 val total_weight = val(0);
-
-	 	 FOR_PATCH(p) {
-	 	 	 vec3 transformed_p = SF * vec3(ref(rot(p.xy, ri), rfi), p.z);
-	 	 	 val diff_sq = GET_RF(p) - GET_RF(transformed_p + r);
-	 	 	 diff_sq *= diff_sq;
-
-	 	 	 float weight = spatial_p(p.xy);
-	 	 	 pdiff_sq += diff_sq * weight;
-	 	 	 total_weight += weight;
-	 	 }
-
-	 	 min_rot = min(min_rot, pdiff_sq / max(val(EPSILON),total_weight));
-	 }
-
-	 return min_rot;
-}
-
-#define NO_GATHER (PD == 0 && NG == 0 && SAMPLE == 0) // never textureGather if any of these conditions are false
+#define GATHER (PD == 0 && NG == 0 && SAMPLE == 0) // never textureGather if any of these conditions are false
 #define REGULAR_ROTATIONS (RI == 0 || RI == 1 || RI == 3 || RI == 7)
 
-#if (defined(LUMA_gather) || D1W) && ((PS == 0 || ((PS == 3 || PS == 7) && RI != 7) || PS == 8) && P == 3) && REGULAR_ROTATIONS && NO_GATHER
-// 3x3 diamond/plus patch_comparison_gather
-// XXX extend to support arbitrary sizes (probably requires code generation)
+#if (defined(LUMA_gather) || D1W) && ((PS == 0 || ((PS == 3 || PS == 7) && RI != 7) || PS == 8) && P == 3) && REGULAR_ROTATIONS && GATHER
+// 3x3 diamond/plus or square patch_comparison_gather
 const ivec2 offsets_adj[4] = { ivec2(0,-1), ivec2(1,0), ivec2(0,1), ivec2(-1,0) };
 const ivec2 offsets_adj_sf[4] = { ivec2(0,-1) * SF, ivec2(1,0) * SF, ivec2(0,1) * SF, ivec2(-1,0) * SF };
 vec4 poi_patch_adj = gather_offs(0, offsets_adj);
@@ -925,10 +1018,10 @@ float patch_comparison_gather(vec3 r)
 	 float total_weight = spatial_p(vec2(0,0)) + 4 * spatial_p(vec2(0,1));
 #endif
 
-	 float center_diff = poi2.x - GET_RF(r).x;
-	 return (POW2(center_diff) + min_rot) / max(EPSILON,total_weight);
+	 float center_diff = poi2.x - GET_GUIDE(r).x;
+	 return normalize_p(POW2(center_diff) + min_rot, max(EPSILON,total_weight));
 }
-#elif (defined(LUMA_gather) || D1W) && PS == 4 && P == 3 && RI == 0 && RFI == 0 && NO_GATHER
+#elif (defined(LUMA_gather) || D1W) && PS == 4 && P == 3 && RI == 0 && RFI == 0 && GATHER
 const ivec2 offsets[4] = { ivec2(0,-1), ivec2(-1,0), ivec2(0,0), ivec2(1,0) };
 const ivec2 offsets_sf[4] = { ivec2(0,-1) * SF, ivec2(-1,0) * SF, ivec2(0,0) * SF, ivec2(1,0) * SF };
 vec4 poi_patch = gather_offs(0, offsets);
@@ -936,9 +1029,12 @@ vec4 spatial_p_weights = vec4(spatial_p(vec2(0,-1)), spatial_p(vec2(-1,0)), spat
 float patch_comparison_gather(vec3 r)
 {
 	 vec4 pdiff = poi_patch - gather_offs(r, offsets_sf);
-	 return dot(POW2(pdiff) * spatial_p_weights, vec4(1)) / dot(spatial_p_weights, vec4(1));
+	 return normalize_p(
+	 	 dot(POW2(pdiff) * spatial_p_weights, vec4(1)),
+	 	 dot(spatial_p_weights, vec4(1))
+	 );
 }
-#elif (defined(LUMA_gather) || D1W) && PS == 6 && RI == 0 && RFI == 0 && NO_GATHER
+#elif (defined(LUMA_gather) || D1W) && PS == 6 && RI == 0 && RFI == 0 && GATHER
 // tiled even square patch_comparison_gather
 // XXX extend to support odd square?
 float patch_comparison_gather(vec3 r)
@@ -957,20 +1053,55 @@ float patch_comparison_gather(vec3 r)
 	 	 total_weight += dot(weights, vec4(1));
 	 }
 
-	 return pdiff_sq / max(EPSILON,total_weight);
+	 return normalize_p(pdiff_sq, max(EPSILON,total_weight));
 }
 #else
 #define patch_comparison_gather patch_comparison
+#define STORE_POI_PATCH 1
+val_guide poi_patch[p_area];
 #endif
+
+val_guide patch_comparison(vec3 r)
+{
+	 vec3 p;
+	 val_guide min_rot = val_guide(p_area);
+
+	 FOR_ROTATION FOR_REFLECTION {
+	 	 val_guide pdiff_sq = val_guide(0);
+	 	 float total_weight = 0;
+
+	 	 int p_index = 0;
+	 	 FOR_PATCH(p) {
+#ifdef STORE_POI_PATCH
+	 	 	 val_guide poi_p = poi_patch[p_index++];
+#else
+	 	 	 val_guide poi_p = GET_GUIDE(p);
+#endif
+	 	 	 vec3 transformed_p = SF * vec3(ref(rot(p.xy, ri), rfi), p.z);
+	 	 	 val_guide diff_sq = poi_p - GET_GUIDE(transformed_p + r);
+	 	 	 diff_sq *= diff_sq;
+
+	 	 	 float weight = spatial_p(p.xy);
+	 	 	 pdiff_sq += diff_sq * weight;
+	 	 	 total_weight += weight;
+	 	 }
+
+	 	 min_rot = min(min_rot, normalize_p(pdiff_sq, max(EPSILON,total_weight)));
+	 }
+
+	 return min_rot;
+}
 
 vec4 hook()
 {
-	 val total_weight = val(0);
+	 val_guide total_weight = val_guide(0);
 	 val sum = val(0);
 	 val result = val(0);
 
 	 vec3 r = vec3(0);
 	 vec3 me = vec3(0);
+
+	 float sw = SW * spatial_r(vec3(0));
 
 #if T && ME == 1 // temporal & motion estimation
 	 vec3 me_tmp = vec3(0);
@@ -981,19 +1112,38 @@ vec4 hook()
 #endif
 
 #if AS
-	 val total_weight_as = val(0);
+	 float total_weight_as = 0;
 	 val sum_as = val(0);
 #endif
 
-#if WD == 2 // weight discard (mean)
+#if WD == 2 || V == 7 || C
+#define STORE_WEIGHTS 1
+#else
+#define STORE_WEIGHTS 0
+#endif
+
+#if STORE_WEIGHTS
 	 int r_index = 0;
-	 val_packed all_weights[r_area];
+	 val_guide_packed all_weights[r_area];
 	 val_packed all_pixels[r_area];
 #endif
+
+#ifdef STORE_POI_PATCH
+	 vec3 p;
+	 int p_index = 0;
+	 FOR_PATCH(p)
+	 	 poi_patch[p_index++] = GET_GUIDE(p);
+#endif
+
 #if WD == 1 // weight discard (moving cumulative average)
 	 int r_iter = 1;
-	 val wd_total_weight = val(0);
+	 val_guide wd_total_weight = val_guide(0);
 	 val wd_sum = val(0);
+#endif
+
+#if V == 7
+	 vec2 v7cell = floor(HOOKED_size/R * HOOKED_pos) * R + hr;
+	 vec2 v7cell_off = floor(HOOKED_pos * HOOKED_size) - floor(v7cell);
 #endif
 
 	 FOR_FRAME(r) {
@@ -1006,12 +1156,16 @@ vec4 hook()
 	 }
 #elif T && ME == 2 // temporal & motion estimation weighted average
 	 if (r.z > 0) {
-	 	 me += round(me_sum / me_weight * MEF);
+	 	 me += round(DIV(me_sum, me_weight) * MEF);
 	 	 me_sum = vec3(0);
 	 	 me_weight = 0;
 	 }
 #endif
 	 FOR_RESEARCH(r) {
+#if V == 7
+	 	 r.xy += v7cell_off;
+#endif
+
 	 	 // r coords with appropriate transformations applied
 	 	 vec3 tr = vec3(r.xy + floor(r.xy * RSF), r.z);
 	 	 tr.xy += me.xy;
@@ -1021,8 +1175,8 @@ vec4 hook()
 #if SKIP_PATCH
 	 	 val weight = val(1);
 #else
-	 	 val pdiff_sq = (r.z == 0) ? val(patch_comparison_gather(tr)) : patch_comparison(tr);
-	 	 val weight = range(pdiff_sq);
+	 	 val_guide pdiff_sq = (r.z == 0) ? patch_comparison_gather(tr) : patch_comparison(tr);
+	 	 val_guide weight = range(pdiff_sq);
 #endif
 
 #if T && ME == 1 // temporal & motion estimation max weight
@@ -1033,10 +1187,6 @@ vec4 hook()
 	 	 me_weight += weight.x;
 #endif
 
-#if D1W
-	 	 weight = val(weight.x);
-#endif
-
 	 	 weight *= spatial_r(r);
 
 #if AS
@@ -1045,19 +1195,28 @@ vec4 hook()
 	 	 total_weight_as += spatial_as_weight;
 #endif
 
-#if WD == 2 // weight discard (mean)
-	 	 all_weights[r_index] = val_pack(weight);
-	 	 all_pixels[r_index] = val_pack(px);
-	 	 r_index++;
-#elif WD == 1 // weight discard (moving cumulative average)
-	 	 val wd_scale = val(1.0/r_iter);
+#if WD == 1 // weight discard (moving cumulative average)
+	 	 float wd_scale = RECIPROCAL(r_iter);
 
-	 	 val below_threshold = WDS * abs(min(val(0.0), weight - (total_weight * wd_scale * WDT * WD1TK(sqrt(wd_scale*WDP)))));
-	 	 val wdkf = MAP(WDK, below_threshold);
+	 	 val_guide below_threshold = WDS * abs(min(val_guide(0.0), weight - (total_weight * wd_scale * WDT * WD1TK(sqrt(wd_scale*WDP)))));
+	 	 val_guide wdkf = MAP_GUIDE(WDK, below_threshold);
 
 	 	 wd_sum += px * weight * wdkf;
 	 	 wd_total_weight += weight * wdkf;
 	 	 r_iter++;
+#if STORE_WEIGHTS
+	 	 all_weights[r_index] = val_guide_pack(weight * wdkf);
+	 	 all_pixels[r_index] = val_pack(px);
+	 	 r_index++;
+#endif
+#elif STORE_WEIGHTS
+	 	 all_weights[r_index] = val_guide_pack(weight);
+	 	 all_pixels[r_index] = val_pack(px);
+	 	 r_index++;
+#endif
+
+#if V == 7
+	 	 r.xy -= v7cell_off;
 #endif
 
 	 	 sum += px * weight;
@@ -1065,28 +1224,70 @@ vec4 hook()
 	 } // FOR_RESEARCH
 	 } // FOR_FRAME
 
-	 val avg_weight = total_weight * r_scale;
+	 val_guide avg_weight = total_weight * r_scale;
 
 #if defined(LUMA_raw) && V == 4
-	 return unval(avg_weight);
+	 return unval_guide(avg_weight);
 #elif defined(CHROMA_raw) && V == 4
 	 return vec4(0.5);  // XXX visualize for chroma
 #endif
 
+#if C
+	 total_weight = val_guide(0);
+	 sum = val(0);
+
+	 for (int c = 0;  c <= C;  c++) {
+	 	 val_guide_packed all_weights_update[r_area];
+
+	 	 r_index = 0;
+	 	 FOR_FRAME(r) FOR_RESEARCH(r) {
+	 	 	 val_guide c_sum = val_guide(0);
+	 	 	 vec3 r2 = vec3(0);
+	 	 	 int r2_index = 0;
+	 	 	 FOR_FRAME(r2) FOR_RESEARCH(r2)
+	 	 	 	 if (distance(r, r2) - sqrt(CD) <= FLT_EPSILON)
+	 	 	 	 	 c_sum += val_guide_unpack(all_weights[r2_index++]);
+	 	 	 if (length(r) - sqrt(CD) <= FLT_EPSILON)
+	 	 	 	 c_sum += sw;
+	 	 	 all_weights_update[r_index++] = val_guide_pack(c_sum);
+	 	 }
+
+	 	 r_index = 0;
+	 	 FOR_FRAME(r) FOR_RESEARCH(r) {
+	 	 	 val_guide old_weight = val_guide_unpack(all_weights[r_index]);
+	 	 	 val_guide update = val_guide_unpack(all_weights_update[r_index]);
+	 	 	 val_guide weight = old_weight * RECIPROCAL(max(EPSILON,CS))
+	 	 	                  + old_weight * update * r1_scale * CS;
+	 	 	 all_weights[r_index] = val_guide_pack(weight);
+	 	 	 if (c == C) { // only need to update this stuff on the final C iteration
+	 	 	 	 val px = val_unpack(all_pixels[r_index]);
+	 	 	 	 sum += px * weight;
+	 	 	 	 total_weight += weight;
+	 	 	 	 all_pixels[r_index] = val_pack(px);
+	 	 	 }
+	 	 	 r_index++;
+	 	 }
+	 } // for C
+#endif
+
 #if WD == 2 // weight discard (mean)
-	 total_weight = val(0);
+	 total_weight = val_guide(0);
 	 sum = val(0);
 
 	 r_index = 0;
 	 FOR_FRAME(r) FOR_RESEARCH(r) {
 	 	 val px = val_unpack(all_pixels[r_index]);
-	 	 val weight = val_unpack(all_weights[r_index]);
+	 	 val_guide weight = val_guide_unpack(all_weights[r_index]);
 
-	 	 val below_threshold = WDS * abs(min(val(0.0), weight - (avg_weight * WDT)));
-	 	 weight *= MAP(WDK, below_threshold);
+	 	 val_guide below_threshold = WDS * abs(min(val_guide(0.0), weight - (avg_weight * WDT)));
+	 	 weight *= MAP_GUIDE(WDK, below_threshold);
 
 	 	 sum += px * weight;
 	 	 total_weight += weight;
+#if V == 7
+	 	 all_pixels[r_index] = val_pack(px);
+	 	 all_weights[r_index] = val_guide_pack(weight);
+#endif
 	 	 r_index++;
 	 } // FOR_FRAME FOR_RESEARCH
 #endif
@@ -1100,9 +1301,9 @@ vec4 hook()
 	 avg_weight = total_weight * r_scale;
 #endif
 
-	 total_weight += SW * spatial_r(vec3(0));
-	 sum += poi * SW * spatial_r(vec3(0));
-	 result = val(sum / max(val(EPSILON),total_weight));
+	 total_weight += sw;
+	 sum += poi * sw;
+	 result = MED_DIV(sum, max(val(EPSILON),val(total_weight)));
 
 	 // store frames for temporal
 #if T > 1
@@ -1111,7 +1312,7 @@ vec4 hook()
 #if T && TRF
 	 imageStore(PREV1, ivec2(HOOKED_pos*HOOKED_size), unval(result));
 #elif T
-	 imageStore(PREV1, ivec2(HOOKED_pos*HOOKED_size), unval(poi2));
+	 imageStore(PREV1, ivec2(HOOKED_pos*HOOKED_size), unval_guide(poi2));
 #endif
 
 #if AS == 1 // sharpen+denoise
@@ -1127,17 +1328,17 @@ vec4 hook()
 #endif
 
 #if AS // sharpening
-	 val usm = AS_input - sum_as/max(val(EPSILON),total_weight_as);
-	 usm = exp(log(abs(usm))*ASP) * sign(usm);  // avoiding pow() since it's buggy on nvidia
-	 usm *= ASAK(abs((AS_base + usm - 0.5) / 1.5) * ASA);
+	 val usm = AS_input - MED_DIV(sum_as, max(EPSILON,total_weight_as));
+	 usm = POW(usm, ASP);
+	 const float as_scale_15 = 1.0/1.5;
+	 usm *= ASAK(abs((AS_base + usm - 0.5) * as_scale_15) * ASA);
 	 usm *= ASF;
 	 result = AS_base + usm;
 #endif
 
 #if EP // extremes preserve
 	 float luminance = EP_texOff(0).x;
-	 // EPSILON is needed since pow(0,0) is undefined
-	 float ep_weight = pow(EPSILON,max(min(1-luminance, luminance)*2), (luminance < 0.5 ? DP : BP));
+	 float ep_weight = POW(max(EPSILON, min(1-luminance, luminance)*2), (luminance < 0.5 ? DP : BP));
 	 result = mix(poi, result, ep_weight);
 #else
 	 float ep_weight = 0;
@@ -1148,15 +1349,26 @@ vec4 hook()
 #elif V == 2
 	 result = (poi - result) * 0.5 + 0.5;
 #elif V == 3
-	 result = avg_weight;
+	 result = val(avg_weight);
 #elif V == 5
 	 result = 0.5 + usm;
 #elif V == 6
 	 result = val(1 - ep_weight);
+#elif V == 7
+	 result = val(0);
+	 r_index = 0;
+	 FOR_FRAME(r) FOR_RESEARCH(r) {
+	 	 if (v7cell_off == r.xy)
+	 	 	 result = val_guide_unpack(all_weights[r_index]);
+	 	 r_index++;
+	 }
+
+	 if (v7cell_off == vec2(0,0))
+	 	 result = val(SW * spatial_r(vec3(0)));
 #endif
 
 // XXX visualize chroma for these
-#if defined(CHROMA_raw) && (V == 3 || V == 4 || V == 6)
+#if defined(CHROMA_raw) && (V == 3 || V == 4 || V == 6 || V == 7)
 	 return vec4(0.5);
 #endif
 
@@ -1167,23 +1379,25 @@ vec4 hook()
 
 //!HOOK LUMA
 //!HOOK CHROMA
-//!BIND RF_LUMA
-//!WIDTH RF_LUMA.w
-//!HEIGHT RF_LUMA.h
-//!DESC Non-local means (RF, share)
-//!SAVE RF
+//!BIND G
+//!WIDTH G.w
+//!HEIGHT G.h
+//!DESC Non-local means (Guide, share)
+//!SAVE GC
 
 vec4 hook()
 {
-	return RF_LUMA_texOff(0);
+	return G_texOff(0);
 }
 
 //!HOOK LUMA
 //!HOOK CHROMA
 //!BIND HOOKED
-//!BIND RF_LUMA
-//!BIND RF
+//!BIND G
+//!BIND GC
 //!DESC Non-local means (nlmeans.glsl)
+
+
 
 // User variables
 
@@ -1192,9 +1406,9 @@ vec4 hook()
 
 // Denoising factor (sigma, higher means more blur)
 #ifdef LUMA_raw
-#define S 3.143766687674596
+#define S 3.559719405746641
 #else
-#define S 0.6404038250336465
+#define S 0.644044031464058
 #endif
 
 /* Noise resistant adaptive sharpening
@@ -1213,17 +1427,17 @@ vec4 hook()
  */
 #ifdef LUMA_raw
 #define AS 0
-#define ASF 0.3210768548589939
-#define ASA 0.9397860227779741
-#define ASP 0.7654083023321232
-#define ASS 0.4031301466402857
+#define ASF 0.0
+#define ASA 0.0
+#define ASP 0.0
+#define ASS 0.0
 #define ASI 0
 #else
 #define AS 0
-#define ASF 0.6267063361944475
-#define ASA 1.9701543289754333
-#define ASP 1.0024630095639717
-#define ASS 0.05977279329812535
+#define ASF 0.0
+#define ASA 0.0
+#define ASP 0.0
+#define ASS 0.0
 #define ASI 0
 #endif
 
@@ -1232,9 +1446,9 @@ vec4 hook()
  * AKA the center weight, the weight of the pixel-of-interest.
  */
 #ifdef LUMA_raw
-#define SW 1.1054909990009312
+#define SW 0.5211292610050897
 #else
-#define SW 0.4150349505661463
+#define SW 0.32722815587389364
 #endif
 
 /* Spatial kernel
@@ -1251,12 +1465,12 @@ vec4 hook()
  */
 #ifdef LUMA_raw
 #define SST 1
-#define SS 0.633595525578523
+#define SS 1.3662208603933492
 #define PST 0
 #define PSS 0.0
 #else
 #define SST 1
-#define SS 0.11696406867887651
+#define SS 0.07604576880459668
 #define PST 0
 #define PSS 0.0
 #endif
@@ -1280,8 +1494,8 @@ vec4 hook()
  */
 #ifdef LUMA_raw
 #define EP 0
-#define BP 0.75
-#define DP 0.25
+#define BP 0.0
+#define DP 0.0
 #else
 #define EP 0
 #define BP 0.0
@@ -1319,7 +1533,7 @@ vec4 hook()
  */
 #ifdef LUMA_raw
 #define P 3
-#define R 5
+#define R 3
 #else
 #define P 3
 #define R 5
@@ -1367,26 +1581,34 @@ vec4 hook()
  */
 #ifdef LUMA_raw
 #define WD 2
-#define WDT 0.37219446211024987
-#define WDP 5.402102275251726
+#define WDT 0.6302678350888067
+#define WDP 0.0
 #define WDS 1.0
 #else
 #define WD 0
-#define WDT 0.002713346103131793
-#define WDP 5.692202343435388
+#define WDT 0.0
+#define WDP 0.0
 #define WDS 1.0
 #endif
 
-/* Robust filtering
+/* Connectivity
  *
- * This setting is dependent on code generation from shader_cfg, so this
- * setting can only be enabled via shader_cfg.
+ * Increases weights that are near high weights, decreases weights that are
+ * near low weights.
  *
- * Computes weights on a guide, which could be a downscaled image or the output
- * of another shader, and applies the weights to the original image
+ * C: Number of passes to do, more increases the effect, 0 does nothing
+ * CD: Distance between each pixel and its furthest neighbor
+ * CS: Strength of effect, higher is more
  */
-#define RF_LUMA 1
-#define RF 1
+#ifdef LUMA_raw
+#define C 0
+#define CD 1.0
+#define CS 1.0
+#else
+#define C 0
+#define CD 1.0
+#define CS 1.0
+#endif
 
 /* Rotational/reflectional invariance
  *
@@ -1462,8 +1684,19 @@ vec4 hook()
  * List of available kernels:
  *
  * bicubic
- * cos
+ * cosine
+ * cosine_
+ * ffexp
  * gaussian
+ * ginseng
+ * ginseng_ (unclamped)
+ * jinc
+ * jinc3
+ * jinc_ (unclamped)
+ * jincjinc
+ * jincjinc3
+ * jincjinc3_ (unclamped)
+ * jincjinc_ (unclamped)
  * lanczos
  * quadratic
  * quadratic_ (unclamped)
@@ -1493,6 +1726,26 @@ vec4 hook()
 #define WD1TK gaussian
 #endif
 
+/* Kernel parameters
+ *
+ * The following kernels take these parameters:
+ *
+ * ffexp: K0
+ * ginseng: KWS
+ * jincjinc3: KWS
+ * jincjinc: KWS
+ * lanczos: KWS
+ */
+#ifdef LUMA_raw
+#define K0 1.0
+#define K1 1.0
+#define KWS 1.0
+#else
+#define K0 1.0
+#define K1 1.0
+#define KWS 1.0
+#endif
+
 /* Negative kernel parameter offsets
  *
  * Usually kernels go high -> low. These parameters allow for a kernel to go
@@ -1500,21 +1753,12 @@ vec4 hook()
  *
  * Values of 0.0 mean no effect, higher values increase the effect.
  *
- * SO: spatial kernel
  * RO: range kernel (takes patch differences)
- * ASO: adaptive sharpening kernel
- * PSO: intra-patch spatial kernel
  */
 #ifdef LUMA_raw
-#define SO 0.0
-#define RO 0.0001005465851678086
-#define PSO 0.0
-#define ASO 0.0
+#define RO 9.4514748889311e-05
 #else
-#define SO 0.0
-#define RO 8.550948449565873e-05
-#define PSO 0.0
-#define ASO 0.0
+#define RO 8.568093800527619e-05
 #endif
 
 /* Sampling method
@@ -1560,15 +1804,23 @@ vec4 hook()
  * 0: off
  * 1: absolute difference between input/output to the power of 0.25
  * 2: difference between input/output centered on 0.5
- * 3: post-WD weight map
- * 4: pre-WD weight map
+ * 3: post-WD average weight map
+ * 4: pre-WD average weight map
  * 5: unsharp mask
  * 6: EP
+ * 7: celled weight map (incompatible with temporal)
  */
 #ifdef LUMA_raw
 #define V 0
 #else
 #define V 0
+#endif
+
+// Fast approximate division
+#ifdef LUMA_raw
+#define FAST_DIV 0
+#else
+#define FAST_DIV 0
 #endif
 
 // Force disable textureGather
@@ -1602,33 +1854,90 @@ vec4 hook()
 // Shader code
 
 #define EPSILON 1.2e-38
+#define FLT_EPSILON 1.19209290E-07
 #define M_PI 3.14159265358979323846
+#define M_PI_2 1.57079632679489661923
+#define M_PI_4 0.78539816339744830962
+#define M_1_PI 0.31830988618379067154
+#define M_2_PI 0.63661977236758134308
 #define POW2(x) ((x)*(x))
 #define POW3(x) ((x)*(x)*(x))
-#define bicubic_(x) ((1.0/6.0) * (POW3((x)+2) - 4 * POW3((x)+1) + 6 * POW3(x) - 4 * POW3(max((x)-1, 0))))
-#define bicubic(x) bicubic_(clamp((x), 0.0, 2.0))
-#define gaussian(x) exp(-1 * POW2(x))
-#define quadratic_(x) ((x) < 0.5 ? 0.75 - POW2(x) : 0.5 * POW2((x) - 1.5))
-#define quadratic(x) quadratic_(clamp((x), 0.0, 1.5))
-#define sinc_(x) ((x) < 1e-8 ? 1.0 : sin((x)*M_PI) / ((x)*M_PI))
-#define sinc(x) sinc_(clamp((x), 0.0, 1.0))
-#define sinc3(x) sinc_(clamp((x), 0.0, 3.0))
-#define lanczos(x) (sinc3(x) * sinc(x))
-#define sphinx_(x) ((x) < 1e-8 ? 1.0 : 3.0 * (sin((x)*M_PI) - (x)*M_PI * cos((x)*M_PI)) / POW3((x)*M_PI))
-#define sphinx(x) sphinx_(clamp((x), 0.0, 1.4302966531242027))
-#define triangle_(x) (1 - (x))
-#define triangle(x) triangle_(clamp((x), 0.0, 1.0))
-#define is_zero(x) int(x == 0)
+#define POW4(x) ((x)*(x)*(x)*(x))
+#define POW5(x) ((x)*(x)*(x)*(x)*(x))
+#define POW6(x) ((x)*(x)*(x)*(x)*(x)*(x))
+#define POW7(x) ((x)*(x)*(x)*(x)*(x)*(x)*(x))
 
-// XXX could maybe be better optimized on LGC
+// pow() implementation that gives -pow() when x<0
+// avoids actually calling pow() since apparently it's buggy on nvidia
+#define POW(x,y) (exp(log(abs(x)) * y) * sign(x))
+
+// boolean logic w/ vectors
+// from hdeband
+#define NOT(x) (1 - (x))
+#define AND *
+#define TERNARY(cond, x, y) ((x)*(cond) + (y)*NOT(cond))
+
+// from FSR
+#if FAST_DIV
+#define RECIPROCAL(x) uintBitsToFloat(uint(0x7ef07ebb) - floatBitsToUint(x))
+#define DIV(x,y) ((x) * RECIPROCAL(y))
+#define MED_RCP_B(x) uintBitsToFloat(uint(0x7ef19fff) - floatBitsToUint(x))
+#define MED_RECIPROCAL(x) (MED_RCP_B(x) * (-MED_RCP_B(x) * x + 2))
+#define MED_DIV(x,y) ((x) * MED_RECIPROCAL(y))
+#else
+#define RECIPROCAL(x) (1.0/(x))
+#define MED_RECIPROCAL(x) (1.0/(x))
+#define DIV(x,y) ((x)/(y))
+#define MED_DIV(x,y) ((x)/(y))
+#endif
+
+// adapted from https://github.com/garamond13/Jinc
+#define j1(x) TERNARY(step((x), 2.2931157), ((x) * 0.5) - (POW3(x) * 0.0625) + (POW5(x) * 0.00260416666666666666) - (POW7(x) * 0.00005425347222222222), sqrt(DIV(M_2_PI, (x))) * (1.0 + DIV(0.1875, POW2(x)) - DIV(0.1933594, POW4(x))) * cos((x) - 3.0 * M_PI_4 + DIV(0.375, (x)) - DIV(0.1640625, POW3(x))))
+
+// XXX make kernel params capable of being set per-kernel, e.g., RK0, SK0...
+
+// kernels, most of these are from libplacebo
+// XXX sinc/jinc/sphinx: 1e-3 was selected tentatively; not sure what the correct value should be (1e-8 is too low, x is never considered to be lower than it for some reason)
+#define bicubic(x) bicubic_(clamp(x, 0.0, 2.0))
+#define bicubic_(x) ((1.0/6.0) * (POW3((x)+2) - 4 * POW3((x)+1) + 6 * POW3(x) - 4 * POW3(max((x)-1, 0))))
+#define cosine(x) cos(clamp(x, 0, M_PI_2))
+#define cosine_ cos
+#define ffexp(x) (POW(cos(max(EPSILON, clamp(x, 0.0, 1.0) * M_PI)), K0) * 0.5 + 0.5) // "experimental" scaler from ffmpeg
+#define gaussian(x) exp(-1 * POW2(x))
+#define ginseng(x) ginseng_(clamp(x, 0.0, 3.0))
+#define ginseng_(x) (jinc(x) * sinc(x*KWS))
+#define is_zero(x) int((x) == 0)
+#define jinc(x) jinc_(clamp(x, 0.0, 1.2196698912665045))
+#define jinc3(x) jinc_(clamp(x, 0.0, 3.2383154841662362))
+#define jinc_(x) TERNARY(step(x, 1e-3), 1.0, DIV(2 * j1((x)*M_PI), (x)*M_PI))
+#define jincjinc(x) jincjinc_(clamp(x, 0.0, 3.2383154841662362))
+#define jincjinc3(x) jincjinc3_(clamp(x, 0.0, 3.2383154841662362))
+#define jincjinc3_(x) (jinc(x) * jinc3(x*KWS))
+#define jincjinc_(x) (jinc(x) * jinc(x*KWS))
+#define lanczos(x) lanczos_(clamp(x, 0.0, 3.0))
+#define lanczos_(x) (sinc3(x) * sinc(x*KWS))
+#define quadratic(x) quadratic_(clamp(x, 0.0, 1.5))
+#define quadratic_(x) TERNARY(step(x, 0.5), 0.75 - POW2(x), 0.5 * POW2((x) - 1.5))
+#define sinc(x) sinc_(clamp(x, 0.0, 1.0))
+#define sinc3(x) sinc_(clamp(x, 0.0, 3.0))
+#define sinc_(x) TERNARY(step(x, 1e-3), 1.0, DIV(sin((x)*M_PI), ((x)*M_PI)))
+#define sphinx(x) sphinx_(clamp(x, 0.0, 1.4302966531242027))
+#define sphinx_(x) TERNARY(step(x, 1e-3), 1.0, DIV(3.0 * (sin((x)*M_PI) - (x)*M_PI * cos((x)*M_PI)), POW3((x)*M_PI)))
+#define triangle(x) triangle_(clamp(x, 0.0, 1.0))
+#define triangle_(x) (1 - (x))
+
+#define MAP1(f,param) f(param)
+#define MAP2(f,param) vec2(f(param.x), f(param.y))
+#define MAP3(f,param) vec3(f(param.x), f(param.y), f(param.z))
+
 #if defined(LUMA_raw)
 #define val float
 #define val_swizz(v) (v.x)
-#define unval(v) vec4(v.x, 0, 0, poi_.a)
+#define unval(v) vec4(v, 0, 0, poi_.a)
 #define val_packed val
 #define val_pack(v) (v)
 #define val_unpack(v) (v)
-#define MAP(f,param) f(param)
+#define MAP MAP1
 #elif defined(CHROMA_raw)
 #define val vec2
 #define val_swizz(v) (v.xy)
@@ -1636,7 +1945,7 @@ vec4 hook()
 #define val_packed uint
 #define val_pack(v) packUnorm2x16(v)
 #define val_unpack(v) unpackUnorm2x16(v)
-#define MAP(f,param) vec2(f(param.x), f(param.y))
+#define MAP MAP2
 #else
 #define val vec3
 #define val_swizz(v) (v.xyz)
@@ -1644,7 +1953,31 @@ vec4 hook()
 #define val_packed val
 #define val_pack(v) (v)
 #define val_unpack(v) (v)
-#define MAP(f,param) vec3(f(param.x), f(param.y), f(param.z))
+#define MAP MAP3
+#endif
+
+#if D1W // float guide
+#define val_guide float
+#define val_guide_swizz(v) (v.x)
+#define val_guide_packed float
+#define val_guide_pack(v) (v)
+#define val_guide_unpack(v) (v)
+#define MAP_GUIDE MAP1
+#define unval_guide(v) vec4(v, 0, 0, poi2_.a)
+#else // val guide
+#define val_guide val
+#define val_guide_swizz val_swizz
+#define val_guide_packed val_packed
+#define val_guide_pack val_pack
+#define val_guide_unpack val_unpack
+#define MAP_GUIDE MAP
+#if defined(LUMA_raw)
+#define unval_guide(v) vec4(v, 0, 0, poi2_.a)
+#elif defined(CHROMA_raw)
+#define unval_guide(v) vec4(v.x, v.y, 0, poi2_.a)
+#else
+#define unval_guide(v) vec4(v.x, v.y, v.z, poi2_.a)
+#endif
 #endif
 
 #if PS == 6
@@ -1726,12 +2059,6 @@ const float hr = int(R/2) - 0.5*(1-(R%2)); // sample between pixels for even res
 #define T1 (T+1)
 #define FOR_FRAME(r) for (r.z = 0; r.z < T1; r.z++)
 
-#ifdef LUMA_raw
-#define RF_ RF_LUMA
-#else
-#define RF_ RF
-#endif
-
 // donut increment, increments without landing on (0,0,0)
 // much faster than a continue statement
 #define DINCR(z,c,a) ((z.c += a),(z.c += int(z == vec3(0))))
@@ -1776,7 +2103,7 @@ const int r_area = R_AREA(R*R);
 #define RFI1 (RFI+1)
 
 #if RI
-#define FOR_ROTATION for (float ri = 0; ri < 360; ri+=360.0/RI1)
+#define FOR_ROTATION for (float ri = 0; ri < 360; ri += DIV(360.0, RI1))
 #else
 #define FOR_ROTATION
 #endif
@@ -1829,6 +2156,7 @@ const int p_area = P_AREA(P*P);
 #endif
 
 const float r_scale = 1.0/r_area;
+const float r1_scale = 1.0/(r_area+1);
 const float p_scale = 1.0/p_area;
 const float hr_scale = 1.0/hr;
 
@@ -1838,26 +2166,27 @@ const float hr_scale = 1.0/hr;
 #define sample(tex, pos, size, pt, off) tex((pos) + (pt) * vec2(off))
 #endif
 
+/* Guide images are bound through the G (luma) GC (chroma, or non-luma)
+ * textures. When bound, these are where the weights are computed. Otherwise
+ * the weights are computed on the hooked texture.
+ */
+
 #if GI && defined(LUMA_raw)
-#define GET_(off) sample(RF_LUMA_tex, RF_LUMA_pos, RF_LUMA_size, RF_LUMA_pt, off)
+#define GET_(off) sample(G_tex, G_pos, G_size, G_pt, off)
 #elif GI
-#define GET_(off) sample(RF_tex, RF_pos, RF_size, RF_pt, off)
+#define GET_(off) sample(GC_tex, GC_pos, GC_size, GC_pt, off)
 #else
 #define GET_(off) sample(HOOKED_tex, HOOKED_pos, HOOKED_size, HOOKED_pt, off)
 #endif
 
-#if RF_ && defined(LUMA_raw)
-#define GET_RF_(off) sample(RF_LUMA_tex, RF_LUMA_pos, RF_LUMA_size, RF_LUMA_pt, off)
-#define gather_offs(off, off_arr) (RF_LUMA_mul * vec4(textureGatherOffsets(RF_LUMA_raw, RF_LUMA_pos + vec2(off) * RF_LUMA_pt, off_arr)))
-#define gather(off) RF_LUMA_gather(RF_LUMA_pos + (off) * RF_LUMA_pt, 0)
-#elif RF_ && D1W
-#define GET_RF_(off) sample(RF_tex, RF_pos, RF_size, RF_pt, off)
-#define gather_offs(off, off_arr) (RF_mul * vec4(textureGatherOffsets(RF_raw, RF_pos + vec2(off) * RF_pt, off_arr)))
-#define gather(off) RF_gather(RF_pos + (off) * RF_pt, 0)
-#elif RF_
-#define GET_RF_(off) sample(RF_tex, RF_pos, RF_size, RF_pt, off)
+#if defined(G_raw) && (defined(LUMA_raw) || D1W)
+#define GET_GUIDE_(off) sample(G_tex, G_pos, G_size, G_pt, off)
+#define gather_offs(off, off_arr) (G_mul * vec4(textureGatherOffsets(G_raw, G_pos + vec2(off) * G_pt, off_arr)))
+#define gather(off) G_gather(G_pos + (off) * G_pt, 0)
+#elif defined(GC_raw)
+#define GET_GUIDE_(off) sample(GC_tex, GC_pos, GC_size, GC_pt, off)
 #else
-#define GET_RF_(off) GET_(off)
+#define GET_GUIDE_(off) GET_(off)
 #define gather_offs(off, off_arr) (HOOKED_mul * vec4(textureGatherOffsets(HOOKED_raw, HOOKED_pos + vec2(off) * HOOKED_pt, off_arr)))
 #define gather(off) HOOKED_gather(HOOKED_pos + (off)*HOOKED_pt, 0)
 #endif
@@ -1870,18 +2199,19 @@ val GET(vec3 off)
 
 	}
 }
-val GET_RF(vec3 off)
+val GET_GUIDE(vec3 off)
 {
-	return off.z == 0 ? val_swizz(GET_RF_(off)) : GET(off);
+	return off.z == 0 ? val_guide_swizz(GET_GUIDE_(off)) : GET(off);
 }
 #else
 #define GET(off) val_swizz(GET_(off))
-#define GET_RF(off) val_swizz(GET_RF_(off))
+#define GET_GUIDE(off) val_guide_swizz(GET_GUIDE_(off))
 #endif
 
-val poi2 = GET_RF(vec3(0)); // guide pixel-of-interest
 vec4 poi_ = GET_(vec3(0));
+vec4 poi2_ = GET_GUIDE_(vec3(0));
 val poi = val_swizz(poi_); // pixel-of-interest
+val_guide poi2 = val_guide_swizz(poi2_); // guide pixel-of-interest
 
 #if RI // rotation
 vec2 rot(vec2 p, float d)
@@ -1913,7 +2243,7 @@ float spatial_r(vec3 v)
 {
 	v.xy += 0.5 - fract(HOOKED_pos*HOOKED_size);
 	v.z *= TD;
-	return SK(abs(length(v) - max(0.0, SO))*SS);
+	return SK(length(v)*SS);
 }
 #else
 #define spatial_r(v) (1)
@@ -1924,55 +2254,30 @@ float spatial_r(vec3 v)
 float spatial_as(vec3 v)
 {
 	v.xy += 0.5 - fract(HOOKED_pos*HOOKED_size);
-	return ASK(abs(length(v) - max(0.0, ASO))*ASS) * int(v.z == 0);
+	return ASK(length(v)*ASS) * int(v.z == 0);
 }
 #endif
 
 #if PST && P >= PST
-#define spatial_p(v) PSK(abs(length(v) - max(0.0, PSO))*PSS)
+#define spatial_p(v) PSK(length(v)*PSS)
+#define normalize_p(x,expr) DIV((x), (expr))
 #else
 #define spatial_p(v) (1)
+#define normalize_p(x,expr) ((x) * p_scale)
 #endif
 
-val range(val pdiff_sq)
+const float pdiff_scale = 1.0/max(EPSILON,POW2(S*0.013));
+val_guide range(val_guide pdiff_sq)
 {
-	const float h = max(EPSILON, S) * 0.013;
-	const float pdiff_scale = 1.0/(h*h);
-	pdiff_sq = sqrt(abs(pdiff_sq - max(0.0, RO)) * pdiff_scale);
-	return MAP(RK, pdiff_sq);
+	pdiff_sq = sqrt(abs(pdiff_sq - max(EPSILON, RO)) * pdiff_scale);
+	return RK(pdiff_sq);
 }
 
-val patch_comparison(vec3 r)
-{
-	vec3 p;
-	val min_rot = val(p_area);
-
-	FOR_ROTATION FOR_REFLECTION {
-		val pdiff_sq = val(0);
-		val total_weight = val(0);
-
-		FOR_PATCH(p) {
-			vec3 transformed_p = SF * vec3(ref(rot(p.xy, ri), rfi), p.z);
-			val diff_sq = GET_RF(p) - GET_RF(transformed_p + r);
-			diff_sq *= diff_sq;
-
-			float weight = spatial_p(p.xy);
-			pdiff_sq += diff_sq * weight;
-			total_weight += weight;
-		}
-
-		min_rot = min(min_rot, pdiff_sq / max(val(EPSILON),total_weight));
-	}
-
-	return min_rot;
-}
-
-#define NO_GATHER (PD == 0 && NG == 0 && SAMPLE == 0) // never textureGather if any of these conditions are false
+#define GATHER (PD == 0 && NG == 0 && SAMPLE == 0) // never textureGather if any of these conditions are false
 #define REGULAR_ROTATIONS (RI == 0 || RI == 1 || RI == 3 || RI == 7)
 
-#if (defined(LUMA_gather) || D1W) && ((PS == 0 || ((PS == 3 || PS == 7) && RI != 7) || PS == 8) && P == 3) && REGULAR_ROTATIONS && NO_GATHER
-// 3x3 diamond/plus patch_comparison_gather
-// XXX extend to support arbitrary sizes (probably requires code generation)
+#if (defined(LUMA_gather) || D1W) && ((PS == 0 || ((PS == 3 || PS == 7) && RI != 7) || PS == 8) && P == 3) && REGULAR_ROTATIONS && GATHER
+// 3x3 diamond/plus or square patch_comparison_gather
 const ivec2 offsets_adj[4] = { ivec2(0,-1), ivec2(1,0), ivec2(0,1), ivec2(-1,0) };
 const ivec2 offsets_adj_sf[4] = { ivec2(0,-1) * SF, ivec2(1,0) * SF, ivec2(0,1) * SF, ivec2(-1,0) * SF };
 vec4 poi_patch_adj = gather_offs(0, offsets_adj);
@@ -2059,10 +2364,10 @@ float patch_comparison_gather(vec3 r)
 	float total_weight = spatial_p(vec2(0,0)) + 4 * spatial_p(vec2(0,1));
 #endif
 
-	float center_diff = poi2.x - GET_RF(r).x;
-	return (POW2(center_diff) + min_rot) / max(EPSILON,total_weight);
+	float center_diff = poi2.x - GET_GUIDE(r).x;
+	return normalize_p(POW2(center_diff) + min_rot, max(EPSILON,total_weight));
 }
-#elif (defined(LUMA_gather) || D1W) && PS == 4 && P == 3 && RI == 0 && RFI == 0 && NO_GATHER
+#elif (defined(LUMA_gather) || D1W) && PS == 4 && P == 3 && RI == 0 && RFI == 0 && GATHER
 const ivec2 offsets[4] = { ivec2(0,-1), ivec2(-1,0), ivec2(0,0), ivec2(1,0) };
 const ivec2 offsets_sf[4] = { ivec2(0,-1) * SF, ivec2(-1,0) * SF, ivec2(0,0) * SF, ivec2(1,0) * SF };
 vec4 poi_patch = gather_offs(0, offsets);
@@ -2070,9 +2375,12 @@ vec4 spatial_p_weights = vec4(spatial_p(vec2(0,-1)), spatial_p(vec2(-1,0)), spat
 float patch_comparison_gather(vec3 r)
 {
 	vec4 pdiff = poi_patch - gather_offs(r, offsets_sf);
-	return dot(POW2(pdiff) * spatial_p_weights, vec4(1)) / dot(spatial_p_weights, vec4(1));
+	return normalize_p(
+		dot(POW2(pdiff) * spatial_p_weights, vec4(1)),
+		dot(spatial_p_weights, vec4(1))
+	);
 }
-#elif (defined(LUMA_gather) || D1W) && PS == 6 && RI == 0 && RFI == 0 && NO_GATHER
+#elif (defined(LUMA_gather) || D1W) && PS == 6 && RI == 0 && RFI == 0 && GATHER
 // tiled even square patch_comparison_gather
 // XXX extend to support odd square?
 float patch_comparison_gather(vec3 r)
@@ -2091,20 +2399,55 @@ float patch_comparison_gather(vec3 r)
 		total_weight += dot(weights, vec4(1));
 	}
 
-	return pdiff_sq / max(EPSILON,total_weight);
+	return normalize_p(pdiff_sq, max(EPSILON,total_weight));
 }
 #else
 #define patch_comparison_gather patch_comparison
+#define STORE_POI_PATCH 1
+val_guide poi_patch[p_area];
 #endif
+
+val_guide patch_comparison(vec3 r)
+{
+	vec3 p;
+	val_guide min_rot = val_guide(p_area);
+
+	FOR_ROTATION FOR_REFLECTION {
+		val_guide pdiff_sq = val_guide(0);
+		float total_weight = 0;
+
+		int p_index = 0;
+		FOR_PATCH(p) {
+#ifdef STORE_POI_PATCH
+			val_guide poi_p = poi_patch[p_index++];
+#else
+			val_guide poi_p = GET_GUIDE(p);
+#endif
+			vec3 transformed_p = SF * vec3(ref(rot(p.xy, ri), rfi), p.z);
+			val_guide diff_sq = poi_p - GET_GUIDE(transformed_p + r);
+			diff_sq *= diff_sq;
+
+			float weight = spatial_p(p.xy);
+			pdiff_sq += diff_sq * weight;
+			total_weight += weight;
+		}
+
+		min_rot = min(min_rot, normalize_p(pdiff_sq, max(EPSILON,total_weight)));
+	}
+
+	return min_rot;
+}
 
 vec4 hook()
 {
-	val total_weight = val(0);
+	val_guide total_weight = val_guide(0);
 	val sum = val(0);
 	val result = val(0);
 
 	vec3 r = vec3(0);
 	vec3 me = vec3(0);
+
+	float sw = SW * spatial_r(vec3(0));
 
 #if T && ME == 1 // temporal & motion estimation
 	vec3 me_tmp = vec3(0);
@@ -2115,19 +2458,38 @@ vec4 hook()
 #endif
 
 #if AS
-	val total_weight_as = val(0);
+	float total_weight_as = 0;
 	val sum_as = val(0);
 #endif
 
-#if WD == 2 // weight discard (mean)
+#if WD == 2 || V == 7 || C
+#define STORE_WEIGHTS 1
+#else
+#define STORE_WEIGHTS 0
+#endif
+
+#if STORE_WEIGHTS
 	int r_index = 0;
-	val_packed all_weights[r_area];
+	val_guide_packed all_weights[r_area];
 	val_packed all_pixels[r_area];
 #endif
+
+#ifdef STORE_POI_PATCH
+	vec3 p;
+	int p_index = 0;
+	FOR_PATCH(p)
+		poi_patch[p_index++] = GET_GUIDE(p);
+#endif
+
 #if WD == 1 // weight discard (moving cumulative average)
 	int r_iter = 1;
-	val wd_total_weight = val(0);
+	val_guide wd_total_weight = val_guide(0);
 	val wd_sum = val(0);
+#endif
+
+#if V == 7
+	vec2 v7cell = floor(HOOKED_size/R * HOOKED_pos) * R + hr;
+	vec2 v7cell_off = floor(HOOKED_pos * HOOKED_size) - floor(v7cell);
 #endif
 
 	FOR_FRAME(r) {
@@ -2140,12 +2502,16 @@ vec4 hook()
 	}
 #elif T && ME == 2 // temporal & motion estimation weighted average
 	if (r.z > 0) {
-		me += round(me_sum / me_weight * MEF);
+		me += round(DIV(me_sum, me_weight) * MEF);
 		me_sum = vec3(0);
 		me_weight = 0;
 	}
 #endif
 	FOR_RESEARCH(r) {
+#if V == 7
+		r.xy += v7cell_off;
+#endif
+
 		// r coords with appropriate transformations applied
 		vec3 tr = vec3(r.xy + floor(r.xy * RSF), r.z);
 		tr.xy += me.xy;
@@ -2155,8 +2521,8 @@ vec4 hook()
 #if SKIP_PATCH
 		val weight = val(1);
 #else
-		val pdiff_sq = (r.z == 0) ? val(patch_comparison_gather(tr)) : patch_comparison(tr);
-		val weight = range(pdiff_sq);
+		val_guide pdiff_sq = (r.z == 0) ? patch_comparison_gather(tr) : patch_comparison(tr);
+		val_guide weight = range(pdiff_sq);
 #endif
 
 #if T && ME == 1 // temporal & motion estimation max weight
@@ -2167,10 +2533,6 @@ vec4 hook()
 		me_weight += weight.x;
 #endif
 
-#if D1W
-		weight = val(weight.x);
-#endif
-
 		weight *= spatial_r(r);
 
 #if AS
@@ -2179,19 +2541,28 @@ vec4 hook()
 		total_weight_as += spatial_as_weight;
 #endif
 
-#if WD == 2 // weight discard (mean)
-		all_weights[r_index] = val_pack(weight);
-		all_pixels[r_index] = val_pack(px);
-		r_index++;
-#elif WD == 1 // weight discard (moving cumulative average)
-		val wd_scale = val(1.0/r_iter);
+#if WD == 1 // weight discard (moving cumulative average)
+		float wd_scale = RECIPROCAL(r_iter);
 
-		val below_threshold = WDS * abs(min(val(0.0), weight - (total_weight * wd_scale * WDT * WD1TK(sqrt(wd_scale*WDP)))));
-		val wdkf = MAP(WDK, below_threshold);
+		val_guide below_threshold = WDS * abs(min(val_guide(0.0), weight - (total_weight * wd_scale * WDT * WD1TK(sqrt(wd_scale*WDP)))));
+		val_guide wdkf = MAP_GUIDE(WDK, below_threshold);
 
 		wd_sum += px * weight * wdkf;
 		wd_total_weight += weight * wdkf;
 		r_iter++;
+#if STORE_WEIGHTS
+		all_weights[r_index] = val_guide_pack(weight * wdkf);
+		all_pixels[r_index] = val_pack(px);
+		r_index++;
+#endif
+#elif STORE_WEIGHTS
+		all_weights[r_index] = val_guide_pack(weight);
+		all_pixels[r_index] = val_pack(px);
+		r_index++;
+#endif
+
+#if V == 7
+		r.xy -= v7cell_off;
 #endif
 
 		sum += px * weight;
@@ -2199,28 +2570,70 @@ vec4 hook()
 	} // FOR_RESEARCH
 	} // FOR_FRAME
 
-	val avg_weight = total_weight * r_scale;
+	val_guide avg_weight = total_weight * r_scale;
 
 #if defined(LUMA_raw) && V == 4
-	return unval(avg_weight);
+	return unval_guide(avg_weight);
 #elif defined(CHROMA_raw) && V == 4
 	return vec4(0.5); // XXX visualize for chroma
 #endif
 
+#if C
+	total_weight = val_guide(0);
+	sum = val(0);
+
+	for (int c = 0; c <= C; c++) {
+		val_guide_packed all_weights_update[r_area];
+
+		r_index = 0;
+		FOR_FRAME(r) FOR_RESEARCH(r) {
+			val_guide c_sum = val_guide(0);
+			vec3 r2 = vec3(0);
+			int r2_index = 0;
+			FOR_FRAME(r2) FOR_RESEARCH(r2)
+				if (distance(r, r2) - sqrt(CD) <= FLT_EPSILON)
+					c_sum += val_guide_unpack(all_weights[r2_index++]);
+			if (length(r) - sqrt(CD) <= FLT_EPSILON)
+				c_sum += sw;
+			all_weights_update[r_index++] = val_guide_pack(c_sum);
+		}
+
+		r_index = 0;
+		FOR_FRAME(r) FOR_RESEARCH(r) {
+			val_guide old_weight = val_guide_unpack(all_weights[r_index]);
+			val_guide update = val_guide_unpack(all_weights_update[r_index]);
+			val_guide weight = old_weight * RECIPROCAL(max(EPSILON,CS))
+			                 + old_weight * update * r1_scale * CS;
+			all_weights[r_index] = val_guide_pack(weight);
+			if (c == C) { // only need to update this stuff on the final C iteration
+				val px = val_unpack(all_pixels[r_index]);
+				sum += px * weight;
+				total_weight += weight;
+				all_pixels[r_index] = val_pack(px);
+			}
+			r_index++;
+		}
+	} // for C
+#endif
+
 #if WD == 2 // weight discard (mean)
-	total_weight = val(0);
+	total_weight = val_guide(0);
 	sum = val(0);
 
 	r_index = 0;
 	FOR_FRAME(r) FOR_RESEARCH(r) {
 		val px = val_unpack(all_pixels[r_index]);
-		val weight = val_unpack(all_weights[r_index]);
+		val_guide weight = val_guide_unpack(all_weights[r_index]);
 
-		val below_threshold = WDS * abs(min(val(0.0), weight - (avg_weight * WDT)));
-		weight *= MAP(WDK, below_threshold);
+		val_guide below_threshold = WDS * abs(min(val_guide(0.0), weight - (avg_weight * WDT)));
+		weight *= MAP_GUIDE(WDK, below_threshold);
 
 		sum += px * weight;
 		total_weight += weight;
+#if V == 7
+		all_pixels[r_index] = val_pack(px);
+		all_weights[r_index] = val_guide_pack(weight);
+#endif
 		r_index++;
 	} // FOR_FRAME FOR_RESEARCH
 #endif
@@ -2234,9 +2647,9 @@ vec4 hook()
 	avg_weight = total_weight * r_scale;
 #endif
 
-	total_weight += SW * spatial_r(vec3(0));
-	sum += poi * SW * spatial_r(vec3(0));
-	result = val(sum / max(val(EPSILON),total_weight));
+	total_weight += sw;
+	sum += poi * sw;
+	result = MED_DIV(sum, max(val(EPSILON),val(total_weight)));
 
 	// store frames for temporal
 #if T > 1
@@ -2245,7 +2658,7 @@ vec4 hook()
 #if T && TRF
 	imageStore(PREV1, ivec2(HOOKED_pos*HOOKED_size), unval(result));
 #elif T
-	imageStore(PREV1, ivec2(HOOKED_pos*HOOKED_size), unval(poi2));
+	imageStore(PREV1, ivec2(HOOKED_pos*HOOKED_size), unval_guide(poi2));
 #endif
 
 #if AS == 1 // sharpen+denoise
@@ -2261,17 +2674,17 @@ vec4 hook()
 #endif
 
 #if AS // sharpening
-	val usm = AS_input - sum_as/max(val(EPSILON),total_weight_as);
-	usm = exp(log(abs(usm))*ASP) * sign(usm); // avoiding pow() since it's buggy on nvidia
-	usm *= ASAK(abs((AS_base + usm - 0.5) / 1.5) * ASA);
+	val usm = AS_input - MED_DIV(sum_as, max(EPSILON,total_weight_as));
+	usm = POW(usm, ASP);
+	const float as_scale_15 = 1.0/1.5;
+	usm *= ASAK(abs((AS_base + usm - 0.5) * as_scale_15) * ASA);
 	usm *= ASF;
 	result = AS_base + usm;
 #endif
 
 #if EP // extremes preserve
 	float luminance = EP_texOff(0).x;
-	// EPSILON is needed since pow(0,0) is undefined
-	float ep_weight = pow(EPSILON,max(min(1-luminance, luminance)*2), (luminance < 0.5 ? DP : BP));
+	float ep_weight = POW(max(EPSILON, min(1-luminance, luminance)*2), (luminance < 0.5 ? DP : BP));
 	result = mix(poi, result, ep_weight);
 #else
 	float ep_weight = 0;
@@ -2282,15 +2695,26 @@ vec4 hook()
 #elif V == 2
 	result = (poi - result) * 0.5 + 0.5;
 #elif V == 3
-	result = avg_weight;
+	result = val(avg_weight);
 #elif V == 5
 	result = 0.5 + usm;
 #elif V == 6
 	result = val(1 - ep_weight);
+#elif V == 7
+	result = val(0);
+	r_index = 0;
+	FOR_FRAME(r) FOR_RESEARCH(r) {
+		if (v7cell_off == r.xy)
+			result = val_guide_unpack(all_weights[r_index]);
+		r_index++;
+	}
+
+	if (v7cell_off == vec2(0,0))
+		result = val(SW * spatial_r(vec3(0)));
 #endif
 
 // XXX visualize chroma for these
-#if defined(CHROMA_raw) && (V == 3 || V == 4 || V == 6)
+#if defined(CHROMA_raw) && (V == 3 || V == 4 || V == 6 || V == 7)
 	return vec4(0.5);
 #endif
 

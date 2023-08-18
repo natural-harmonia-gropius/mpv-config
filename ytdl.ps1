@@ -1,3 +1,7 @@
+Start-Process `
+    -FilePath "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" `
+    -ArgumentList "--disable-features=LockProfileCookieDatabase" `
+
 yt-dlp `
     --cookies-from-browser=edge `
     --embed-metadata `

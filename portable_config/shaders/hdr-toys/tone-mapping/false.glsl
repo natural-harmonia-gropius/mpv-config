@@ -23,11 +23,12 @@
 //!WHEN enabled
 //!DESC tone mapping (false color)
 
-vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
+    vec4 color = HOOKED_texOff(0);
+
     float L = 0.0;
     if (enabled == 1) // Y (relative luminance)
-        L = dot(color.rgb, vec3(0.2627, 0.6780, 0.0593));
+        L = dot(color.rgb, vec3(0.2627002120112671, 0.6779980715188708, 0.05930171646986196));
     else if (enabled == 2) // maxRGB
         L = max(max(color.r, color.g), color.b);
 

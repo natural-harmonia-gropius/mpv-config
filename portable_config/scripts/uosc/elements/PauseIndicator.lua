@@ -5,43 +5,33 @@ local PauseIndicator = class(Element)
 
 function PauseIndicator:new() return Class.new(self) --[[@as PauseIndicator]] end
 function PauseIndicator:init()
-	Element.init(self, 'pause_indicator')
-	self.ignores_menu = true
-	self.base_icon_opacity = options.pause_indicator == 'flash' and 1 or 0.8
+	Element.init(self, 'pause_indicator', {render_order = 3})
+	self.ignores_curtain = true
 	self.paused = state.pause
-	self.type = options.pause_indicator
-	self.is_manual = options.pause_indicator == 'manual'
-	self.fadeout_requested = false
 	self.opacity = 0
+	self.fadeout = false
+	self:init_options()
+end
 
-	mp.observe_property('pause', 'bool', function(_, paused)
-		if Elements.timeline.pressed then return end
-		if options.pause_indicator == 'flash' then
-			if self.paused == paused then return end
-			self:flash()
-		elseif options.pause_indicator == 'static' then
-			self:decide()
-		end
-	end)
+function PauseIndicator:init_options()
+	self.base_icon_opacity = options.pause_indicator == 'flash' and 1 or 0.8
+	self.type = options.pause_indicator
+	self:on_prop_pause()
 end
 
 function PauseIndicator:flash()
-	if not self.is_manual and self.type ~= 'flash' then return end
-	-- can't wait for pause property event listener to set this, because when this is used inside a binding like:
+	-- Can't wait for pause property event listener to set this, because when this is used inside a binding like:
 	-- cycle pause; script-binding uosc/flash-pause-indicator
-	-- the pause event is not fired fast enough, and indicator starts rendering with old icon
+	-- The pause event is not fired fast enough, and indicator starts rendering with old icon.
 	self.paused = mp.get_property_native('pause')
-	if self.is_manual then self.type = 'flash' end
-	self.opacity = 1
-	self:tween_property('opacity', 1, 0, 0.05)
+	self.fadeout, self.opacity = false, 1
+	self:tween_property('opacity', 1, 0, 300)
 end
 
--- decides whether static indicator should be visible or not
+-- Decides whether static indicator should be visible or not.
 function PauseIndicator:decide()
-	if not self.is_manual and self.type ~= 'static' then return end
 	self.paused = mp.get_property_native('pause') -- see flash() for why this line is necessary
-	if self.is_manual then self.type = 'static' end
-	self.opacity = self.paused and 1 or 0
+	self.fadeout, self.opacity = self.paused, self.paused and 1 or 0
 	request_render()
 
 	-- Workaround for an mpv race condition bug during pause on windows builds, which causes osd updates to be ignored.
@@ -49,19 +39,32 @@ function PauseIndicator:decide()
 	mp.add_timeout(.05, function() osd:update() end)
 end
 
+function PauseIndicator:on_prop_pause()
+	if Elements:v('timeline', 'pressed') then return end
+	if options.pause_indicator == 'flash' then
+		if self.paused ~= state.pause then self:flash() end
+	elseif options.pause_indicator == 'static' then
+		self:decide()
+	end
+end
+
+function PauseIndicator:on_options()
+	self:init_options()
+	if self.type == 'flash' then self.opacity = 0 end
+end
+
 function PauseIndicator:render()
 	if self.opacity == 0 then return end
 
 	local ass = assdraw.ass_new()
-	local is_static = self.type == 'static'
 
 	-- Background fadeout
-	if is_static then
+	if self.fadeout then
 		ass:rect(0, 0, display.width, display.height, {color = bg, opacity = self.opacity * 0.3})
 	end
 
 	-- Icon
-	local size = round(math.min(display.width, display.height) * (is_static and 0.20 or 0.15))
+	local size = round(math.min(display.width, display.height) * (self.fadeout and 0.20 or 0.15))
 	size = size + size * (1 - self.opacity)
 
 	if self.paused then

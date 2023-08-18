@@ -220,9 +220,11 @@ vec3 tone_mapping_y(vec3 RGB) {
     return RGB * curve(y) / y;
 }
 
-vec4 color = HOOKED_tex(HOOKED_pos);
 vec4 hook() {
+    vec4 color = HOOKED_texOff(0);
+
     calc_direct_params_from_user();
     color.rgb = tone_mapping_y(color.rgb);
+
     return color;
 }

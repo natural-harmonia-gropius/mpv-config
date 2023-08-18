@@ -20,10 +20,13 @@ additional_image_exts=list,of,ext
 additional_video_exts=list,of,ext
 additional_audio_exts=list,of,ext
 ignore_hidden=yes
+same_type=yes
+directory_mode=recursive
 
 --]]
 
 MAXENTRIES = 5000
+MAXDIRSTACK = 20
 
 local msg = require 'mp.msg'
 local options = require 'mp.options'
@@ -37,9 +40,21 @@ o = {
     additional_image_exts = "",
     additional_video_exts = "",
     additional_audio_exts = "",
-    ignore_hidden = true
+    ignore_hidden = true,
+    same_type = false,
+    directory_mode = "auto"
 }
-options.read_options(o)
+options.read_options(o, nil, function(list)
+    split_option_exts(list.additional_video_exts, list.additional_audio_exts, list.additional_image_exts)
+    if list.videos or list.additional_video_exts or
+        list.audio or list.additional_audio_exts or
+        list.images or list.additional_image_exts then
+        create_extensions()
+    end
+    if list.directory_mode then
+        validate_directory_mode()
+    end
+end)
 
 function Set (t)
     local set = {}
@@ -48,10 +63,8 @@ function Set (t)
 end
 
 function SetUnion (a,b)
-    local res = {}
-    for k in pairs(a) do res[k] = true end
-    for k in pairs(b) do res[k] = true end
-    return res
+    for k in pairs(b) do a[k] = true end
+    return a
 end
 
 function Split (s)
@@ -75,14 +88,27 @@ EXTENSIONS_IMAGES = Set {
     'svg', 'tga', 'tif', 'tiff', 'webp'
 }
 
-EXTENSIONS_VIDEO = SetUnion(EXTENSIONS_VIDEO, Split(o.additional_video_exts))
-EXTENSIONS_AUDIO = SetUnion(EXTENSIONS_AUDIO, Split(o.additional_audio_exts))
-EXTENSIONS_IMAGES = SetUnion(EXTENSIONS_IMAGES, Split(o.additional_image_exts))
+function split_option_exts(video, audio, image)
+    if video then o.additional_video_exts = Split(o.additional_video_exts) end
+    if audio then o.additional_audio_exts = Split(o.additional_audio_exts) end
+    if image then o.additional_image_exts = Split(o.additional_image_exts) end
+end
+split_option_exts(true, true, true)
 
-EXTENSIONS = Set {}
-if o.videos then EXTENSIONS = SetUnion(EXTENSIONS, EXTENSIONS_VIDEO) end
-if o.audio then EXTENSIONS = SetUnion(EXTENSIONS, EXTENSIONS_AUDIO) end
-if o.images then EXTENSIONS = SetUnion(EXTENSIONS, EXTENSIONS_IMAGES) end
+function create_extensions()
+    EXTENSIONS = {}
+    if o.videos then SetUnion(SetUnion(EXTENSIONS, EXTENSIONS_VIDEO), o.additional_video_exts) end
+    if o.audio then SetUnion(SetUnion(EXTENSIONS, EXTENSIONS_AUDIO), o.additional_audio_exts) end
+    if o.images then SetUnion(SetUnion(EXTENSIONS, EXTENSIONS_IMAGES), o.additional_image_exts) end
+end
+create_extensions()
+
+function validate_directory_mode()
+    if o.directory_mode ~= "recursive" and o.directory_mode ~= "lazy" and o.directory_mode ~= "ignore" then
+        o.directory_mode = nil
+    end
+end
+validate_directory_mode()
 
 function add_files(files)
     local oldcount = mp.get_property_number("playlist-count", 1)
@@ -109,6 +135,13 @@ table.filter = function(t, iter)
     end
 end
 
+table.append = function(t1, t2)
+    local t1_size = #t1
+    for i = 1, #t2 do
+        t1[t1_size + i] = t2[i]
+    end
+end
+
 -- alphanum sorting for humans in Lua
 -- http://notebook.kulchenko.com/algorithms/alphanumeric-natural-sorting-for-humans-in-lua
 
@@ -130,14 +163,51 @@ function alphanumsort(filenames)
 end
 
 local autoloaded = nil
+local added_entries = {}
+local autoloaded_dir = nil
 
-function get_playlist_filenames(playlist)
-    local filenames = {}
-    for i = 1, #playlist do
-        local _, file = utils.split_path(playlist[i].filename)
-        filenames[file] = true
+function scan_dir(path, current_file, dir_mode, separator, dir_depth, total_files, extensions)
+    if dir_depth == MAXDIRSTACK then
+        return
     end
-    return filenames
+    msg.trace("scanning: " .. path)
+    local files = utils.readdir(path, "files") or {}
+    local dirs = dir_mode ~= "ignore" and utils.readdir(path, "dirs") or {}
+    local prefix = path == "." and "" or path
+    table.filter(files, function (v)
+        -- The current file could be a hidden file, ignoring it doesn't load other
+        -- files from the current directory.
+        if (o.ignore_hidden and not (prefix .. v == current_file) and string.match(v, "^%.")) then
+            return false
+        end
+        local ext = get_extension(v)
+        if ext == nil then
+            return false
+        end
+        return extensions[string.lower(ext)]
+    end)
+    table.filter(dirs, function(d)
+        return not ((o.ignore_hidden and string.match(d, "^%.")))
+    end)
+    alphanumsort(files)
+    alphanumsort(dirs)
+
+    for i, file in ipairs(files) do
+        files[i] = prefix .. file
+    end
+
+    table.append(total_files, files)
+    if dir_mode == "recursive" then
+        for _, dir in ipairs(dirs) do
+            scan_dir(prefix .. dir .. separator, current_file, dir_mode,
+                     separator, dir_depth + 1, total_files, extensions)
+        end
+    else
+        for i, dir in ipairs(dirs) do
+            dirs[i] = prefix .. dir
+        end
+        table.append(total_files, dirs)
+    end
 end
 
 function find_and_add_entries()
@@ -145,21 +215,39 @@ function find_and_add_entries()
     local dir, filename = utils.split_path(path)
     msg.trace(("dir: %s, filename: %s"):format(dir, filename))
     if o.disabled then
-        msg.verbose("stopping: autoload disabled")
+        msg.debug("stopping: autoload disabled")
         return
     elseif #dir == 0 then
-        msg.verbose("stopping: not a local path")
+        msg.debug("stopping: not a local path")
         return
     end
 
-    pl_count = mp.get_property_number("playlist-count", 1)
+    local pl_count = mp.get_property_number("playlist-count", 1)
+    this_ext = get_extension(filename)
     -- check if this is a manually made playlist
     if (pl_count > 1 and autoloaded == nil) or
-       (pl_count == 1 and EXTENSIONS[string.lower(get_extension(filename))] == nil) then
-        msg.verbose("stopping: manually made playlist")
+       (pl_count == 1 and EXTENSIONS[string.lower(this_ext)] == nil) then
+        msg.debug("stopping: manually made playlist")
         return
     else
-        autoloaded = true
+        if pl_count == 1 then
+            autoloaded = true
+            autoloaded_dir = dir
+            added_entries = {}
+        end
+    end
+
+    local extensions = {}
+    if o.same_type then
+        if EXTENSIONS_VIDEO[string.lower(this_ext)] ~= nil then
+            extensions = EXTENSIONS_VIDEO
+        elseif EXTENSIONS_AUDIO[string.lower(this_ext)] ~= nil then
+            extensions = EXTENSIONS_AUDIO
+        else
+            extensions = EXTENSIONS_IMAGES
+        end
+    else
+        extensions = EXTENSIONS
     end
 
     local pl = mp.get_property_native("playlist", {})
@@ -167,33 +255,22 @@ function find_and_add_entries()
     msg.trace(("playlist-pos-1: %s, playlist: %s"):format(pl_current,
         utils.to_string(pl)))
 
-    local files = utils.readdir(dir, "files")
-    if files == nil then
-        msg.verbose("no other files in directory")
-        return
+    local files = {}
+    do
+        local dir_mode = o.directory_mode or mp.get_property("directory-mode", "lazy")
+        local separator = mp.get_property_native("platform") == "windows" and "\\" or "/"
+        scan_dir(autoloaded_dir, path, dir_mode, separator, 0, files, extensions)
     end
-    table.filter(files, function (v, k)
-        -- The current file could be a hidden file, ignoring it doesn't load other
-        -- files from the current directory.
-        if (o.ignore_hidden and not (v == filename) and string.match(v, "^%.")) then
-            return false
-        end
-        local ext = get_extension(v)
-        if ext == nil then
-            return false
-        end
-        return EXTENSIONS[string.lower(ext)]
-    end)
-    alphanumsort(files)
 
-    if dir == "." then
-        dir = ""
+    if next(files) == nil then
+        msg.debug("no other files or directories in directory")
+        return
     end
 
     -- Find the current pl entry (dir+"/"+filename) in the sorted dir list
     local current
     for i = 1, #files do
-        if files[i] == filename then
+        if files[i] == path then
             current = i
             break
         end
@@ -203,8 +280,13 @@ function find_and_add_entries()
     end
     msg.trace("current file position in files: "..current)
 
+    -- treat already existing playlist entries, independent of how they got added
+    -- as if they got added by autoload
+    for _, entry in ipairs(pl) do
+        added_entries[entry.filename] = true
+    end
+
     local append = {[-1] = {}, [1] = {}}
-    local filenames = get_playlist_filenames(pl)
     for direction = -1, 1, 2 do -- 2 iterations, with direction = -1 and +1
         for i = 1, MAXENTRIES do
             local pos = current + i * direction
@@ -213,21 +295,21 @@ function find_and_add_entries()
                 break
             end
 
-            local filepath = dir .. file
-            -- skip files already in playlist
-            if not filenames[file] then
+            -- skip files that are/were already in the playlist
+            if not added_entries[file] then
                 if direction == -1 then
-                    msg.info("Prepending " .. file)
-                    table.insert(append[-1], 1, {filepath, pos - 1})
+                    msg.verbose("Prepending " .. file)
+                    table.insert(append[-1], 1, {file, pl_current + i * direction + 1})
                 else
-                    msg.info("Adding " .. file)
+                    msg.verbose("Adding " .. file)
                     if pl_count > 1 then
-                        table.insert(append[1], {filepath, pos - 1})
+                        table.insert(append[1], {file, pl_current + i * direction - 1})
                     else
-                        mp.commandv("loadfile", filepath, "append")
+                        mp.commandv("loadfile", file, "append")
                     end
                 end
             end
+            added_entries[file] = true
         end
         if pl_count == 1 and direction == -1 and #append[-1] > 0 then
             for i = 1, #append[-1] do
