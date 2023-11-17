@@ -228,7 +228,7 @@ def rife(
     fps,
     num=2,
     den=1,
-    model=24,
+    model=33,
     tta=False,
     uhd=False,
     sc_threshold=0.2,
