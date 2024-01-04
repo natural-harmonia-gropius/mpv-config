@@ -9,9 +9,14 @@ Personal portable_config for MPV player.
 - Get it from [shinchiro/mpv-winbuild-cmake](https://github.com/shinchiro/mpv-winbuild-cmake/releases)
 - or [zhongfly/mpv-winbuild](https://github.com/zhongfly/mpv-winbuild/releases)
 - or [aur/mpv-full-git](https://aur.archlinux.org/packages/mpv-full-git) (Arch linux)
-- Download [natural-harmonia-gropius/mpv-config](https://github.com/natural-harmonia-gropius/mpv-config/archive/refs/heads/master.zip) and extract it to mpv folder.
-- Install [Segoe Fluent Icons](https://aka.ms/SegoeFluentIcons) and [Segoe UI Variable](https://aka.ms/SegoeUIVariable) or put them in `portable_config/fonts`. (Non Windows 11)
-- Edit `uosc-languages=` in mpv.conf. (Non Chinese)
+
+#### after installation
+
+- Download and extract [natural-harmonia-gropius/mpv-config](https://github.com/natural-harmonia-gropius/mpv-config/archive/refs/heads/master.zip).
+- Move `portable_config` to mpv folder.
+- Put [Segoe Fluent Icons](https://aka.ms/SegoeFluentIcons) and [Segoe UI Variable](https://aka.ms/SegoeUIVariable) in `portable_config/fonts`. (Non Windows 11)
+- Delete or edit `uosc-languages` line in mpv.conf. (Non Chinese)
+- Delete `uosc-controls` line in mpv.conf. (If you want to use them)
 
 ### yt-dlp (optional)
 
@@ -21,17 +26,19 @@ Personal portable_config for MPV player.
 ### vapoursynth (optional)
 
 - Get it from [vapoursynth](https://github.com/vapoursynth/vapoursynth/releases), [python](https://www.python.org/downloads) also required, extract them to mpv folder.
-- Dlls need to be placed in `vapoursynth64/plugins`, get them from:
+
+#### plugins
+
 - [styler00dollar/VapourSynth-RIFE-ncnn-Vulkan](https://github.com/styler00dollar/VapourSynth-RIFE-ncnn-Vulkan/releases)
 - [HomeOfVapourSynthEvolution/VapourSynth-VMAF](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-VMAF/releases)
 - [vapoursynth/vs-miscfilters-obsolete](https://github.com/vapoursynth/vs-miscfilters-obsolete/releases)
 - [dubhater/vapoursynth-mvtools](https://github.com/dubhater/vapoursynth-mvtools/releases)
 - [SVPflow](https://www.svp-team.com/get/) (v4.3.0.165+ require SVP Manager)
+- Put dlls in `vapoursynth64/plugins`.
 
 ### ffmpeg (optional)
 
 - Get it from [ffmpeg](https://ffmpeg.org/download.html)
-- this is really optional.
 
 ## Credits
 
@@ -78,6 +85,10 @@ Personal portable_config for MPV player.
 - FSRCNNX_x2_8-0-4-1.glsl
 - FSRCNNX_x2_16-0-4-1.glsl
 
+[Artoriuz/glsl-chroma-from-luma-prediction](https://github.com/Artoriuz/glsl-chroma-from-luma-prediction)
+
+- CfL_Prediction.glsl
+
 [igv/gist](https://gist.github.com/igv)
 
 - KrigBilateral.glsl
@@ -85,13 +96,13 @@ Personal portable_config for MPV player.
 - SSimDownscaler.glsl
 - adaptive-sharpen.glsl
 
-[an3223/shaders](https://github.com/AN3223/dotfiles/tree/master/.config/mpv/shaders)
+[an3223/dotfiles](https://github.com/AN3223/dotfiles/tree/master/.config/mpv/shaders)
 
 - nlmeans.glsl
 - guided.glsl
 - hdeband.glsl
 
-[haasn/libplacebo.org](https://libplacebo.org/custom-shaders/#full-example)
+[haasn/libplacebo.org#example](https://libplacebo.org/custom-shaders/#full-example)
 
 - filmgrain.glsl
 

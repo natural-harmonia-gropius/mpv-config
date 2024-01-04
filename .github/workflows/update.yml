@@ -1,0 +1,104 @@
+name: Update
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *"
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Update files
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {
+              readFileSync,
+              writeFileSync,
+              mkdirSync,
+              createWriteStream,
+            } = require("fs");
+            const { dirname } = require("path");
+            const { Readable } = require("stream");
+            const { finished } = require("stream/promises");
+
+            const updateListJson = "portable_config/update.json";
+
+            async function prepareFolder(repository, branch, source, target) {
+              const results = [];
+              const url = `https://api.github.com/repos/${repository}/contents/${source}`;
+
+              const response = await fetch(url);
+              const files = await response.json();
+              for (const file of files) {
+                const targetPath = `${target}${file.path.replace(source, "")}`;
+
+                if (file.type === "dir") {
+                  results.push(
+                    ...(await prepareFolder(repository, branch, file.path, targetPath))
+                  );
+                  continue;
+                }
+
+                results.push({ source: file.download_url, target: targetPath });
+              }
+
+              return results;
+            }
+
+            async function prepare(repository, branch, source, target) {
+              const isFolder = source.at(-1) === "/" && target.at(-1) === "/";
+              if (isFolder) {
+                await io.rmRF(target);
+                return await prepareFolder(repository, branch, source, target);
+              }
+
+              if (branch === "@gist") {
+                source = `https://gist.githubusercontent.com/${repository}/raw/${source}`;
+              } else if (branch === "@releases") {
+                source = `https://github.com/${repository}/releases/latest/download/${source}`;
+              } else {
+                source = `https://raw.githubusercontent.com/${repository}/${branch}/${source}`;
+              }
+              return [{ source, target }];
+            }
+
+            async function download(source, target) {
+              const response = await fetch(source);
+              if (response.status >= 400) {
+                core.warning(`url: ${url} returns ${response.status}`);
+                return;
+              }
+
+              mkdirSync(dirname(target), { recursive: true });
+              writeFileSync(target, "");
+              const stream = createWriteStream(target);
+              await finished(Readable.fromWeb(response.body).pipe(stream));
+            }
+
+            function* getDownloadList(updateList) {
+              for (const { repository, branch, files } of updateList) {
+                for (const { source, target } of files) {
+                  yield prepare(repository, branch, source, target);
+                }
+              }
+            }
+
+            await Promise.all(
+              (
+                await Promise.all([
+                  ...getDownloadList(JSON.parse(readFileSync(updateListJson))),
+                ])
+              )
+                .flat()
+                .map(({ source, target }) => download(source, target))
+            );
+
+      - name: Commit Changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: Automated Update

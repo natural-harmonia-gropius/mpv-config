@@ -1,12 +1,13 @@
 .*
+/*.*
+
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
 
-/*.*
-!/*.ps1
+!.github
 
 doc
 installer
@@ -18,6 +19,6 @@ portable_config/cache
 portable_config/fonts
 portable_config/watch_later
 portable_config/recent.json
-portable_config/celebi.conf
+portable_config/celebi.txt
 
 !portable_config/fonts/uosc_textures.ttf

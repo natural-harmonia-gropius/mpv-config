@@ -344,14 +344,9 @@ function unbind(key)
     end
 end
 
-function bind_from_conf(path)
-    local meta, meta_error = utils.file_info(path)
-    if not meta or not meta.is_file then
-        return {}
-    end
-
+function bind_from_conf(conf)
     local kv = {}
-    for line in io.lines(path) do
+    for _, line in pairs(conf:split("\n")) do
         line = line:trim()
         if line ~= "" and line:sub(1, 1) ~= "#" then
             local key, cmd, comment = line:match("%s*([%S]+)%s+(.-)%s+#%s*(.-)%s*$")
@@ -379,41 +374,46 @@ function bind_from_conf(path)
     return parsed
 end
 
-function bind_from_json(path)
-    local meta, meta_error = utils.file_info(path)
-    if not meta or not meta.is_file then
-        return {}
-    end
-
-    local json_file = io.open(path, "r")
-    if not json_file then
-        return {}
-    end
-    local json = json_file:read("*all")
-    json_file:close()
-
+function bind_from_json(json)
     local parsed = utils.parse_json(json)
     return parsed
 end
 
 function bind_from_options_configs()
+    for key, value in pairs(bind_map) do
+        unbind(key)
+    end
+
     for index, value in ipairs(o.configs:split(",")) do
         local path = value:trim()
+        local content = ""
+        local extension = ""
         if path == "input.conf" then
             local input_conf = mp.get_property_native("input-conf")
             path = input_conf == "" and "~~/input.conf" or input_conf
         end
-        path = mp.command_native({ "expand-path", path })
-
-        local parsed = {}
-        local splited_filename = path:split(".")
-        local extension = splited_filename[#splited_filename]
-        if extension == "conf" then
-            parsed = bind_from_conf(path)
-        elseif extension == "json" then
-            parsed = bind_from_json(path)
+        if (path:match("^memory://")) then
+            content = path:replace("^memory://", "")
+            extension = "conf"
+        else
+            path = mp.command_native({ "expand-path", path })
+            local meta, meta_error = utils.file_info(path)
+            if meta and meta.is_file then
+                local file = io.open(path, "r")
+                if file then
+                    content = file:read("*all")
+                    file:close()
+                    extension = path:match("^.+%.(.+)$")
+                end
+            end
         end
 
+        local parsed = {}
+        if extension == "conf" then
+            parsed = bind_from_conf(content)
+        elseif extension == "json" then
+            parsed = bind_from_json(content)
+        end
         if #parsed ~= 0 then
             for _, v in ipairs(parsed) do
                 if v.key and v.on then
@@ -427,30 +427,21 @@ function bind_from_options_configs()
     end
 end
 
-function on_options_configs_update(list)
+function on_options_update(list)
     if (list.configs) then
-        for key, value in pairs(bind_map) do
-            unbind(key)
-        end
         bind_from_options_configs()
     end
 end
 
-mp.observe_property("input-doubleclick-time", "native", function(_, new_duration)
+function on_input_doubleclick_time_update(_, duration)
     for _, binding in pairs(bind_map) do
-        binding:rebind({ duration = new_duration })
+        binding:rebind({ duration = duration })
     end
-end)
-
-mp.observe_property("focused", "native", function(_, focused)
-    local binding = bind_map["MBTN_LEFT"]
-    if not binding or not focused then return end
-    binding:ignore("click", 100)
-end)
+end
 
 mp.register_script_message("bind", bind)
 mp.register_script_message("unbind", unbind)
-
-options.read_options(o, _, on_options_configs_update)
+mp.observe_property("input-doubleclick-time", "native", on_input_doubleclick_time_update)
+options.read_options(o, _, on_options_update)
 
 bind_from_options_configs()

@@ -6,7 +6,7 @@ def rife(
     fps,
     num=2,
     den=1,
-    model=37,
+    model=41,
     tta=False,
     uhd=False,
     sc_threshold=0.2,
