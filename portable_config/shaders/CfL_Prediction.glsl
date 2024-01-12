@@ -194,17 +194,31 @@ vec4 hook() {
 
 #if (USE_12_TAP_REGRESSION == 1 || USE_8_TAP_REGRESSIONS == 1)
     const int i12[12] = {1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14};
+    const int i4y[4] = {1, 2, 13, 14};
+    const int i4x[4] = {4, 7, 8, 11};
+    const int i4[4] = {5, 6, 9, 10};
 
-    float luma_avg_12 = 0.0;
+    float luma_sum_4 = 0.0;
+    float luma_sum_4y = 0.0;
+    float luma_sum_4x = 0.0;
+    vec2 chroma_sum_4 = vec2(0.0);
+    vec2 chroma_sum_4y = vec2(0.0);
+    vec2 chroma_sum_4x = vec2(0.0);
+
+    for (int i = 0; i < 4; i++) {
+        luma_sum_4 += luma_pixels[i4[i]];
+        luma_sum_4y += luma_pixels[i4y[i]];
+        luma_sum_4x += luma_pixels[i4x[i]];
+        chroma_sum_4 += chroma_pixels[i4[i]];
+        chroma_sum_4y += chroma_pixels[i4y[i]];
+        chroma_sum_4x += chroma_pixels[i4x[i]];
+    }
+
+    float luma_avg_12 = (luma_sum_4 + luma_sum_4y + luma_sum_4x) / 12.0;
     float luma_var_12 = 0.0;
-    vec2 chroma_avg_12 = vec2(0.0);
+    vec2 chroma_avg_12 = (chroma_sum_4 + chroma_sum_4y + chroma_sum_4x) / 12.0;
     vec2 chroma_var_12 = vec2(0.0);
     vec2 luma_chroma_cov_12 = vec2(0.0);
-
-    for (int i = 0; i < 12; i++) {
-        luma_avg_12 += luma_pixels[i12[i]] / 12.0;
-        chroma_avg_12 += chroma_pixels[i12[i]] / 12.0;
-    }
 
     for (int i = 0; i < 12; i++) {
         luma_var_12 += pow(luma_pixels[i12[i]] - luma_avg_12, 2.0);
@@ -226,21 +240,14 @@ vec4 hook() {
     const int i8y[8] = {1, 2, 5, 6, 9, 10, 13, 14};
     const int i8x[8] = {4, 5, 6, 7, 8, 9, 10, 11};
 
-    float luma_avg_8y = 0.0;
-    float luma_avg_8x = 0.0;
+    float luma_avg_8y = (luma_sum_4 + luma_sum_4y) / 8.0;
+    float luma_avg_8x = (luma_sum_4 + luma_sum_4x) / 8.0;
     float luma_var_8y = 0.0;
     float luma_var_8x = 0.0;
-    vec2 chroma_avg_8y = vec2(0.0);
-    vec2 chroma_avg_8x = vec2(0.0);
+    vec2 chroma_avg_8y = (chroma_sum_4 + chroma_sum_4y) / 8.0;
+    vec2 chroma_avg_8x = (chroma_sum_4 + chroma_sum_4x) / 8.0;
     vec2 luma_chroma_cov_8y = vec2(0.0);
     vec2 luma_chroma_cov_8x = vec2(0.0);
-
-    for (int i = 0; i < 8; i++) {
-        luma_avg_8y += luma_pixels[i8y[i]] / 8.0;
-        luma_avg_8x += luma_pixels[i8x[i]] / 8.0;
-        chroma_avg_8y += chroma_pixels[i8y[i]] / 8.0;
-        chroma_avg_8x += chroma_pixels[i8x[i]] / 8.0;
-    }
 
     for (int i = 0; i < 8; i++) {
         luma_var_8y += pow(luma_pixels[i8y[i]] - luma_avg_8y, 2.0);
