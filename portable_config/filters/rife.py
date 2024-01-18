@@ -1,3 +1,5 @@
+import os
+
 import vapoursynth as vs
 
 
@@ -6,7 +8,7 @@ def rife(
     fps,
     num=2,
     den=1,
-    model=41,
+    model_path="models/rife-v4.14_ensembleFalse",
     tta=False,
     uhd=False,
     sc_threshold=0.2,
@@ -21,7 +23,7 @@ def rife(
     clip = clip.rife.RIFE(
         gpu_id=gpu_id,
         gpu_thread=gpu_thread,
-        model=model,
+        model_path=f"{os.path.dirname(os.path.abspath(__file__))}/{model_path}",
         factor_num=num,
         factor_den=den,
         tta=tta,

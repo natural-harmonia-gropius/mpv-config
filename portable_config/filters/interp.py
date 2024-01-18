@@ -1,8 +1,5 @@
 import math
 
-import vapoursynth as vs
-from vapoursynth import core
-
 from portable_config.filters.mvtools import mvtools
 from portable_config.filters.rife import rife
 from portable_config.filters.shared import fit_scale_down
@@ -48,7 +45,7 @@ def main(clip=CLIP, fps=FPS):
     }"""
 
     clip = fit_scale_down(clip, vw, vh)
-    # clip, fps = rife(clip, fps)
+    clip, fps = rife(clip, fps)
     clip, fps = svpflow(clip, fps, num, den, sp, ap, fp)
 
     return clip

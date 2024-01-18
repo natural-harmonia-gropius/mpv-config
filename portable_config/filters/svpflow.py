@@ -1,5 +1,4 @@
 import vapoursynth as vs
-from vapoursynth import core
 
 from portable_config.filters.shared import to_yuv420
 
@@ -29,9 +28,9 @@ def svpflow(
     flow_param = flow_param % (gpu_id, num, den, is_abs)
 
     clip, clip8 = to_yuv420(clip)
-    svp_super = core.svp1.Super(clip8, super_param)
+    svp_super = vs.core.svp1.Super(clip8, super_param)
     svp_param = svp_super["clip"], svp_super["data"]
-    svp_analyse = core.svp1.Analyse(*svp_param, clip, analyse_param)
+    svp_analyse = vs.core.svp1.Analyse(*svp_param, clip, analyse_param)
     svp_param = *svp_param, svp_analyse["clip"], svp_analyse["data"]
-    clip = core.svp2.SmoothFps(clip, *svp_param, flow_param, src=clip, fps=fps)
+    clip = vs.core.svp2.SmoothFps(clip, *svp_param, flow_param, src=clip, fps=fps)
     return clip, round(ofps, 3)
