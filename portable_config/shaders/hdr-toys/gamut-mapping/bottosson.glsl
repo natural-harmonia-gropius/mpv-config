@@ -1,6 +1,12 @@
 // https://bottosson.github.io/posts/gamutclipping/
 // https://www.shadertoy.com/view/7sXcWn
 
+//!PARAM softness_scale
+//!TYPE float
+//!MINIMUM 0.0
+//!MAXIMUM 1.0
+0.33
+
 //!HOOK OUTPUT
 //!BIND HOOKED
 //!DESC gamut mapping (bottosson, soft)
@@ -211,7 +217,6 @@ vec3 calculateLCh(vec3 c) {
     return vec3(maxLms, C, atan(-b, -a));
 }
 
-
 vec2 expandShape(vec3 rgb, vec2 ST) {
     vec3 LCh = calculateLCh(rgb);
     vec2 STnew = vec2(LCh.x/LCh.y, (1.0-LCh.x)/LCh.y);
@@ -226,8 +231,6 @@ float expandScale(vec3 rgb, vec2 ST, float scale) {
 
     return max(LCh.y/Cnew, scale);
 }
-
-float softness_scale = 0.2;
 
 vec2 approximateShape() {
     float m = -softness_scale*0.2;
@@ -251,7 +254,6 @@ vec2 approximateShape() {
 
     return ST/scale;
 }
-
 
 vec3 compute(float L, float hue, float sat) {
     vec3 c;
@@ -303,7 +305,10 @@ vec3 softClipColor(vec3 color) {
     // soft clip of rgb values to avoid artifacts of hard clipping
     // causes hues distortions, but is a smooth mapping
 
-    if (length(color) <= 1e-6) {
+    float maxRGB = max(max(color.r, color.g), color.b);
+    float minRGB = min(min(color.r, color.g), color.b);
+
+    if (maxRGB <= 1e-6) {
         return color;
     }
 
@@ -315,9 +320,6 @@ vec3 softClipColor(vec3 color) {
     vec3 xscale = 0.5 + xsgn*(0.5-grey);
     x /= xscale;
 
-    float maxRGB = max(color.r, max(color.g, color.b));
-    float minRGB = min(color.r, min(color.g, color.b));
-
     float softness_0 = maxRGB/(1.0+softness_scale)*softness_scale;
     float softness_1 = (1.0-minRGB)/(1.0+softness_scale)*softness_scale;
 
@@ -326,16 +328,18 @@ vec3 softClipColor(vec3 color) {
     return grey + xscale*xsgn*softSaturate(abs(x), softness);
 }
 
+
+
 vec4 hook() {
     vec4 color = HOOKED_texOff(0);
 
     vec3 oklch = Lab_to_LCH(RGB_to_Lab(color.rgb));
-
     float L = oklch.x;
     float C = oklch.y;
     float h = oklch.z * pi / 180.0;
+
     vec2 ST = approximateShape();
-    float C_smooth = (1.0 / ((ST.x / L) + (ST.y / (1.0 - L))));
+    float C_smooth = (1.0 / ((ST.x / L) + (ST.y / max(1.0 - L, 1e-6))));
     color.rgb = compute(L, h, C / sqrt(C * C / C_smooth / C_smooth + 1.0));
     color.rgb = softClipColor(color.rgb);
 
