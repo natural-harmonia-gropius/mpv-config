@@ -439,9 +439,23 @@ function on_input_doubleclick_time_update(_, duration)
     end
 end
 
+function on_focused_update(_, focused)
+    if not focused then
+        return
+    end
+
+    local binding = bind_map["MBTN_LEFT"]
+    if not binding then
+        return
+    end
+
+    binding:ignore("click", 100)
+end
+
 mp.register_script_message("bind", bind)
 mp.register_script_message("unbind", unbind)
 mp.observe_property("input-doubleclick-time", "native", on_input_doubleclick_time_update)
+mp.observe_property("focused", "native", on_focused_update)
 options.read_options(o, _, on_options_update)
 
 bind_from_options_configs()
