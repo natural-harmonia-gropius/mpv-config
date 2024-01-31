@@ -449,7 +449,7 @@ function on_focused_update(_, focused)
         return
     end
 
-    binding:ignore("click",  binding.duration)
+    binding:ignore("click", binding.duration)
 end
 
 mp.register_script_message("bind", bind)
