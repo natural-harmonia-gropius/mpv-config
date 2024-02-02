@@ -193,6 +193,10 @@
       {
         "source": "shaders/hdr-toys/",
         "target": "portable_config/shaders/hdr-toys/"
+      },
+      {
+        "source": "hdr-toys.conf",
+        "target": "portable_config/hdr-toys.conf"
       }
     ],
     "repository": "natural-harmonia-gropius/hdr-toys"
