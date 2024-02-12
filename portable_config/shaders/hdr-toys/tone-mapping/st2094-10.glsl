@@ -19,6 +19,12 @@
 //!MAXIMUM 1000000
 1000.0
 
+//!PARAM sigma
+//!TYPE float
+//!MINIMUM 0.0
+//!MAXIMUM 1.0
+1.0
+
 //!HOOK OUTPUT
 //!BIND HOOKED
 //!SAVE AVG
@@ -230,7 +236,7 @@ float curve(float x) {
     float x3 = L_hdr / L_sdr;
     float y3 = 1.0;
 
-    float x2 = clamp(avg, x1, x3);
+    float x2 = clamp(avg, x1 + 0.001, 0.9 * x3);
     float y2 = clamp(sqrt(x2 * sqrt(y3 * y1)), y1, 0.8 * y3);
 
     float a = x3 * y3 * (x1 - x2) + x2 * y2 * (x3 - x1) + x1 * y1 * (x2 - x3);
@@ -247,10 +253,20 @@ float curve(float x) {
     float c2 = coeffs.g;
     float c3 = coeffs.b;
 
+    x = clamp(x, x1, x3);
     x = (c1 + c2 * pow(x, n)) / (1.0 + c3 * pow(x, n));
     x = pow(min(max(((x / y3) * g) + o, 0.0), 1.0), p) * y3;
+    x = clamp(x, y1, y3);
 
     return x;
+}
+
+vec3 tone_mapping_ictcp(vec3 ICtCp) {
+    float I2  = Y_to_ST2084(curve(ST2084_to_Y(ICtCp.x) / L_sdr) * L_sdr);
+    ICtCp.yz *= mix(1.0, min(ICtCp.x / I2, I2 / ICtCp.x), sigma);
+    ICtCp.x   = I2;
+
+    return ICtCp;
 }
 
 vec3 gamut_adjustment(vec3 f) {
@@ -270,7 +286,7 @@ vec4 hook() {
     vec4 color = HOOKED_texOff(0);
 
     color.rgb = RGB_to_ICtCp(color.rgb);
-    color.x   = Y_to_ST2084(curve(ST2084_to_Y(color.x) / L_sdr) * L_sdr);
+    color.rgb = tone_mapping_ictcp(color.rgb);
     color.rgb = ICtCp_to_RGB(color.rgb);
     color.rgb = gamut_adjustment(color.rgb);
     color.rgb = detail_managenment(color.rgb);
