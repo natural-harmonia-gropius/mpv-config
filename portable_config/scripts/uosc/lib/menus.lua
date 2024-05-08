@@ -95,6 +95,7 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
 	local function serialize_tracklist(tracklist)
 		local items = {}
 
+		local track_prop_index = tonumber(mp.get_property(track_prop))
 		local first_item_index = #items + 1
 		local active_index = nil
 		local disabled_item = nil
@@ -112,9 +113,10 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
 		for _, track in ipairs(tracklist) do
 			if track.type == track_type then
 				local hint_values = {}
+				local track_selected = track.selected and track.id == track_prop_index
 				local function h(value) hint_values[#hint_values + 1] = value end
 
-				if track.lang then h(track.lang:upper()) end
+				if track.lang then h(track.lang) end
 				if track['demux-h'] then
 					h(track['demux-w'] and (track['demux-w'] .. 'x' .. track['demux-h']) or (track['demux-h'] .. 'p'))
 				end
@@ -134,16 +136,19 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
 					title = (track.title and track.title or t('Track %s', track.id)),
 					hint = table.concat(hint_values, ', '),
 					value = track.id,
-					active = track.selected,
+					active = track_selected,
 				}
 
-				if track.selected then
+				if track_selected then
 					if disabled_item then disabled_item.active = false end
 					active_index = #items
 				end
 			end
 		end
 
+		if #items > 0 then
+			items[#items].separator = true
+		end
 		if download_command then
 			items[#items + 1] = {
 				title = t('Download'), bold = true, italic = true, hint = t('search online'), value = '{download}',
@@ -247,7 +252,10 @@ function open_file_navigation_menu(directory_path, handle_select, opts)
 		local is_drives = path == '{drives}'
 		local is_to_parent = is_drives or #path < #directory_path
 		local inheritable_options = {
-			type = opts.type, title = opts.title, allowed_types = opts.allowed_types, active_path = opts.active_path,
+			type = opts.type,
+			title = opts.title,
+			allowed_types = opts.allowed_types,
+			active_path = opts.active_path,
 			keep_open = opts.keep_open,
 		}
 
@@ -335,9 +343,18 @@ end
 
 -- On demand menu items loading
 do
-	local items = nil
-	function get_menu_items()
-		if items then return items end
+	---@type {key: string; cmd: string; comment: string; is_menu_item: boolean}[]|nil
+	local all_user_bindings = nil
+	---@type MenuStackItem[]|nil
+	local menu_items = nil
+
+	local function is_uosc_menu_comment(v) return v:match('^!') or v:match('^menu:') end
+
+	-- Returns all relevant bindings from `input.conf`, even if they are overwritten
+	-- (same key bound to something else later) or have no keys (uosc menu items).
+	function get_all_user_bindings()
+		if all_user_bindings then return all_user_bindings end
+		all_user_bindings = {}
 
 		local input_conf_property = mp.get_property_native('input-conf')
 		local input_conf_iterator
@@ -356,23 +373,53 @@ do
 
 			-- File doesn't exist
 			if not input_conf_meta or not input_conf_meta.is_file then
-				items = create_default_menu_items()
-				return items
+				menu_items = create_default_menu_items()
+				return menu_items, all_user_bindings
 			end
 
 			input_conf_iterator = io.lines(input_conf_path)
 		end
 
+		for line in input_conf_iterator do
+			local key, command, comment = string.match(line, '%s*([%S]+)%s+([^#]*)%s*(.-)%s*$')
+			local is_commented_out = key and key:sub(1, 1) == '#'
+
+			if comment and #comment > 0 then comment = comment:sub(2) end
+			if command then command = trim(command) end
+
+			local is_menu_item = comment and is_uosc_menu_comment(comment)
+
+			if key and command and command ~= '' and command ~= 'ignore'
+				-- Filter out stuff like `#F2`, which is clearly intended to be disabled
+				and not (is_commented_out and #key > 1)
+				-- Filter out comments that are not uosc menu items
+				and (not is_commented_out or is_menu_item) then
+				all_user_bindings[#all_user_bindings + 1] = {
+					key = key,
+					cmd = command,
+					comment = comment or '',
+					is_menu_item = is_menu_item,
+				}
+			end
+		end
+
+		return all_user_bindings
+	end
+
+	function get_menu_items()
+		if menu_items then return menu_items end
+
+		local all_user_bindings = get_all_user_bindings()
 		local main_menu = {items = {}, items_by_command = {}}
 		local by_id = {}
 
-		for line in input_conf_iterator do
-			local key, command, comment = string.match(line, '%s*([%S]+)%s+(.-)%s+#%s*(.-)%s*$')
+		for _, bind in ipairs(all_user_bindings) do
+			local key, command, comment = bind.key, bind.cmd, bind.comment
 			local title = ''
 
 			if comment then
 				local comments = split(comment, '#')
-				local titles = itable_filter(comments, function(v, i) return v:match('^!') or v:match('^menu:') end)
+				local titles = itable_filter(comments, is_uosc_menu_comment)
 				if titles and #titles > 0 then
 					title = titles[1]:match('^!%s*(.*)%s*') or titles[1]:match('^menu:%s*(.*)%s*')
 				end
@@ -428,19 +475,29 @@ do
 			end
 		end
 
-		items = #main_menu.items > 0 and main_menu.items or create_default_menu_items()
-		return items
+		menu_items = #main_menu.items > 0 and main_menu.items or create_default_menu_items()
+		return menu_items
 	end
 end
 
 -- Adapted from `stats.lua`
 function get_keybinds_items()
 	local items = {}
-	local active = find_active_keybindings()
+	-- uosc and mpv-menu-plugin binds with no keys
+	local no_key_menu_binds = itable_filter(
+		get_all_user_bindings(),
+		function(b) return b.is_menu_item and b.key == '#' or b.key == '_' end
+	)
+	local binds_dump = itable_join(find_active_keybindings(), no_key_menu_binds)
+	local ids = {}
 
 	-- Convert to menu items
-	for _, bind in pairs(active) do
-		items[#items + 1] = {title = bind.cmd, hint = bind.key, value = bind.cmd}
+	for _, bind in pairs(binds_dump) do
+		local id = bind.key .. '<>' .. bind.cmd
+		if not ids[id] and bind.cmd ~= 'ignore' then
+			ids[id] = true
+			items[#items + 1] = {title = bind.cmd, hint = bind.key, value = bind.cmd}
+		end
 	end
 
 	-- Sort
