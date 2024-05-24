@@ -113,6 +113,7 @@ function now()
 end
 
 function command(command)
+    if not command or command == '' then return true end
     return mp.command(command)
 end
 
