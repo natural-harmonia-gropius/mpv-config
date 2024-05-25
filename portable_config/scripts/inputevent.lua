@@ -227,6 +227,10 @@ function InputEvent:emit(event)
         event = "click"
     end
 
+    if type(self.on[event]) == "table" then
+        self.on[event] = table.concat(self.on[event], " ")
+    end
+
     local cmd = self.on[event]
     if not cmd or cmd == "" then
         return
