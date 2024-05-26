@@ -228,7 +228,12 @@ function InputEvent:emit(event)
     end
 
     if type(self.on[event]) == "table" then
-        self.on[event] = table.concat(self.on[event], " ")
+        for index, value in ipairs(self.on[event]) do
+            if type(value) == "table" then
+                self.on[event][index] = table.concat(value, " ")
+            end
+        end
+        self.on[event] = table.concat(self.on[event], "; ")
     end
 
     local cmd = self.on[event]
