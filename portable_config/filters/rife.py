@@ -8,7 +8,7 @@ def rife(
     fps,
     num=2,
     den=1,
-    model_path="models/rife-v4.15_ensembleFalse",
+    model_path="models/rife-v4.17_ensembleFalse",
     tta=False,
     uhd=False,
     sc_threshold=0.2,
@@ -23,7 +23,8 @@ def rife(
     clip = clip.rife.RIFE(
         gpu_id=gpu_id,
         gpu_thread=gpu_thread,
-        model_path=f"{os.path.dirname(os.path.abspath(__file__))}/{model_path}",
+        model_path=f"{os.path.dirname(
+            os.path.abspath(__file__))}/{model_path}",
         factor_num=num,
         factor_den=den,
         tta=tta,
