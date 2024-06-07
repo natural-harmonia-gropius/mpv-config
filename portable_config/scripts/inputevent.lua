@@ -20,6 +20,13 @@ local event_pattern = {
     { to = "release", from = "up", length = 1 },
 }
 
+local supported_events = {
+    ["repeat"] = true
+}
+for _, value in ipairs(event_pattern) do
+    supported_events[value.to] = true
+end
+
 -- https://mpv.io/manual/master/#input-command-prefixes
 local prefixes = { "osd-auto", "no-osd", "osd-bar", "osd-msg", "osd-msg-bar", "raw", "expand-properties", "repeatable",
     "async", "sync" }
@@ -56,10 +63,6 @@ function table:filter(filter)
         end
     end
     return nt
-end
-
-function table:remove(element)
-    return table.filter(self, function(i, v) return v ~= element end)
 end
 
 function table:join(separator)
@@ -203,6 +206,17 @@ function InputEvent:new(key, on)
         end
     end
 
+    for event, cmd in pairs(Instance.on) do
+        if type(cmd) == "table" then
+            for index, cmd_part in ipairs(cmd) do
+                if type(cmd_part) == "table" then
+                    Instance.on[event][index] = table.concat(cmd_part, " ")
+                end
+            end
+            Instance.on[event] = table.concat(Instance.on[event], ";")
+        end
+    end
+
     return Instance
 end
 
@@ -225,15 +239,6 @@ function InputEvent:emit(event)
 
     if event == "repeat" and self.on[event] == "ignore" then
         event = "click"
-    end
-
-    if type(self.on[event]) == "table" then
-        for index, value in ipairs(self.on[event]) do
-            if type(value) == "table" then
-                self.on[event][index] = table.concat(value, " ")
-            end
-        end
-        self.on[event] = table.concat(self.on[event], "; ")
     end
 
     local cmd = self.on[event]
@@ -280,6 +285,16 @@ function InputEvent:handler(event)
         end
     end
 
+    if event == "cancel" then
+        if #self.queue == 0 then
+            self:emit("release")
+            return
+        end
+
+        table.remove(self.queue)
+        return
+    end
+
     self.queue = table.push(self.queue, event)
     self.exec_debounced()
 end
@@ -314,7 +329,10 @@ end
 
 function InputEvent:bind()
     self.exec_debounced = debounce(function() self:exec() end, self.duration)
-    mp.add_forced_key_binding(self.key, self.key, function(e) self:handler(e.event) end, { complex = true })
+    mp.add_forced_key_binding(self.key, self.key, function(e)
+        local event = e.canceled and "cancel" or e.event
+        self:handler(event)
+    end, { complex = true })
 end
 
 function InputEvent:unbind()
@@ -365,7 +383,7 @@ function bind_from_conf(conf)
                 local events = table.filter(comments, function(i, v) return v:match("^@") end)
                 if events and #events > 0 then
                     local event = events[1]:match("^@(.*)"):trim()
-                    if event and event ~= "" then
+                    if event and event ~= "" and supported_events[event] then
                         if kv[key] == nil then
                             kv[key] = {}
                         end
