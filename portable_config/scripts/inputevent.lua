@@ -6,6 +6,7 @@ local options = require("mp.options")
 
 local o = {
     configs = "input.conf",
+    prefix = "@",
 }
 
 local bind_map = {}
@@ -98,8 +99,10 @@ function debounce(func, wait)
 
     local timer = nil
     local timer_end = function()
-        timer:kill()
-        timer = nil
+        if timer then
+            timer:kill()
+            timer = nil
+        end
         func()
     end
 
@@ -377,18 +380,26 @@ function bind_from_conf(conf)
     for _, line in pairs(conf:split("\n")) do
         line = line:trim()
         if line ~= "" and line:sub(1, 1) ~= "#" then
-            local key, cmd, comment = line:match("%s*([%S]+)%s+(.-)%s+#%s*(.-)%s*$")
+            local key, cmd, comment = line:trim():match("^([%S]+)%s+(.-)%s+#%s*(.-)$")
             if comment then
-                local comments = comment:split("#")
-                local events = table.filter(comments, function(i, v) return v:match("^@") end)
-                if events and #events > 0 then
-                    local event = events[1]:match("^@(.*)"):trim()
-                    if event and event ~= "" and supported_events[event] then
-                        if kv[key] == nil then
-                            kv[key] = {}
-                        end
-                        kv[key][event] = cmd
+                local comments = {}
+                for _, item in ipairs(comment:split("#")) do
+                    item = item:trim()
+                    local prefix, value = item:match("^(.-)%s*:%s*(.-)$")
+                    if not prefix then
+                        prefix, value = item:match("^(%p)%s*(.-)$")
                     end
+                    if prefix then
+                        comments[prefix] = value
+                    end
+                end
+
+                local event = comments[o.prefix]
+                if event and event ~= "" and supported_events[event] then
+                    if not kv[key] then
+                        kv[key] = {}
+                    end
+                    kv[key][event] = cmd
                 end
             end
         end
