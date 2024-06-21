@@ -297,7 +297,7 @@ function update_dyn_menu_items()
     for _, item in ipairs(menu_items) do
         submenu[#submenu + 1] = {
             title = get_dyn_menu_title(item.title, item.hint, item.value[2]),
-            cmd = string.format("%s '%s'", item.value[1], item.value[2]),
+            cmd = string.format("%s \"%s\"", item.value[1], item.value[2]:gsub("\\", "\\\\")),
         }
     end
     dyn_menu.submenu = submenu
