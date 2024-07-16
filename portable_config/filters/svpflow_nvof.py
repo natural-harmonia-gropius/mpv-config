@@ -1,6 +1,5 @@
 import vapoursynth as vs
-
-from portable_config.filters.shared import to_yuv420
+from shared import to_yuv420
 
 
 def svpflow_nvof(clip, fps, super_param="{ gpu: 1 }"):

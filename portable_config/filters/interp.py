@@ -1,10 +1,17 @@
+import os
+import sys
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(current_dir)
+
+
 import math
 
-from portable_config.filters.mvtools import mvtools
-from portable_config.filters.rife import rife
-from portable_config.filters.shared import fit_scale_down
-from portable_config.filters.svpflow import svpflow
-from portable_config.filters.svpflow_nvof import svpflow_nvof
+from mvtools import mvtools
+from rife import rife
+from shared import fit_scale_down
+from svpflow import svpflow
+from svpflow_nvof import svpflow_nvof
 
 CLIP = video_in  # 原始帧
 W = video_in_dw  # 原始帧宽度

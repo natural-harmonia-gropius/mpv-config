@@ -2,6 +2,8 @@ import os
 
 import vapoursynth as vs
 
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
 
 def rife(
     clip,
@@ -23,8 +25,7 @@ def rife(
     clip = clip.rife.RIFE(
         gpu_id=gpu_id,
         gpu_thread=gpu_thread,
-        model_path=f"{os.path.dirname(
-            os.path.abspath(__file__))}/{model_path}",
+        model_path=f"{current_dir}/{model_path}",
         factor_num=num,
         factor_den=den,
         tta=tta,

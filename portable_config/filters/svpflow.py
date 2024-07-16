@@ -1,6 +1,5 @@
 import vapoursynth as vs
-
-from portable_config.filters.shared import to_yuv420
+from shared import to_yuv420
 
 
 def svpflow(
@@ -32,6 +31,5 @@ def svpflow(
     svp_param = svp_super["clip"], svp_super["data"]
     svp_analyse = vs.core.svp1.Analyse(*svp_param, clip, analyse_param)
     svp_param = *svp_param, svp_analyse["clip"], svp_analyse["data"]
-    clip = vs.core.svp2.SmoothFps(
-        clip, *svp_param, flow_param, src=clip, fps=fps)
+    clip = vs.core.svp2.SmoothFps(clip, *svp_param, flow_param, src=clip, fps=fps)
     return clip, round(ofps, 3)

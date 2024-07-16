@@ -12,7 +12,7 @@
 doc
 installer
 mpv
-vapoursynth64
+vapoursynth
 __pycache__
 
 portable_config/cache
