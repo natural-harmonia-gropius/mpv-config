@@ -10,7 +10,7 @@ def rife(
     fps,
     num=2,
     den=1,
-    model_path="models/rife-v4.17_ensembleFalse",
+    model_path="models/rife-v4.18_ensembleFalse",
     tta=False,
     uhd=False,
     sc_threshold=0.2,
