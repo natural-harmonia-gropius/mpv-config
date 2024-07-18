@@ -33,8 +33,7 @@ Personal portable_config for MPV player.
 - [HomeOfVapourSynthEvolution/VapourSynth-VMAF](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-VMAF/releases)
 - [vapoursynth/vs-miscfilters-obsolete](https://github.com/vapoursynth/vs-miscfilters-obsolete/releases)
 - [dubhater/vapoursynth-mvtools](https://github.com/dubhater/vapoursynth-mvtools/releases)
-- [SVPflow](https://www.svp-team.com/get/) (v4.3.0.165+ require SVP Manager)
-- Put dlls in `vapoursynth64/plugins`.
+- [SVPflow](https://www.svp-team.com/get/)
 
 ### ffmpeg (optional)
 
