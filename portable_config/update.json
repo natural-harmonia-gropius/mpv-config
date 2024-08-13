@@ -5,10 +5,6 @@
       {
         "source": "TOOLS/lua/autocrop.lua",
         "target": "portable_config/scripts/autocrop.lua"
-      },
-      {
-        "source": "TOOLS/lua/autoload.lua",
-        "target": "portable_config/scripts/autoload.lua"
       }
     ],
     "repository": "mpv-player/mpv"
