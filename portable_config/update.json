@@ -112,7 +112,7 @@
     "repository": "igv/FSRCNN-TensorFlow"
   },
   {
-    "branch": "master",
+    "branch": "main",
     "files": [
       {
         "source": "CfL_Prediction.glsl",
