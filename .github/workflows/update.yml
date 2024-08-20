@@ -16,87 +16,116 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const {
-              readFileSync,
-              writeFileSync,
-              mkdirSync,
-              createWriteStream,
-            } = require("fs");
-            const { dirname } = require("path");
+            const { createWriteStream } = require("fs");
+            const { readFile, mkdir } = require("fs/promises");
+            const path = require("path");
             const { Readable } = require("stream");
             const { finished } = require("stream/promises");
 
-            const updateListJson = "portable_config/update.json";
+            const updateListPath = "portable_config/update.json";
 
-            async function prepareFolder(repository, branch, source, target) {
+            async function getUpdateList(path) {
+              const json = await readFile(path, "utf8");
+              const data = JSON.parse(json);
+              return data;
+            }
+
+            async function getFlattedList(list) {
               const results = [];
-              const url = `https://api.github.com/repos/${repository}/contents/${source}`;
-
-              const response = await fetch(url);
-              const files = await response.json();
-              for (const file of files) {
-                const targetPath = `${target}${file.path.replace(source, "")}`;
-
-                if (file.type === "dir") {
-                  results.push(
-                    ...(await prepareFolder(repository, branch, file.path, targetPath))
-                  );
-                  continue;
+              for (const { repository, branch, files } of list) {
+                for (const { source, target } of files) {
+                  results.push({ repository, branch, source, target });
                 }
-
-                results.push({ source: file.download_url, target: targetPath });
               }
-
               return results;
             }
 
-            async function prepare(repository, branch, source, target) {
-              const isFolder = source.at(-1) === "/" && target.at(-1) === "/";
-              if (isFolder) {
-                await io.rmRF(target);
-                return await prepareFolder(repository, branch, source, target);
+            async function getDownloadList(list) {
+              const results = [];
+              for (const { repository, branch, source, target } of list) {
+                const isDir = source.endsWith("/") && target.endsWith("/");
+                if (isDir) {
+                  const tasks = await resolveDir(repository, branch, source, target);
+                  results.push(...tasks);
+                } else {
+                  const sourceUrl = await resolveSourceUrl(repository, branch, source);
+                  const task = { source: sourceUrl, target };
+                  results.push(task);
+                }
               }
+              return results;
+            }
 
+            async function resolveDir(repo, branch, directory, outputDir) {
+              const url = `https://api.github.com/repos/${repo}/contents/${directory}`;
+              const response = await fetch(url, {
+                headers: {
+                  Accept: "application/vnd.github.v3+json",
+                  "User-Agent": "github-script-action",
+                },
+              });
+              const items = await response.json();
+
+              const downloadTasks = [];
+              for (const item of items) {
+                const outputPath = path.join(outputDir, item.path.replace(directory, ""));
+                if (item.type === "dir") {
+                  const tasks = await resolveDir(repo, branch, item.path, outputPath);
+                  downloadTasks.push(...tasks);
+                } else {
+                  const task = { source: item.download_url, target: outputPath };
+                  downloadTasks.push(task);
+                }
+              }
+              return downloadTasks;
+            }
+
+            async function resolveSourceUrl(repo, branch, source) {
               if (branch === "@gist") {
-                source = `https://gist.githubusercontent.com/${repository}/raw/${source}`;
-              } else if (branch === "@releases") {
-                source = `https://github.com/${repository}/releases/latest/download/${source}`;
-              } else {
-                source = `https://raw.githubusercontent.com/${repository}/${branch}/${source}`;
+                return `https://gist.github.com/${repo}/raw/${source}`;
               }
-              return [{ source, target }];
+              if (branch === "@releases") {
+                return `https://github.com/${repo}/releases/latest/download/${source}`;
+              }
+              return `https://github.com/${repo}/raw/${branch}/${source}`;
             }
 
-            async function download(source, target) {
-              const response = await fetch(source);
-              if (response.status >= 400) {
-                core.warning(`url: ${url} returns ${response.status}`);
-                return;
-              }
-
-              mkdirSync(dirname(target), { recursive: true });
-              writeFileSync(target, "");
-              const stream = createWriteStream(target);
-              await finished(Readable.fromWeb(response.body).pipe(stream));
-            }
-
-            function* getDownloadList(updateList) {
-              for (const { repository, branch, files } of updateList) {
-                for (const { source, target } of files) {
-                  yield prepare(repository, branch, source, target);
+            async function removeDir(updateList) {
+              for (const { source, target } of updateList) {
+                const isDir = source.endsWith("/") && target.endsWith("/");
+                if (isDir) {
+                  await io.rmRF(target);
                 }
               }
             }
 
-            await Promise.all(
-              (
-                await Promise.all([
-                  ...getDownloadList(JSON.parse(readFileSync(updateListJson))),
-                ])
-              )
-                .flat()
-                .map(({ source, target }) => download(source, target))
-            );
+            async function download(sourceUrl, destinationPath) {
+              const response = await fetch(sourceUrl, {
+                headers: {
+                  Accept: "application/octet-stream",
+                  "User-Agent": "github-script-action",
+                },
+              });
+              await mkdir(path.dirname(destinationPath), { recursive: true });
+              const writeStream = createWriteStream(destinationPath);
+              await finished(Readable.fromWeb(response.body).pipe(writeStream));
+            }
+
+            async function downloadList(list) {
+              for (const { source, target } of list) {
+                await download(source, target);
+              }
+            }
+
+            async function main() {
+              const update = await getUpdateList(updateListPath);
+              const flatted = await getFlattedList(update);
+              const download = await getDownloadList(flatted);
+              await removeDir(flatted);
+              await downloadList(download);
+            }
+
+            main();
 
       - name: Commit Changes
         uses: stefanzweifel/git-auto-commit-action@v5
