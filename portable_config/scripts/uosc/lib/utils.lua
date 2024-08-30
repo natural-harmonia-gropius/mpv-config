@@ -4,6 +4,7 @@
 ---@alias Rect {ax: number, ay: number, bx: number, by: number, window_drag?: boolean}
 ---@alias Circle {point: Point, r: number, window_drag?: boolean}
 ---@alias Hitbox Rect|Circle
+---@alias ComplexBindingInfo {event: 'down' | 'repeat' | 'up' | 'press'; is_mouse: boolean; canceled: boolean; key_name?: string; key_text?: string;}
 
 --- In place sorting of filenames
 ---@param filenames string[]
@@ -223,11 +224,6 @@ function get_ray_to_rectangle_distance(ax, ay, bx, by, rect)
 	return closest
 end
 
--- Call function with args if it exists
-function call_maybe(fn, ...)
-	if type(fn) == 'function' then fn(...) end
-end
-
 -- Extracts the properties used by property expansion of that string.
 ---@param str string
 ---@param res { [string] : boolean } | nil
@@ -414,11 +410,6 @@ function execute_command(command)
 	return false
 end
 
----@return string
-function get_default_directory()
-	return mp.command_native({'expand-path', options.default_directory})
-end
-
 -- Serializes path into its semantic parts.
 ---@param path string
 ---@return nil|{path: string; is_root: boolean; dirname?: string; basename: string; filename: string; extension?: string;}
@@ -443,18 +434,17 @@ end
 -- Reads items in directory and splits it into directories and files tables.
 ---@param path string
 ---@param opts? {types?: string[], hidden?: boolean}
----@return string[]|nil files
----@return string[]|nil directories
+---@return string[] files
+---@return string[] directories
+---@return string|nil error
 function read_directory(path, opts)
 	opts = opts or {}
 	local items, error = utils.readdir(path, 'all')
+	local files, directories = {}, {}
 
 	if not items then
-		msg.error('Reading files from "' .. path .. '" failed: ' .. error)
-		return nil, nil
+		return files, directories, 'Reading directory "' .. path .. '" failed. Error: ' .. utils.to_string(error)
 	end
-
-	local files, directories = {}, {}
 
 	for _, item in ipairs(items) do
 		if item ~= '.' and item ~= '..' and (opts.hidden or item:sub(1, 1) ~= '.') then
@@ -483,8 +473,8 @@ function get_adjacent_files(file_path, opts)
 	opts = opts or {}
 	local current_meta = serialize_path(file_path)
 	if not current_meta then return end
-	local files = read_directory(current_meta.dirname, {hidden = opts.hidden})
-	if not files then return end
+	local files, _dirs, error = read_directory(current_meta.dirname, {hidden = opts.hidden})
+	if error then msg.error(error) return end
 	sort_strings(files)
 	local current_file_index
 	local paths = {}
@@ -871,7 +861,7 @@ function render()
 	if state.is_idle and not Manager.disabled.idle_indicator then
 		local smaller_side = math.min(display.width, display.height)
 		local center_x, center_y, icon_size = display.width / 2, display.height / 2, math.max(smaller_side / 4, 56)
-		ass:icon(center_x, center_y - icon_size / 4, icon_size, '', {
+		ass:icon(center_x, center_y - icon_size / 4, icon_size, 'not_started', {
 			color = fg, opacity = config.opacity.idle_indicator,
 		})
 		ass:txt(center_x, center_y + icon_size / 2, 8, t('Drop files or URLs to play here'), {
@@ -883,7 +873,7 @@ function render()
 	if state.is_audio and not state.has_image and not Manager.disabled.audio_indicator
 		and not (state.pause and options.pause_indicator == 'static') then
 		local smaller_side = math.min(display.width, display.height)
-		ass:icon(display.width / 2, display.height / 2, smaller_side / 4, '', {
+		ass:icon(display.width / 2, display.height / 2, smaller_side / 4, 'graphic_eq', {
 			color = fg, opacity = config.opacity.audio_indicator,
 		})
 	end

@@ -68,11 +68,11 @@ function PauseIndicator:render()
 	size = size + size * (1 - self.opacity)
 
 	if self.paused then
-		ass:icon(display.width / 2, display.height / 2, size, '',
+		ass:icon(display.width / 2, display.height / 2, size, 'pause',
 			{border = 1, opacity = self.base_icon_opacity * self.opacity}
 		)
 	else
-		ass:icon(display.width / 2, display.height / 2, size * 1.2, '',
+		ass:icon(display.width / 2, display.height / 2, size * 1.2, 'play_arrow',
 			{border = 1, opacity = self.base_icon_opacity * self.opacity}
 		)
 	end

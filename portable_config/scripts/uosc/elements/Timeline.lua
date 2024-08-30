@@ -185,8 +185,12 @@ function Timeline:render()
 			cursor:once('primary_up', function() self:handle_cursor_up() end)
 		end)
 		if options.timeline_step ~= 0 then
-			cursor:zone('wheel_down', self, function() mp.commandv('seek', -options.timeline_step) end)
-			cursor:zone('wheel_up', self, function() mp.commandv('seek', options.timeline_step) end)
+			cursor:zone('wheel_down', self, function()
+				mp.commandv('seek', -config.timeline_step, config.timeline_step_flag)
+			end)
+			cursor:zone('wheel_up', self, function()
+				mp.commandv('seek', config.timeline_step, config.timeline_step_flag)
+			end)
 		end
 	end
 
@@ -276,21 +280,17 @@ function Timeline:render()
 	end
 
 	-- Chapters
-	local hovered_chapter = nil
 	if (config.opacity.chapters > 0 and (#state.chapters > 0 or state.ab_loop_a or state.ab_loop_b)) then
-		local diamond_radius = math.min(math.max(1, foreground_size * 0.8), self.chapter_size)
-		local diamond_radius_hovered = diamond_radius * 2
-		local diamond_border = options.timeline_border and math.max(options.timeline_border, 1) or 1
-
 		if size ~= nil then
-			local opts = { color = config.color.foreground }
-			local half_width = math.max(4 - foreground_size, 1) / 2
+			local border_width = options.timeline_border and math.max(options.timeline_border, 1) or 1
+			local opts = {color = config.color.foreground}
 			local ay, by = fay, fay + size
-			local function draw_chapter(time)
+			local function draw_chapter(time, width)
 				if time < 1 then
 					return
 				end
 				local x = t2x(time)
+				local half_width = (width or border_width) / 2
 				local ax, bx = round(x - half_width), round(x + half_width)
 				local cx, dx = math.max(ax, fax), math.min(bx, fbx)
 				if ax < fax then --left of progress
@@ -304,11 +304,22 @@ function Timeline:render()
 					ass:rect(cx, ay, dx, by, opts)
 					opts.color = config.color.foreground
 				end
+				return {ax = ax, ay = ay, bx = bx, by = by}
 			end
 
 			if #state.chapters > 0 then
 				for i, chapter in ipairs(state.chapters) do
-					if chapter ~= hovered_chapter then draw_chapter(chapter.time) end
+					local hovered = math.abs(cursor.x - t2x(chapter.time)) < border_width * 8
+					if hovered then
+						local rect = draw_chapter(chapter.time, border_width * 16)
+						if visibility > 0 and rect then
+							cursor:zone('primary_click', rect, function()
+								mp.commandv('seek', chapter.time, 'absolute+exact')
+							end)
+						end
+					else
+						draw_chapter(chapter.time)
+					end
 				end
 			end
 
@@ -320,17 +331,23 @@ function Timeline:render()
 			---@param kind 'a'|'b'
 			local function draw_ab_indicator(time, kind)
 				local x = t2x(time)
+				local y = fby - foreground_size / 2
+				local d = ({ a = -1, b = 1 })[kind]
 				ass:new_event()
 				ass:append(string.format(
 					'{\\pos(0,0)\\rDefault\\an7\\blur0\\yshad0.01\\bord%f\\1c&H%s\\3c&H%s\\4c&H%s\\1a&H%X&\\3a&H00&\\4a&H00&}',
-					diamond_border, fg, bg, bg, opacity_to_alpha(config.opacity.chapters)
+					border_width, fg, bg, bg, opacity_to_alpha(config.opacity.chapters)
 				))
 				ass:draw_start()
-				ass:move_to(x, fby - ab_radius)
-				if kind == 'b' then ass:line_to(x + 3, fby - ab_radius) end
-				ass:line_to(x + (kind == 'a' and 0 or ab_radius), fby)
-				ass:line_to(x - (kind == 'b' and 0 or ab_radius), fby)
-				if kind == 'a' then ass:line_to(x - 3, fby - ab_radius) end
+				ass:move_to(x + d * 0.000 * ab_radius, y + -1.000 * ab_radius)
+				ass:line_to(x + d * 0.383 * ab_radius, y + -0.924 * ab_radius)
+				ass:line_to(x + d * 0.707 * ab_radius, y + -0.707 * ab_radius)
+				ass:line_to(x + d * 0.924 * ab_radius, y + -0.383 * ab_radius)
+				ass:line_to(x + d * 1.000 * ab_radius, y +  0.000 * ab_radius)
+				ass:line_to(x + d * 0.924 * ab_radius, y +  0.383 * ab_radius)
+				ass:line_to(x + d * 0.707 * ab_radius, y +  0.707 * ab_radius)
+				ass:line_to(x + d * 0.383 * ab_radius, y +  0.924 * ab_radius)
+				ass:line_to(x + d * 0.000 * ab_radius, y +  1.000 * ab_radius)
 				ass:draw_stop()
 			end
 
