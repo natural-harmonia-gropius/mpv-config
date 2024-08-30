@@ -33,6 +33,10 @@
     "branch": "master",
     "files": [
       {
+        "source": "src/fonts/uosc_icons.ttf",
+        "target": "portable_config/fonts/uosc_icons.ttf"
+      },
+      {
         "source": "src/fonts/uosc_textures.ttf",
         "target": "portable_config/fonts/uosc_textures.ttf"
       },
