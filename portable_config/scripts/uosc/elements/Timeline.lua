@@ -309,7 +309,8 @@ function Timeline:render()
 
 			if #state.chapters > 0 then
 				for i, chapter in ipairs(state.chapters) do
-					local hovered = math.abs(cursor.x - t2x(chapter.time)) < border_width * 8
+					local hovered = cursor.y > fay and
+						math.abs(cursor.x - t2x(chapter.time)) < border_width * 8
 					if hovered then
 						local rect = draw_chapter(chapter.time, border_width * 16)
 						if visibility > 0 and rect then
@@ -331,7 +332,7 @@ function Timeline:render()
 			---@param kind 'a'|'b'
 			local function draw_ab_indicator(time, kind)
 				local x = t2x(time)
-				local y = fby - foreground_size / 2
+				local y = fay + foreground_size / 2
 				local d = ({ a = -1, b = 1 })[kind]
 				ass:new_event()
 				ass:append(string.format(

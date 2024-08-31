@@ -245,16 +245,16 @@ function Volume:render()
 	local width_half = (mute_rect.bx - mute_rect.ax) / 2
 	local height_half = (mute_rect.by - mute_rect.ay) / 2
 	local icon_size = math.min(width_half, height_half) * 1.5
-	local icon_name, horizontal_shift = 'volume_up', 0
+	local icon_name, icon_back, horizontal_shift = 'volume_up', 'volume_up', 0
 	if state.mute then
-		icon_name = 'volume_off'
+		icon_name, icon_back = 'volume_off', 'volume_off'
 	elseif state.volume <= 0 then
 		icon_name, horizontal_shift = 'volume_mute', height_half * 0.25
 	elseif state.volume <= 60 then
 		icon_name, horizontal_shift = 'volume_down', height_half * 0.125
 	end
 	local underlay_opacity = {main = visibility * 0.3, border = visibility}
-	ass:icon(mute_rect.ax + width_half, mute_rect.ay + height_half, icon_size, 'volume_up',
+	ass:icon(mute_rect.ax + width_half, mute_rect.ay + height_half, icon_size, icon_back,
 		{border = options.text_border * state.scale, opacity = underlay_opacity, align = 5}
 	)
 	ass:icon(mute_rect.ax + width_half - horizontal_shift, mute_rect.ay + height_half, icon_size, icon_name,
