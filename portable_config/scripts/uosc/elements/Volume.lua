@@ -249,9 +249,11 @@ function Volume:render()
 	if state.mute then
 		icon_name, icon_back = 'volume_off', 'volume_off'
 	elseif state.volume <= 0 then
-		icon_name, horizontal_shift = 'volume_mute', height_half * 0.25
+		icon_name, horizontal_shift = 'volume_mute', height_half * 0.23
 	elseif state.volume <= 60 then
-		icon_name, horizontal_shift = 'volume_down', height_half * 0.125
+		icon_name, horizontal_shift = 'volume_down', height_half * 0.12
+	elseif state.volume > 100 then
+		icon_name, icon_back = 'brand_awareness', 'brand_awareness'
 	end
 	local underlay_opacity = {main = visibility * 0.3, border = visibility}
 	ass:icon(mute_rect.ax + width_half, mute_rect.ay + height_half, icon_size, icon_back,

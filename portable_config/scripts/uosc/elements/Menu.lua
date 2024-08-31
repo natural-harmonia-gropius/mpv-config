@@ -1241,7 +1241,7 @@ function Menu:render()
 			end
 			local opacity = (is_hovered and 1 or 0.5) * menu_opacity
 			local x, y = menu_rect.ax + self.padding, menu_rect.by + self.font_size
-			ass:icon(x + self.font_size / 2, y, self.font_size, is_hovered and 'help' or 'help_outline', {
+			ass:icon(x + self.font_size / 2, y, self.font_size, 'help', {
 				color = fg, border = state.scale, border_color = bg, opacity = opacity,
 			})
 			if is_hovered then
