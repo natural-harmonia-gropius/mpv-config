@@ -44,7 +44,7 @@ function Controls:init_options()
 		['video'] = 'command:video_library:script-binding uosc/video#video>1?' .. t('Video'),
 		['playlist'] = 'command:list_alt:script-binding uosc/playlist?' .. t('Playlist'),
 		['chapters'] = 'command:collections_bookmark:script-binding uosc/chapters#chapters>0?' .. t('Chapters'),
-		['editions'] = 'command:bookmarks:script-binding uosc/editions#editions>1?' .. t('Editions'),
+		['editions'] = 'command:library_books:script-binding uosc/editions#editions>1?' .. t('Editions'),
 		['stream-quality'] = 'command:high_quality:script-binding uosc/stream-quality?' .. t('Stream quality'),
 		['open-file'] = 'command:list_alt_add:script-binding uosc/open-file?' .. t('Open file'),
 		['items'] = 'command:list_alt:script-binding uosc/items?' .. t('Playlist/Files'),

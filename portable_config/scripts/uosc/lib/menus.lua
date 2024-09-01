@@ -78,8 +78,12 @@ function create_self_updating_menu_opener(opts)
 		---@type MenuAction[]
 		local actions = opts.actions or {}
 		if opts.on_move then
-			actions[#actions + 1] = {name = 'move_up', icon = 'arrow_upward', label = t('Move up') .. ' (ctrl+up)'}
-			actions[#actions + 1] = {name = 'move_down', icon = 'arrow_downward', label = t('Move down' .. ' (ctrl+down)')}
+			actions[#actions + 1] = {
+				name = 'move_up', icon = 'arrow_upward', label = t('Move up') .. ' (ctrl+up/pgup/home)'
+			}
+			actions[#actions + 1] = {
+				name = 'move_down', icon = 'arrow_downward', label = t('Move down') .. ' (ctrl+down/pgdwn/end)'
+			}
 		end
 		if opts.on_remove or opts.on_delete then
 			local label = (opts.on_remove and t('Remove') or t('Delete')) .. ' (del)'
@@ -121,7 +125,7 @@ function create_self_updating_menu_opener(opts)
 			if event.type == 'activate' then
 				if (event.action == 'move_up' or event.action == 'move_down') and opts.on_move then
 					local to_index = event.index + (event.action == 'move_up' and -1 or 1)
-					if to_index > 1 and to_index <= #menu.current.items then
+					if to_index >= 1 and to_index <= #menu.current.items then
 						opts.on_move({
 							type = 'move',
 							from_index = event.index,
@@ -138,11 +142,12 @@ function create_self_updating_menu_opener(opts)
 					if not event.modifiers then menu:close() end
 				end
 			elseif event.type == 'key' then
+				local item = event.selected_item
 				if event.id == 'enter' then
 					menu:close()
-				elseif event.key == 'del' then
-					if itable_has({'', 'ctrl'}, event.modifiers) then
-						remove_or_delete(event.index, event.value, event.menu_id, event.modifiers)
+				elseif event.key == 'del' and item then
+					if itable_has({nil, 'ctrl'}, event.modifiers) then
+						remove_or_delete(item.index, item.value, event.menu_id, event.modifiers)
 					end
 				end
 			elseif event.type == 'paste' and opts.on_paste then
@@ -740,11 +745,11 @@ function open_open_file_menu()
 			allowed_types = config.types.media,
 			active_path = active_file,
 			directory_actions = {
-				{name = 'add_to_playlist', icon = 'playlist_add', label = 'Add to playlist (shift)'},
-				{name = 'force_open', icon = 'folder_open', label = 'Open in mpv (ctrl)'},
+				{name = 'add_to_playlist', icon = 'playlist_add', label = t('Add to playlist') .. ' (shift)'},
+				{name = 'force_open', icon = 'folder_open', label = t('Open in mpv') .. ' (ctrl)'},
 			},
 			file_actions = {
-				{name = 'add_to_playlist', icon = 'playlist_add', label = 'Add to playlist (shift)'},
+				{name = 'add_to_playlist', icon = 'playlist_add', label = t('Add to playlist') .. ' (shift)'},
 			},
 			keep_open = true,
 			on_close = function() mp.unregister_event(handle_file_loaded) end,
