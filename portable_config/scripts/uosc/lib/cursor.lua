@@ -4,6 +4,7 @@ local cursor = {
 	x = math.huge,
 	y = math.huge,
 	hidden = true,
+	distance = 0, -- Distance traveled during current move. Reset by `cursor.distance_reset_timer`.
 	hover_raw = false,
 	-- Event handlers that are only fired on zones defined during render loop.
 	---@type {event: string, hitbox: Hitbox; handler: CursorEventHandler}[]
@@ -69,6 +70,12 @@ cursor.autohide_timer:kill()
 mp.observe_property('cursor-autohide', 'number', function(_, val)
 	cursor.autohide_timer.timeout = (val or 1000) / 1000
 end)
+
+cursor.distance_reset_timer = mp.add_timeout(0.2, function()
+	cursor.distance = 0
+	request_render()
+end)
+cursor.distance_reset_timer:kill()
 
 -- Called at the beginning of each render
 function cursor:clear_zones()
@@ -183,7 +190,7 @@ function cursor:trigger(event, shortcut)
 		if forward_name then
 			-- Forward events if there was no handler.
 			local active = find_active_keybindings(forward_name)
-			if active then
+			if active and active.cmd then
 				local is_wheel = event:find('wheel', 1, true)
 				local is_up = event:sub(-3) == '_up'
 				if active.owner then
@@ -259,7 +266,7 @@ function cursor:_find_history_sample()
 	return self.history:tail()
 end
 
--- Returns a table with current velocities in in pixels per second.
+-- Returns the current velocity vector in pixels per second.
 ---@return Point
 function cursor:get_velocity()
 	local snap = self:_find_history_sample()
@@ -321,6 +328,16 @@ function cursor:move(x, y)
 
 				self.hidden = false
 				Elements:trigger('global_mouse_enter')
+			end
+
+			-- Update current move travel distance
+			-- `mp.get_time() - last.time < 0.5` check is there to ignore first event after long inactivity to
+			-- filter out big jumps due to window being repositioned/rescaled (e.g. opening a different file).
+			local last = self.last_event.move
+			if last and last.x < math.huge and last.y < math.huge and mp.get_time() - last.time < 0.5 then
+				self.distance = self.distance + get_point_to_point_proximity(cursor, last)
+				cursor.distance_reset_timer:kill()
+				cursor.distance_reset_timer:resume()
 			end
 
 			Elements:update_proximities()
