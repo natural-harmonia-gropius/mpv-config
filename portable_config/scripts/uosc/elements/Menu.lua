@@ -323,14 +323,16 @@ function Menu:update_dimensions()
 	-- and dumb titles with no search inputs. It could use a refactor.
 	local margin = round(self.item_height / 2)
 	local external_buttons_reserve = display.width / self.item_height > 14 and self.scroll_step * 6 - margin * 2 or 0
-	local width_available, height_available = display.width - margin * 2 - external_buttons_reserve, display.height - margin * 2
+	local width_available = display.width - margin * 2 - external_buttons_reserve
+	local height_available = display.height - margin * 2
 	local min_width = math.min(self.min_width, width_available)
 
 	for _, menu in ipairs(self.all) do
 		local width = math.max(menu.search and menu.search.max_width or 0, menu.max_width)
 		menu.width = round(clamp(min_width, width, width_available))
 		local title_height = (menu.is_root and menu.title or menu.search) and self.scroll_step + self.padding or 0
-		local max_height = height_available - title_height - (menu.footnote and self.font_size * 1.5 or 0)
+		local footnote_height = self.font_size * 1.5
+		local max_height = height_available - title_height - footnote_height
 		local content_height = self.scroll_step * #menu.items
 		menu.height = math.min(content_height - self.item_spacing, max_height)
 		menu.top = clamp(
@@ -994,19 +996,17 @@ end
 function Menu:search_enable_key_bindings()
 	if #self.key_bindings_search ~= 0 then return end
 	local flags = {repeatable = true, complex = true}
-	local add_key_binding = self.type_to_search and self.add_key_binding or self.search_add_key_binding
-	add_key_binding(self, 'any_unicode', 'menu-search', self:create_key_handler('search_text_input'), flags)
+	self:search_add_key_binding('any_unicode', 'menu-search', self:create_key_handler('search_text_input'), flags)
 	-- KP0 to KP9 and KP_DEC are not included in any_unicode
 	-- despite typically producing characters, they don't have a info.key_text
-	add_key_binding(self, 'kp_dec', 'menu-search-kp-dec', self:create_key_handler('search_text_input'), flags)
+	self:search_add_key_binding('kp_dec', 'menu-search-kp-dec', self:create_key_handler('search_text_input'), flags)
 	for i = 0, 9 do
-		add_key_binding(self, 'kp' .. i, 'menu-search-kp' .. i, self:create_key_handler('search_text_input'), flags)
+		self:search_add_key_binding('kp' .. i, 'menu-search-kp' .. i, self:create_key_handler('search_text_input'), flags)
 	end
 end
 
 function Menu:search_ensure_key_bindings()
-	if self.type_to_search then return end
-	if self.current.search then
+	if self.current.search or (self.type_to_search and self.current.search_style ~= 'disabled') then
 		self:search_enable_key_bindings()
 	else
 		self:search_disable_key_bindings()
@@ -1030,7 +1030,10 @@ end
 
 function Menu:enable_key_bindings()
 	-- `+` at the end enables `repeatable` flag
-	local standalone_keys = {'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11', 'f12', {'v', 'ctrl'}}
+	local standalone_keys = {
+		'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11', 'f12', '/',
+		{'f', 'ctrl'}, {'v', 'ctrl'}, {'c', 'ctrl'},
+	}
 	local modifiable_keys = {'up+', 'down+', 'left', 'right', 'enter', 'kp_enter', 'bs', 'tab', 'esc', 'pgup+',
 		'pgdwn+', 'home', 'end', 'del'}
 	local modifiers = {nil, 'alt', 'alt+ctrl', 'alt+shift', 'alt+ctrl+shift', 'ctrl', 'ctrl+shift', 'shift'}
@@ -1062,18 +1065,15 @@ function Menu:enable_key_bindings()
 		end
 	end
 
-	if self.type_to_search then
-		self:search_enable_key_bindings()
-	else
-		self:add_key_binding('/', 'menu-search1', self:create_key_handler('search_start'))
-		self:add_key_binding('ctrl+f', 'menu-search2', self:create_key_handler('search_start'))
-	end
+	self:search_ensure_key_bindings()
 end
 
 -- Handles all key and mouse button shortcuts, except unicode inputs.
 ---@param shortcut Shortcut
 ---@param info ComplexBindingInfo
 function Menu:handle_shortcut(shortcut, info)
+	if not self:is_alive() then return end
+
 	self.mouse_nav = info.is_mouse
 	local menu, id, key, modifiers = self.current, shortcut.id, shortcut.key, shortcut.modifiers
 	local selected_index = menu.selected_index
@@ -1111,6 +1111,8 @@ function Menu:handle_shortcut(shortcut, info)
 		self:move_selected_item_by(-math.huge)
 	elseif id == 'ctrl+end' then
 		self:move_selected_item_by(math.huge)
+	elseif id == '/' or id == 'ctrl+f' then
+		self:search_start()
 	elseif key == 'esc' then
 		if menu.search and menu.search_style ~= 'palette' then
 			self:search_cancel()

@@ -1,5 +1,5 @@
 --[[ uosc | https://github.com/tomasklaen/uosc ]]
-local uosc_version = '5.5.0'
+local uosc_version = '5.6.0'
 
 mp.commandv('script-message', 'uosc-version', uosc_version)
 
@@ -452,8 +452,9 @@ function update_fullormaxed()
 end
 
 function update_duration()
-	state.duration = state._duration and ((state.rebase_start_time == false and state.start_time)
+	local duration = state._duration and ((state.rebase_start_time == false and state.start_time)
 		and (state._duration + state.start_time) or state._duration)
+	set_state('duration', duration)
 	update_human_times()
 end
 
@@ -948,6 +949,13 @@ bind_command('playlist', create_self_updating_menu_opener({
 	end,
 	on_activate = function(event) mp.commandv('set', 'playlist-pos-1', tostring(event.value)) end,
 	on_paste = function(event) mp.commandv('loadfile', tostring(event.value), 'append') end,
+	on_key = function(event)
+		if event.id == 'ctrl+c' and event.selected_item then
+			local payload = mp.get_property_native('playlist/' .. (event.selected_item.value - 1) .. '/filename')
+			set_clipboard(payload)
+			mp.commandv('show-text', t('Copied to clipboard') .. ': ' .. payload, 3000)
+		end
+	end,
 	on_move = function(event)
 		local from, to = event.from_index, event.to_index
 		mp.commandv('playlist-move', tostring(from - 1), tostring(to - (to > from and 0 or 1)))
@@ -1075,6 +1083,27 @@ bind_command('audio-device', create_self_updating_menu_opener({
 	end,
 	on_activate = function(event) mp.commandv('set', 'audio-device', event.value) end,
 }))
+bind_command('paste', function()
+	local has_playlist = mp.get_property_native('playlist-count') > 1
+	mp.commandv('script-binding', 'uosc/paste-to-' .. (has_playlist and 'playlist' or 'open'))
+end)
+bind_command('paste-to-open', function()
+	local payload = get_clipboard()
+	if payload then mp.commandv('loadfile', payload) end
+end)
+bind_command('paste-to-playlist', function()
+	-- If there's no file loaded, we use `paste-to-open`, which both opens and adds to playlist
+	if state.is_idle then
+		mp.commandv('script-binding', 'uosc/paste-to-open')
+	else
+		local payload = get_clipboard()
+		if payload then
+			mp.commandv('loadfile', payload, 'append')
+			mp.commandv('show-text', t('Added to playlist') .. ': ' .. payload, 3000)
+		end
+	end
+end)
+bind_command('copy-to-clipboard', function() set_clipboard(state.path) end)
 bind_command('open-config-directory', function()
 	local config_path = mp.command_native({'expand-path', '~~/mpv.conf'})
 	local config = serialize_path(normalize_path(config_path))
