@@ -1,4 +1,4 @@
-import vapoursynth as vs
+from vapoursynth import core
 
 
 def mvtools(
@@ -36,11 +36,11 @@ def mvtools(
             "mask": 2,
         }
 
-    clip = vs.core.std.AssumeFPS(clip, fpsnum=fps * 1e6, fpsden=1e6)
-    mv_super = vs.core.mv.Super(clip, **super_param)
-    mv_backward = vs.core.mv.Analyse(mv_super, **analyse_param, isb=True)
-    mv_forward = vs.core.mv.Analyse(mv_super, **analyse_param, isb=False)
-    clip = vs.core.mv.FlowFPS(
+    clip = core.std.AssumeFPS(clip, fpsnum=fps * 1e6, fpsden=1e6)
+    mv_super = core.mv.Super(clip, **super_param)
+    mv_backward = core.mv.Analyse(mv_super, **analyse_param, isb=True)
+    mv_forward = core.mv.Analyse(mv_super, **analyse_param, isb=False)
+    clip = core.mv.FlowFPS(
         clip,
         mv_super,
         mv_backward,

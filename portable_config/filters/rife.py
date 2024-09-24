@@ -1,38 +1,26 @@
-import os
+from tempfile import gettempdir
 
-import vapoursynth as vs
+from vapoursynth import MATRIX_BT709, RGBH
+from vsmlrt import RIFE, BackendV2, RIFEModel
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
 
-
-def rife(
-    clip,
-    fps,
-    num=2,
-    den=1,
-    model_path="models/rife-v4.22_ensembleFalse",
-    tta=False,
-    uhd=False,
-    sc_threshold=0.2,
-    skip_threshold=60.0,
-    gpu_id=0,
-    gpu_thread=2,
-):
+def rife(clip, fps):
     pixel_format = clip.format.id
-    if sc_threshold:
-        clip = clip.misc.SCDetect(threshold=sc_threshold)
-    clip = clip.resize.Bicubic(format=vs.RGBS, matrix_in=vs.MATRIX_BT709)
-    clip = clip.rife.RIFE(
-        gpu_id=gpu_id,
-        gpu_thread=gpu_thread,
-        model_path=f"{current_dir}/{model_path}",
-        factor_num=num,
-        factor_den=den,
-        tta=tta,
-        uhd=uhd,
-        sc=bool(sc_threshold),
-        skip=bool(skip_threshold),
-        skip_threshold=skip_threshold,
+    clip = clip.misc.SCDetect(threshold=0.2)
+    clip = clip.resize.Bilinear(format=RGBH, matrix_in=MATRIX_BT709)
+    clip = RIFE(
+        clip,
+        model=RIFEModel.v4_26,
+        ensemble=False,
+        backend=BackendV2.TRT(
+            fp16=True,
+            num_streams=2,
+            use_cuda_graph=True,
+            output_format=1,
+            engine_folder=gettempdir(),
+        ),
+        video_player=True,
+        _implementation=2,
     )
-    clip = clip.resize.Bicubic(format=pixel_format, matrix=vs.MATRIX_BT709)
-    return clip, fps * num / den
+    clip = clip.resize.Bilinear(format=pixel_format, matrix=MATRIX_BT709)
+    return clip, fps * 2

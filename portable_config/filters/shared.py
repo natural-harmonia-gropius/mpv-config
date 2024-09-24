@@ -1,4 +1,4 @@
-import vapoursynth as vs
+from vapoursynth import YUV420P8, YUV420P10
 
 
 def fit_scale_down(clip, viewport_width=1920, viewport_height=1080, step=4):
@@ -19,11 +19,11 @@ def fit_scale_down(clip, viewport_width=1920, viewport_height=1080, step=4):
 
 
 def to_yuv420(clip):
-    if clip.format.id == vs.YUV420P8:
+    if clip.format.id == YUV420P8:
         clip8 = clip
-    elif clip.format.id == vs.YUV420P10:
-        clip8 = clip.resize.Bicubic(format=vs.YUV420P8)
+    elif clip.format.id == YUV420P10:
+        clip8 = clip.resize.Bicubic(format=YUV420P8)
     else:
-        clip = clip.resize.Bicubic(format=vs.YUV420P10)
-        clip8 = clip.resize.Bicubic(format=vs.YUV420P8)
+        clip = clip.resize.Bicubic(format=YUV420P10)
+        clip8 = clip.resize.Bicubic(format=YUV420P8)
     return clip, clip8

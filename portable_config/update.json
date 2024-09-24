@@ -200,5 +200,15 @@
       }
     ],
     "repository": "natural-harmonia-gropius/hdr-toys"
+  },
+  {
+    "branch": "master",
+    "files": [
+      {
+        "source": "scripts/vsmlrt.py",
+        "target": "portable_config/filters/vsmlrt.py"
+      }
+    ],
+    "repository": "AmusementClub/vs-mlrt"
   }
 ]

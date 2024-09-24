@@ -6,17 +6,16 @@ Personal portable_config for MPV player.
 
 ### mpv-player
 
-- Get it from [shinchiro/mpv-winbuild-cmake](https://github.com/shinchiro/mpv-winbuild-cmake/releases)
-- or [zhongfly/mpv-winbuild](https://github.com/zhongfly/mpv-winbuild/releases)
-- or [aur/mpv-full-git](https://aur.archlinux.org/packages/mpv-full-git) (Arch linux)
+- [shinchiro/mpv-winbuild-cmake](https://github.com/shinchiro/mpv-winbuild-cmake/releases)
+- [zhongfly/mpv-winbuild](https://github.com/zhongfly/mpv-winbuild/releases)
+- [aur/mpv-full-git](https://aur.archlinux.org/packages/mpv-full-git) (Arch linux)
 
 #### after installation
 
 - Download and extract [natural-harmonia-gropius/mpv-config](https://github.com/natural-harmonia-gropius/mpv-config/archive/refs/heads/master.zip).
-- Move `portable_config` to mpv folder.
+- Move `portable_config` to the folder where mpv.exe is located.
 - Put [Segoe Fluent Icons](https://aka.ms/SegoeFluentIcons) and [Segoe UI Variable](https://aka.ms/SegoeUIVariable) in `portable_config/fonts`. (Non Windows 11)
 - Delete or edit `uosc-languages` line in mpv.conf. (Non Chinese)
-- Delete `uosc-controls` line in mpv.conf. (If you want to use them)
 
 ### yt-dlp (optional)
 
@@ -26,14 +25,15 @@ Personal portable_config for MPV player.
 ### vapoursynth (optional)
 
 - Get it from [vapoursynth](https://github.com/vapoursynth/vapoursynth/releases), [python](https://www.python.org/downloads) also required, extract them to mpv folder.
+- Separate folder solution: [将便携版 vapoursynth（python）与 mpv 目录分开的新方法](https://github.com/hooke007/MPV_lazy/discussions/484)
 
 #### plugins
 
-- [styler00dollar/VapourSynth-RIFE-ncnn-Vulkan](https://github.com/styler00dollar/VapourSynth-RIFE-ncnn-Vulkan/releases)
-- [HomeOfVapourSynthEvolution/VapourSynth-VMAF](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-VMAF/releases)
+- [AmusementClub/vs-mlrt](https://github.com/AmusementClub/vs-mlrt/releases/tag/v15.4)
 - [vapoursynth/vs-miscfilters-obsolete](https://github.com/vapoursynth/vs-miscfilters-obsolete/releases)
-- [dubhater/vapoursynth-mvtools](https://github.com/dubhater/vapoursynth-mvtools/releases)
+- [HomeOfVapourSynthEvolution/VapourSynth-VMAF](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-VMAF/releases)
 - [SVPflow](https://www.svp-team.com/get/)
+- [dubhater/vapoursynth-mvtools](https://github.com/dubhater/vapoursynth-mvtools/releases)
 
 ### ffmpeg (optional)
 
