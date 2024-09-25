@@ -35,7 +35,7 @@ def main(
     if (fps * 1.99) < (num / den):
         clip, fps = rife(clip, fps)
 
-    if (fps * 1.19) < (num / den):
+    if (fps * 1.99) < (num / den):
         clip, fps = svpflow(clip, fps, num, den)
 
     return clip
