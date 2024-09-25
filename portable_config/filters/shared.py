@@ -22,8 +22,8 @@ def to_yuv420(clip):
     if clip.format.id == YUV420P8:
         clip8 = clip
     elif clip.format.id == YUV420P10:
-        clip8 = clip.resize.Bicubic(format=YUV420P8)
+        clip8 = clip.resize.Bilinear(format=YUV420P8)
     else:
-        clip = clip.resize.Bicubic(format=YUV420P10)
-        clip8 = clip.resize.Bicubic(format=YUV420P8)
+        clip = clip.resize.Bilinear(format=YUV420P10)
+        clip8 = clip.resize.Bilinear(format=YUV420P8)
     return clip, clip8
