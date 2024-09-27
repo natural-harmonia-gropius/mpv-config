@@ -29,7 +29,7 @@ Personal portable_config for MPV player.
 
 #### plugins
 
-- [AmusementClub/vs-mlrt](https://github.com/AmusementClub/vs-mlrt/releases/tag/v15.4)
+- [AmusementClub/vs-mlrt](https://github.com/AmusementClub/vs-mlrt/releases)
 - [vapoursynth/vs-miscfilters-obsolete](https://github.com/vapoursynth/vs-miscfilters-obsolete/releases)
 - [HomeOfVapourSynthEvolution/VapourSynth-VMAF](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-VMAF/releases)
 - [SVPflow](https://www.svp-team.com/get/)
