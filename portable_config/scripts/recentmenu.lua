@@ -365,6 +365,7 @@ function on_load()
     else
         hint = extension .. " | " .. hint
     end
+    hint = hint:upper()
     current_item = { path, title, hint }
     append_item(unpack(current_item))
 end
