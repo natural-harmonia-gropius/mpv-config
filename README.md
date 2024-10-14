@@ -45,74 +45,75 @@ Scripts and shaders used in this configuration:
 
 [mpv-player/TOOLS/lua](https://github.com/mpv-player/mpv/tree/master/TOOLS/lua)
 
-- `autocrop.lua`, `autoload.lua`
+- autocrop.lua
+- autoload.lua
 
 [fbriere/mpv-scripts](https://github.com/fbriere/mpv-scripts)
 
-- `sub-fonts-dir-auto.lua`
+- sub-fonts-dir-auto.lua
 
 [natural-harmonia-gropius/uosc](https://github.com/natural-harmonia-gropius/uosc) (forked from [tomasklaen/uosc](https://github.com/tomasklaen/uosc))
 
-- `uosc/*.lua`
-- `uosc_*.ttf`
+- uosc/\*.lua
+- uosc\_\*.ttf
 
 [po5/thumbfast](https://github.com/po5/thumbfast)
 
-- `thumbfast.lua`
+- thumbfast.lua
 
 [natural-harmonia-gropius/mpv-quality-menu](https://github.com/natural-harmonia-gropius/mpv-quality-menu) (forked from [christoph-heinrich/mpv-quality-menu](https://github.com/christoph-heinrich/mpv-quality-menu))
 
-- `quality-menu.lua`
+- quality-menu.lua
 
 [natural-harmonia-gropius/recent-menu](https://github.com/natural-harmonia-gropius/recent-menu)
 
-- `recentmenu.lua`
+- recentmenu.lua
 
 [natural-harmonia-gropius/input-event](https://github.com/natural-harmonia-gropius/input-event)
 
-- `inputevent.lua`
+- inputevent.lua
 
 [po5/celebi](https://github.com/po5/celebi)
 
-- `celebi.lua`
+- celebi.lua
 
 [AmusementClub/vs-mlrt](https://github.com/AmusementClub/vs-mlrt/tree/master/scripts)
 
-- `vsmlrt.py`
+- vsmlrt.py
 
 [bjin/mpv-prescalers](https://github.com/bjin/mpv-prescalers/tree/master/compute)
 
-- `ravu-zoom-ar-r3.glsl`
-- `nnedi3-nns128-win8x4.glsl`
+- ravu-zoom-ar-r3.glsl
+- nnedi3-nns128-win8x4.glsl
 
 [igv/FSRCNNX](https://github.com/igv/FSRCNN-TensorFlow/releases)
 
-- `FSRCNNX_x2_8-0-4-1.glsl`
-- `FSRCNNX_x2_16-0-4-1.glsl`
+- FSRCNNX_x2_8-0-4-1.glsl
+- FSRCNNX_x2_16-0-4-1.glsl
 
 [Artoriuz/glsl-chroma-from-luma-prediction](https://github.com/Artoriuz/glsl-chroma-from-luma-prediction)
 
-- `CfL_Prediction.glsl`
+- CfL_Prediction.glsl
 
 [igv/gist](https://gist.github.com/igv)
 
-- `KrigBilateral.glsl`
-- `SSimSuperRes.glsl`
-- `SSimDownscaler.glsl`
-- `adaptive-sharpen.glsl`
+- KrigBilateral.glsl
+- SSimSuperRes.glsl
+- SSimDownscaler.glsl
+- adaptive-sharpen.glsl
 
 [an3223/dotfiles](https://github.com/AN3223/dotfiles/tree/master/.config/mpv/shaders)
 
-- `nlmeans.glsl`
-- `guided.glsl`
-- `hdeband.glsl`
+- nlmeans.glsl
+- guided.glsl
+- hdeband.glsl
 
 [haasn/libplacebo.org#example](https://libplacebo.org/custom-shaders/#full-example)
 
-- `filmgrain.glsl`
+- filmgrain.glsl
 
 [natural-harmonia-gropius/hdr-toys](https://github.com/natural-harmonia-gropius/hdr-toys)
 
-- `hdr-toys.conf`
-- `hdr-toys.js`
-- `hdr-toys/*.glsl`
+- hdr-toys.conf
+- hdr-toys.js
+- hdr-toys/\*.glsl
