@@ -30,7 +30,7 @@
 //!DESC Chroma From Luma Prediction (Downscaling Luma)
 
 vec4 hook() {
-    return LUMA_texOff(0.0);
+    return LUMA_texOff(vec2(-0.5, 0.0));
 }
 
 //!HOOK CHROMA
