@@ -10,7 +10,7 @@ def rife(clip, fps):
     clip = clip.resize.Bilinear(format=RGBH, matrix_in=MATRIX_BT709)
     clip = RIFE(
         clip,
-        model=RIFEModel.v4_25_lite,
+        model=RIFEModel.v4_26,
         ensemble=False,
         backend=BackendV2.TRT(
             num_streams=2,
