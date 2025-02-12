@@ -8,24 +8,23 @@ Personal config for mpv-player.
 
 - [shinchiro/mpv-winbuild-cmake](https://github.com/shinchiro/mpv-winbuild-cmake/releases)
 - [zhongfly/mpv-winbuild](https://github.com/zhongfly/mpv-winbuild/releases)
-- [aur/mpv-full-git](https://aur.archlinux.org/packages/mpv-full-git) (for Arch Linux users)
+- [aur/mpv-full-git](https://aur.archlinux.org/packages/mpv-full-git) (Arch Linux)
 
 #### After Installation
 
 1. Download and extract the [natural-harmonia-gropius/mpv-config](https://github.com/natural-harmonia-gropius/mpv-config/archive/refs/heads/master.zip).
-2. Move the `portable_config` folder to the directory where `mpv.exe` is located.
-3. If you're not using Windows 11, place [Segoe Fluent Icons](https://aka.ms/SegoeFluentIcons) and [Segoe UI Variable](https://aka.ms/SegoeUIVariable) in the `portable_config/fonts` folder.
-4. If you don’t use Chinese, delete or edit the `uosc-languages` line in `mpv.conf`.
+2. Move the `portable_config` directory to where `mpv.exe` is located.
+3. If you're not using Chinese, remove or edit the `uosc-languages` line in `mpv.conf`.
 
 ### yt-dlp (Optional)
 
-- Download [yt-dlp](https://github.com/yt-dlp/yt-dlp/releases) and place it in the mpv folder.
+- Download [yt-dlp](https://github.com/yt-dlp/yt-dlp/releases) and add it to the mpv directory.
 - Alternatively, use the [yt-dlp-nightly-builds](https://github.com/yt-dlp/yt-dlp-nightly-builds/releases) for more up-to-date versions.
 
 ### VapourSynth (Optional)
 
-- Download [VapourSynth](https://github.com/vapoursynth/vapoursynth/releases) and [Python](https://www.python.org/downloads), then extract both into the mpv folder.
-- For a solution to separate these from the mpv directory, follow this guide: [New method for separating portable VapourSynth (Python) from mpv directory](https://github.com/hooke007/MPV_lazy/discussions/484).
+- Download [VapourSynth](https://github.com/vapoursynth/vapoursynth/releases) and [Python](https://www.python.org/downloads), then extract them to the mpv directory.
+- To separate these from the mpv directory, follow this guide: [New method for separating portable VapourSynth (Python) from mpv directory](https://github.com/hooke007/MPV_lazy/discussions/484).
 
 #### Plugins
 
@@ -37,7 +36,7 @@ Personal config for mpv-player.
 
 ### FFmpeg (Optional)
 
-- Download [FFmpeg](https://ffmpeg.org/download.html) and place it in the mpv folder.
+- Download [FFmpeg](https://ffmpeg.org/download.html) and move it to the mpv directory.
 
 ## Credits
 
