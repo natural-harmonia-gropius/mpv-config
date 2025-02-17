@@ -560,7 +560,7 @@ vec4 hook() {
 //!HOOK OUTPUT
 //!BIND HOOKED
 //!BIND METERED
-//!DESC tone mapping (jz)
+//!DESC tone mapping (astra)
 
 const float m1 = 2610.0 / 4096.0 / 4.0;
 const float m2 = 2523.0 / 4096.0 * 128.0;
