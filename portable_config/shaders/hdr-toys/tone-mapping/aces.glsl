@@ -1,5 +1,5 @@
 // The Academy Color Encoding System (ACES)
-// https://github.com/ampas/aces-dev
+// https://github.com/ampas/aces-core/tree/v1.3.1
 
 //             |-------|           |-------|          |-------|
 //             |       |           |       |          |       |
@@ -307,7 +307,7 @@ vec3 ACES(vec3 color) {
 }
 
 vec4 hook() {
-    vec4 color = HOOKED_texOff(0);
+    vec4 color = HOOKED_tex(HOOKED_pos);
 
     color.rgb = ACES(color.rgb);
 
