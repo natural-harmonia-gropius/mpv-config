@@ -72,7 +72,7 @@
 //!TYPE uint
 //!MINIMUM 0
 //!MAXIMUM 1
-1
+0
 
 //!BUFFER METERED
 //!VAR uint metered_max_i
