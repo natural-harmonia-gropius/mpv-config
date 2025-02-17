@@ -187,8 +187,8 @@
     "branch": "master",
     "files": [
       {
-        "source": "scripts/hdr-toys.js",
-        "target": "portable_config/scripts/hdr-toys.js"
+        "source": "scripts/hdr-toys.lua",
+        "target": "portable_config/scripts/hdr-toys.lua"
       },
       {
         "source": "shaders/hdr-toys/",
