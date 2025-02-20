@@ -14,7 +14,7 @@ Personal config for mpv-player.
 
 1. Download and extract the [natural-harmonia-gropius/mpv-config](https://github.com/natural-harmonia-gropius/mpv-config/archive/refs/heads/master.zip).
 2. Move the `portable_config` directory to where `mpv.exe` is located.
-3. If you're not using Chinese, remove or edit the `uosc-languages` line in `mpv.conf`.
+3. If you're not using chinese, remove or edit the `uosc-languages` line in `mpv.conf`.
 
 ### yt-dlp (Optional)
 
