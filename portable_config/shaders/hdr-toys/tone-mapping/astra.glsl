@@ -1,3 +1,12 @@
+// Astra, a tone mapping operator designed to preserve the creator's intent
+
+// shoulder segment: http://filmicworlds.com/blog/filmic-tonemapping-with-piecewise-power-curves/
+// toe segment: https://technorgb.blogspot.com/2018/02/hyperbola-tone-mapping.html
+// working space: https://doi.org/10.1364/OE.25.015131
+// chroma correction: https://www.itu.int/pub/R-REP-BT.2408
+// dynamic metadata: https://github.com/mpv-player/mpv/pull/15239
+// fast gaussian blur: https://www.rastergrid.com/blog/2010/09/efficient-gaussian-blur-with-linear-sampling/
+
 //!PARAM min_luma
 //!TYPE float
 0.0
@@ -144,7 +153,7 @@ const vec2 direction = vec2(0.0, 1.0);
 
 vec4 hook(){
     uint i = 0;
-    vec4 c = METERING_texOff(offset[0]) * weight[i];
+    vec4 c = METERING_texOff(offset[i]) * weight[i];
     for (i = 1; i < 4; i++) {
         c += METERING_texOff( direction * offset[i]) * weight[i];
         c += METERING_texOff(-direction * offset[i]) * weight[i];
@@ -184,7 +193,7 @@ const vec2 direction = vec2(0.0, 1.0);
 
 vec4 hook(){
     uint i = 0;
-    vec4 c = METERING_texOff(offset[0]) * weight[i];
+    vec4 c = METERING_texOff(offset[i]) * weight[i];
     for (i = 1; i < 4; i++) {
         c += METERING_texOff( direction * offset[i]) * weight[i];
         c += METERING_texOff(-direction * offset[i]) * weight[i];
@@ -224,7 +233,7 @@ const vec2 direction = vec2(0.0, 1.0);
 
 vec4 hook(){
     uint i = 0;
-    vec4 c = METERING_texOff(offset[0]) * weight[i];
+    vec4 c = METERING_texOff(offset[i]) * weight[i];
     for (i = 1; i < 4; i++) {
         c += METERING_texOff( direction * offset[i]) * weight[i];
         c += METERING_texOff(-direction * offset[i]) * weight[i];
@@ -264,7 +273,7 @@ const vec2 direction = vec2(0.0, 1.0);
 
 vec4 hook(){
     uint i = 0;
-    vec4 c = METERING_texOff(offset[0]) * weight[i];
+    vec4 c = METERING_texOff(offset[i]) * weight[i];
     for (i = 1; i < 4; i++) {
         c += METERING_texOff( direction * offset[i]) * weight[i];
         c += METERING_texOff(-direction * offset[i]) * weight[i];
@@ -304,7 +313,7 @@ const vec2 direction = vec2(0.0, 1.0);
 
 vec4 hook(){
     uint i = 0;
-    vec4 c = METERING_texOff(offset[0]) * weight[i];
+    vec4 c = METERING_texOff(offset[i]) * weight[i];
     for (i = 1; i < 4; i++) {
         c += METERING_texOff( direction * offset[i]) * weight[i];
         c += METERING_texOff(-direction * offset[i]) * weight[i];
@@ -344,7 +353,7 @@ const vec2 direction = vec2(0.0, 1.0);
 
 vec4 hook(){
     uint i = 0;
-    vec4 c = METERING_texOff(offset[0]) * weight[i];
+    vec4 c = METERING_texOff(offset[i]) * weight[i];
     for (i = 1; i < 4; i++) {
         c += METERING_texOff( direction * offset[i]) * weight[i];
         c += METERING_texOff(-direction * offset[i]) * weight[i];
@@ -384,7 +393,7 @@ const vec2 direction = vec2(0.0, 1.0);
 
 vec4 hook(){
     uint i = 0;
-    vec4 c = METERING_texOff(offset[0]) * weight[i];
+    vec4 c = METERING_texOff(offset[i]) * weight[i];
     for (i = 1; i < 4; i++) {
         c += METERING_texOff( direction * offset[i]) * weight[i];
         c += METERING_texOff(-direction * offset[i]) * weight[i];
@@ -424,25 +433,12 @@ const vec2 direction = vec2(0.0, 1.0);
 
 vec4 hook(){
     uint i = 0;
-    vec4 c = METERING_texOff(offset[0]) * weight[i];
+    vec4 c = METERING_texOff(offset[i]) * weight[i];
     for (i = 1; i < 4; i++) {
         c += METERING_texOff( direction * offset[i]) * weight[i];
         c += METERING_texOff(-direction * offset[i]) * weight[i];
     }
     return c;
-}
-
-//!HOOK OUTPUT
-//!BIND METERING
-//!BIND METERED
-//!SAVE EMPTY
-//!WIDTH 1
-//!HEIGHT 1
-//!COMPUTE 1 1
-//!DESC metering (data, initial)
-
-void hook() {
-    metered_max_i = 0;
 }
 
 //!HOOK OUTPUT
@@ -452,11 +448,30 @@ void hook() {
 //!COMPUTE 32 32
 //!DESC metering (data, max)
 
+shared uint local_max;
+
 void hook() {
-    ivec2 coord = ivec2(gl_GlobalInvocationID);
-    float value = texelFetch(METERING_raw, coord, 0).r;
+    if (gl_GlobalInvocationID.x == 0 && gl_GlobalInvocationID.y == 0) {
+        metered_max_i = 0;
+    }
+
+    if (gl_LocalInvocationIndex == 0) {
+        local_max = 0;
+    }
+
+    memoryBarrierShared();
+    barrier();
+
+    float value = METERING_tex(METERING_pos).x;
     uint rounded = uint(value * 4095.0 + 0.5);
-    atomicMax(metered_max_i, rounded);
+    atomicMax(local_max, rounded);
+
+    memoryBarrierShared();
+    barrier();
+
+    if (gl_LocalInvocationIndex == 0) {
+        atomicMax(metered_max_i, local_max);
+    }
 }
 
 //!HOOK OUTPUT
@@ -547,14 +562,24 @@ void hook() {
 //!WHEN preview_metering
 //!DESC metering (preview)
 
-vec4 hook() {
-    float metering = METERING_tex(METERING_pos).r;
-    float lmi = float(metered_max_i / 4095.0);
-    float delta = 720 * abs(metering - lmi);
+bool almost_equal(float a, float b, float epsilon) {
+    return abs(a - b) < epsilon;
+}
 
-    if (delta < 5.0)
-        return vec4(vec3(1.0, 0.0, 0.0), 1.0);
-    return vec4(vec3(metering), 1.0);
+vec4 hook() {
+    float metering = METERING_tex(METERING_pos).x;
+    float lmi = float(metered_max_i / 4095.0);
+
+    vec3 color = vec3(metering);
+
+    float delta = 720 * abs(metering - lmi);
+    if (delta < 4.0)
+        color = vec3(1.0, 0.0, 0.0);
+
+    if (almost_equal(1.0 - METERING_pos.y, lmi, 1e-3))
+        color = vec3(0.0, 1.0, 0.0);
+
+    return vec4(color, 1.0);
 }
 
 //!HOOK OUTPUT
