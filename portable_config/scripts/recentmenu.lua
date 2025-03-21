@@ -313,7 +313,6 @@ function open_menu()
         open_menu_command_palette()
     elseif input_available then
         open_menu_select()
-        return
     else
         mp.msg.warn("No menu providers available")
     end
