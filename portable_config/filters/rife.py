@@ -13,7 +13,7 @@ def rife(clip, fps):
         model=RIFEModel.v4_26,
         ensemble=False,
         backend=BackendV2.TRT(
-            num_streams=2,
+            num_streams=4,
             use_cuda_graph=True,
             fp16=True,
             output_format=1,
