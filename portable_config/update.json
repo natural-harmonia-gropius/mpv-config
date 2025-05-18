@@ -186,7 +186,7 @@
         "source": ".config/mpv/shaders/hdeband.glsl"
       }
     ],
-    "repo": "dotpaths"
+    "repo": "dotfiles"
   },
   {
     "owner": "natural-harmonia-gropius",
