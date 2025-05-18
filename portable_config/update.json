@@ -133,7 +133,7 @@
         "source": "SSimDownscaler.glsl"
       }
     ],
-    "ref": "gist",
+    "ref": "gists",
     "repo": "36508af3ffc84410fe39761d6969be10"
   },
   {
@@ -143,7 +143,7 @@
         "source": "SSimSuperRes.glsl"
       }
     ],
-    "ref": "gist",
+    "ref": "gists",
     "repo": "2364ffa6e81540f29cb7ab4c9bc05b6b"
   },
   {
@@ -153,7 +153,7 @@
         "source": "KrigBilateral.glsl"
       }
     ],
-    "ref": "gist",
+    "ref": "gists",
     "repo": "a015fc885d5c22e6891820ad89555637"
   },
   {
@@ -163,7 +163,7 @@
         "source": "adaptive-sharpen.glsl"
       }
     ],
-    "ref": "gist",
+    "ref": "gists",
     "repo": "8a77e4eb8276753b54bb94c1c50c317e"
   },
   {
