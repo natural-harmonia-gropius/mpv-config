@@ -127,6 +127,7 @@
     "repo": "glsl-chroma-from-luma-prediction"
   },
   {
+    "owner": "igv",
     "paths": [
       {
         "destination": "portable_config/shaders/SSimDownscaler.glsl",
@@ -137,6 +138,7 @@
     "repo": "36508af3ffc84410fe39761d6969be10"
   },
   {
+    "owner": "igv",
     "paths": [
       {
         "destination": "portable_config/shaders/SSimSuperRes.glsl",
@@ -147,6 +149,7 @@
     "repo": "2364ffa6e81540f29cb7ab4c9bc05b6b"
   },
   {
+    "owner": "igv",
     "paths": [
       {
         "destination": "portable_config/shaders/KrigBilateral.glsl",
@@ -157,6 +160,7 @@
     "repo": "a015fc885d5c22e6891820ad89555637"
   },
   {
+    "owner": "igv",
     "paths": [
       {
         "destination": "portable_config/shaders/adaptive-sharpen.glsl",
