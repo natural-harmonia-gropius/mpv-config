@@ -111,7 +111,7 @@ jobs:
               }
             }
 
-            for await (const { owner, repo, ref, source, destination } of updateIter()) {
+            for await (const { owner, repo, ref, source, destination } of updateIter("portable_config/update.json")) {
               let body = null;
               if (ref === "gists") {
                 body = await handleGist(repo, source);
