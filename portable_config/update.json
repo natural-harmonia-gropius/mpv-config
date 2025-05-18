@@ -1,214 +1,215 @@
 [
   {
-    "branch": "master",
-    "files": [
+    "owner": "mpv-player",
+    "paths": [
       {
-        "source": "TOOLS/lua/autocrop.lua",
-        "target": "portable_config/scripts/autocrop.lua"
+        "destination": "portable_config/scripts/autocrop.lua",
+        "source": "TOOLS/lua/autocrop.lua"
       }
     ],
-    "repository": "mpv-player/mpv"
+    "repo": "mpv"
   },
   {
-    "branch": "master",
-    "files": [
+    "owner": "fbriere",
+    "paths": [
       {
-        "source": "scripts/sub-fonts-dir-auto.lua",
-        "target": "portable_config/scripts/sub-fonts-dir-auto.lua"
+        "destination": "portable_config/scripts/sub-fonts-dir-auto.lua",
+        "source": "scripts/sub-fonts-dir-auto.lua"
       }
     ],
-    "repository": "fbriere/mpv-scripts"
+    "repo": "mpv-scripts"
   },
   {
-    "branch": "master",
-    "files": [
+    "owner": "po5",
+    "paths": [
       {
-        "source": "thumbfast.lua",
-        "target": "portable_config/scripts/thumbfast.lua"
+        "destination": "portable_config/scripts/thumbfast.lua",
+        "source": "thumbfast.lua"
       }
     ],
-    "repository": "po5/thumbfast"
+    "repo": "thumbfast"
   },
   {
-    "branch": "master",
-    "files": [
+    "owner": "natural-harmonia-gropius",
+    "paths": [
       {
-        "source": "src/fonts/uosc_icons.ttf",
-        "target": "portable_config/fonts/uosc_icons.ttf"
+        "destination": "portable_config/fonts/uosc_icons.ttf",
+        "source": "src/fonts/uosc_icons.ttf"
       },
       {
-        "source": "src/fonts/uosc_textures.ttf",
-        "target": "portable_config/fonts/uosc_textures.ttf"
+        "destination": "portable_config/fonts/uosc_textures.ttf",
+        "source": "src/fonts/uosc_textures.ttf"
       },
       {
-        "source": "src/uosc/",
-        "target": "portable_config/scripts/uosc/"
+        "destination": "portable_config/scripts/uosc/",
+        "source": "src/uosc/"
       }
     ],
-    "repository": "natural-harmonia-gropius/uosc"
+    "repo": "uosc"
   },
   {
-    "branch": "master",
-    "files": [
+    "owner": "natural-harmonia-gropius",
+    "paths": [
       {
-        "source": "quality-menu.lua",
-        "target": "portable_config/scripts/quality-menu.lua"
+        "destination": "portable_config/scripts/quality-menu.lua",
+        "source": "quality-menu.lua"
       }
     ],
-    "repository": "natural-harmonia-gropius/mpv-quality-menu"
+    "repo": "mpv-quality-menu"
   },
   {
-    "branch": "master",
-    "files": [
+    "owner": "natural-harmonia-gropius",
+    "paths": [
       {
-        "source": "recentmenu.lua",
-        "target": "portable_config/scripts/recentmenu.lua"
+        "destination": "portable_config/scripts/recentmenu.lua",
+        "source": "recentmenu.lua"
       }
     ],
-    "repository": "natural-harmonia-gropius/recent-menu"
+    "repo": "recent-menu"
   },
   {
-    "branch": "master",
-    "files": [
+    "owner": "natural-harmonia-gropius",
+    "paths": [
       {
-        "source": "inputevent.lua",
-        "target": "portable_config/scripts/inputevent.lua"
+        "destination": "portable_config/scripts/inputevent.lua",
+        "source": "inputevent.lua"
       }
     ],
-    "repository": "natural-harmonia-gropius/input-event"
+    "repo": "input-event"
   },
   {
-    "branch": "master",
-    "files": [
+    "owner": "po5",
+    "paths": [
       {
-        "source": "celebi.lua",
-        "target": "portable_config/scripts/celebi.lua"
+        "destination": "portable_config/scripts/celebi.lua",
+        "source": "celebi.lua"
       }
     ],
-    "repository": "po5/celebi"
+    "repo": "celebi"
   },
   {
-    "branch": "master",
-    "files": [
+    "owner": "bjin",
+    "paths": [
       {
-        "source": "compute/ravu-zoom-ar-r3.hook",
-        "target": "portable_config/shaders/ravu-zoom-ar-r3.glsl"
+        "destination": "portable_config/shaders/ravu-zoom-ar-r3.glsl",
+        "source": "compute/ravu-zoom-ar-r3.hook"
       },
       {
-        "source": "compute/nnedi3-nns128-win8x4.hook",
-        "target": "portable_config/shaders/nnedi3-nns128-win8x4.glsl"
+        "destination": "portable_config/shaders/nnedi3-nns128-win8x4.glsl",
+        "source": "compute/nnedi3-nns128-win8x4.hook"
       }
     ],
-    "repository": "bjin/mpv-prescalers"
+    "repo": "mpv-prescalers"
   },
   {
-    "branch": "@releases",
-    "files": [
+    "owner": "igv",
+    "paths": [
       {
-        "source": "FSRCNNX_x2_8-0-4-1.glsl",
-        "target": "portable_config/shaders/FSRCNNX_x2_8-0-4-1.glsl"
+        "destination": "portable_config/shaders/FSRCNNX_x2_8-0-4-1.glsl",
+        "source": "FSRCNNX_x2_8-0-4-1.glsl"
       },
       {
-        "source": "FSRCNNX_x2_16-0-4-1.glsl",
-        "target": "portable_config/shaders/FSRCNNX_x2_16-0-4-1.glsl"
+        "destination": "portable_config/shaders/FSRCNNX_x2_16-0-4-1.glsl",
+        "source": "FSRCNNX_x2_16-0-4-1.glsl"
       }
     ],
-    "repository": "igv/FSRCNN-TensorFlow"
+    "ref": "releases",
+    "repo": "FSRCNN-TensorFlow"
   },
   {
-    "branch": "main",
-    "files": [
+    "owner": "Artoriuz",
+    "paths": [
       {
-        "source": "CfL_Prediction.glsl",
-        "target": "portable_config/shaders/CfL_Prediction.glsl"
+        "destination": "portable_config/shaders/CfL_Prediction.glsl",
+        "source": "CfL_Prediction.glsl"
       }
     ],
-    "repository": "Artoriuz/glsl-chroma-from-luma-prediction"
+    "repo": "glsl-chroma-from-luma-prediction"
   },
   {
-    "branch": "@gist",
-    "files": [
+    "paths": [
       {
-        "source": "SSimDownscaler.glsl",
-        "target": "portable_config/shaders/SSimDownscaler.glsl"
+        "destination": "portable_config/shaders/SSimDownscaler.glsl",
+        "source": "SSimDownscaler.glsl"
       }
     ],
-    "repository": "igv/36508af3ffc84410fe39761d6969be10"
+    "ref": "gist",
+    "repo": "36508af3ffc84410fe39761d6969be10"
   },
   {
-    "branch": "@gist",
-    "files": [
+    "paths": [
       {
-        "source": "SSimSuperRes.glsl",
-        "target": "portable_config/shaders/SSimSuperRes.glsl"
+        "destination": "portable_config/shaders/SSimSuperRes.glsl",
+        "source": "SSimSuperRes.glsl"
       }
     ],
-    "repository": "igv/2364ffa6e81540f29cb7ab4c9bc05b6b"
+    "ref": "gist",
+    "repo": "2364ffa6e81540f29cb7ab4c9bc05b6b"
   },
   {
-    "branch": "@gist",
-    "files": [
+    "paths": [
       {
-        "source": "KrigBilateral.glsl",
-        "target": "portable_config/shaders/KrigBilateral.glsl"
+        "destination": "portable_config/shaders/KrigBilateral.glsl",
+        "source": "KrigBilateral.glsl"
       }
     ],
-    "repository": "igv/a015fc885d5c22e6891820ad89555637"
+    "ref": "gist",
+    "repo": "a015fc885d5c22e6891820ad89555637"
   },
   {
-    "branch": "@gist",
-    "files": [
+    "paths": [
       {
-        "source": "adaptive-sharpen.glsl",
-        "target": "portable_config/shaders/adaptive-sharpen.glsl"
+        "destination": "portable_config/shaders/adaptive-sharpen.glsl",
+        "source": "adaptive-sharpen.glsl"
       }
     ],
-    "repository": "igv/8a77e4eb8276753b54bb94c1c50c317e"
+    "ref": "gist",
+    "repo": "8a77e4eb8276753b54bb94c1c50c317e"
   },
   {
-    "branch": "master",
-    "files": [
+    "owner": "an3223",
+    "paths": [
       {
-        "source": ".config/mpv/shaders/nlmeans.glsl",
-        "target": "portable_config/shaders/nlmeans.glsl"
+        "destination": "portable_config/shaders/nlmeans.glsl",
+        "source": ".config/mpv/shaders/nlmeans.glsl"
       },
       {
-        "source": ".config/mpv/shaders/guided.glsl",
-        "target": "portable_config/shaders/guided.glsl"
+        "destination": "portable_config/shaders/guided.glsl",
+        "source": ".config/mpv/shaders/guided.glsl"
       },
       {
-        "source": ".config/mpv/shaders/hdeband.glsl",
-        "target": "portable_config/shaders/hdeband.glsl"
+        "destination": "portable_config/shaders/hdeband.glsl",
+        "source": ".config/mpv/shaders/hdeband.glsl"
       }
     ],
-    "repository": "an3223/dotfiles"
+    "repo": "dotpaths"
   },
   {
-    "branch": "master",
-    "files": [
+    "owner": "natural-harmonia-gropius",
+    "paths": [
       {
-        "source": "scripts/hdr-toys.lua",
-        "target": "portable_config/scripts/hdr-toys.lua"
+        "destination": "portable_config/scripts/hdr-toys.lua",
+        "source": "scripts/hdr-toys.lua"
       },
       {
-        "source": "shaders/hdr-toys/",
-        "target": "portable_config/shaders/hdr-toys/"
+        "destination": "portable_config/shaders/hdr-toys/",
+        "source": "shaders/hdr-toys/"
       },
       {
-        "source": "hdr-toys.conf",
-        "target": "portable_config/hdr-toys.conf"
+        "destination": "portable_config/hdr-toys.conf",
+        "source": "hdr-toys.conf"
       }
     ],
-    "repository": "natural-harmonia-gropius/hdr-toys"
+    "repo": "hdr-toys"
   },
   {
-    "branch": "master",
-    "files": [
+    "owner": "AmusementClub",
+    "paths": [
       {
-        "source": "scripts/vsmlrt.py",
-        "target": "portable_config/filters/vsmlrt.py"
+        "destination": "portable_config/filters/vsmlrt.py",
+        "source": "scripts/vsmlrt.py"
       }
     ],
-    "repository": "AmusementClub/vs-mlrt"
+    "repo": "vs-mlrt"
   }
 ]
