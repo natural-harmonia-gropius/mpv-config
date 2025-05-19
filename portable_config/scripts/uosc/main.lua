@@ -1,5 +1,5 @@
 --[[ uosc | https://github.com/tomasklaen/uosc ]]
-local uosc_version = '5.8.0'
+local uosc_version = '5.9.0'
 
 mp.commandv('script-message', 'uosc-version', uosc_version)
 
@@ -29,7 +29,7 @@ defaults = {
 	timeline_cache = true,
 
 	controls =
-	'menu,gap,subtitles,<has_many_audio>audio,<has_many_video>video,<has_many_edition>editions,<stream>stream-quality,gap,space,speed,space,shuffle,loop-playlist,loop-file,gap,prev,items,next,gap,fullscreen',
+	'menu,gap,<!image>subtitles,<has_many_audio>audio,<has_many_video>video,<has_many_edition>editions,<stream>stream-quality,gap,space,<!image>speed,space,shuffle,loop-playlist,loop-file,gap,prev,items,next,gap,fullscreen',
 	controls_size = 32,
 	controls_margin = 8,
 	controls_spacing = 2,
@@ -358,7 +358,7 @@ end
 
 --[[ STATE ]]
 
-display = {width = 1280, height = 720, initialized = false}
+display = {ax = 0, ay = 0, bx = 1280, by = 720, width = 1280, height = 720, initialized = false}
 cursor = require('lib/cursor')
 state = {
 	platform = (function()
@@ -381,10 +381,11 @@ state = {
 	speed = 1,
 	---@type number|nil
 	duration = nil, -- current media duration
+	max_seconds = nil, -- max seconds the time in timeline is expected to reach, accounted for speed
 	time_human = nil, -- current playback time in human format
 	destination_time_human = nil, -- depends on options.destination_time
 	pause = mp.get_property_native('pause'),
-	ime_active = mp.get_property_native("input-ime"),
+	ime_active = mp.get_property_native('input-ime'),
 	chapters = {},
 	---@type {index: number; title: string}|nil
 	current_chapter = nil,
@@ -459,7 +460,7 @@ function update_display_dimensions()
 	state.radius = round(options.border_radius * state.scale)
 	local real_width, real_height = mp.get_osd_size()
 	if real_width <= 0 then return end
-	display.width, display.height = real_width, real_height
+	display.bx, display.width, display.by, display.height = real_width, real_width, real_height, real_height
 	display.initialized = true
 
 	-- Tell elements about this
@@ -487,20 +488,23 @@ end
 function update_human_times()
 	state.speed = state.speed or 1
 	if state.time then
-		local max_seconds = state.duration
+		state.max_seconds = state.duration
 		if state.duration then
 			if options.destination_time == 'playtime-remaining' then
-				max_seconds = state.speed >= 1 and state.duration or state.duration / state.speed
-				state.destination_time_human = format_time((state.time - state.duration) / state.speed, max_seconds)
+				state.max_seconds = state.duration / state.speed
+				state.destination_time_human = format_time(
+					(state.time - state.duration) / state.speed,
+					state.max_seconds
+				)
 			elseif options.destination_time == 'total' then
-				state.destination_time_human = format_time(state.duration, max_seconds)
+				state.destination_time_human = format_time(state.duration, state.max_seconds)
 			else
-				state.destination_time_human = format_time(state.time - state.duration, max_seconds)
+				state.destination_time_human = format_time(state.time - state.duration, state.max_seconds)
 			end
 		else
 			state.destination_time_human = nil
 		end
-		state.time_human = format_time(state.time, max_seconds)
+		state.time_human = format_time(state.time, state.max_seconds)
 	else
 		state.time_human, state.destination_time_human = nil, nil
 	end
@@ -1197,6 +1201,16 @@ mp.register_script_message('select-menu-item', function(type, item_index, menu_i
 end)
 mp.register_script_message('close-menu', function(type)
 	if Menu:is_open(type) then Menu:close() end
+end)
+mp.register_script_message('menu-action', function(name, ...)
+	local menu = Menu:is_open()
+	if menu then
+		local method = ({
+			['search-cancel'] = 'search_cancel',
+			['search-query-update'] = 'search_query_update',
+		})[name]
+		if method then menu[method](menu, ...) end
+	end
 end)
 mp.register_script_message('thumbfast-info', function(json)
 	local data = utils.parse_json(json)

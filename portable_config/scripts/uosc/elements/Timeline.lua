@@ -314,7 +314,7 @@ function Timeline:render()
 					if hovered then
 						local rect = draw_chapter(chapter.time, border_width * 16)
 						if visibility > 0 and rect then
-							cursor:zone('primary_click', rect, function()
+							cursor:zone('primary_down', rect, function()
 								mp.commandv('seek', chapter.time, 'absolute+exact')
 							end)
 						end
