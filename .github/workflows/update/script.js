@@ -23,7 +23,7 @@ module.exports = async ({ github, context, core, glob, io, exec, require }) => {
       return Buffer.from(content, "base64");
     }
 
-    const blob = await octokit.git.getBlob({ owner, repo, file_sha: sha });
+    const blob = await github.rest.git.getBlob({ owner, repo, file_sha: sha });
     return Buffer.from(blob.data.content, blob.data.encoding);
   }
 
