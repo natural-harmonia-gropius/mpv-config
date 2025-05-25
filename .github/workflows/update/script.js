@@ -44,7 +44,7 @@ module.exports = async ({ github, context, core, glob, io, exec, require }) => {
     const response = await fetch(asset.url, {
       headers: {
         Accept: "application/octet-stream",
-        "User-Agent": "octokit-rest",
+        "User-Agent": "actions/github-script",
       },
     });
 
@@ -58,21 +58,34 @@ module.exports = async ({ github, context, core, glob, io, exec, require }) => {
   }
 
   async function handleGist(owner, gistId, fileName) {
-    const res = await github.rest.gists.get({ gist_id: gistId });
+    // const res = await github.rest.gists.get({ gist_id: gistId });
 
-    const files = res.data.files;
-    const file = files[fileName];
+    // const files = res.data.files;
+    // const file = files[fileName];
 
-    if (!file) {
-      throw new Error(`File "${fileName}" not found in gist ${gistId}`);
+    // if (!file) {
+    //   throw new Error(`File "${fileName}" not found in gist ${gistId}`);
+    // }
+
+    // return Buffer.from(file.content, "utf-8");
+
+    const response = await fetch(
+      `https://gist.githubusercontent.com/${owner}/${gistId}/raw/${fileName}`,
+      {
+        headers: {
+          Accept: "application/octet-stream",
+          "User-Agent": "actions/github-script",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to download asset "${fileName}": ${response.status} ${response.statusText}`
+      );
     }
 
-    return Buffer.from(file.content, "utf-8");
-
-    // const response = await fetch(
-    //   `https://gist.githubusercontent.com/${owner}/${gist_id}/raw/${fileName}`
-    // );
-    // return response.body;
+    return Buffer.from(await response.arrayBuffer());
   }
 
   async function* dirIter(owner, repo, ref, source, destination) {
