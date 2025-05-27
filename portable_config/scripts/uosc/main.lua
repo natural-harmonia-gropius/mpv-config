@@ -1,5 +1,5 @@
 --[[ uosc | https://github.com/tomasklaen/uosc ]]
-local uosc_version = '5.9.2'
+local uosc_version = '5.10.0'
 
 mp.commandv('script-message', 'uosc-version', uosc_version)
 
@@ -390,8 +390,8 @@ state = {
 	fullormaxed = mp.get_property_native('fullscreen') or mp.get_property_native('window-maximized'),
 	render_timer = nil,
 	render_last_time = 0,
-	volume = nil,
-	volume_max = nil,
+	volume = mp.get_property_native('volume'),
+	volume_max = mp.get_property_native('volume-max'),
 	mute = nil,
 	type = nil, -- video,image,audio
 	is_idle = false,
@@ -783,6 +783,7 @@ mp.observe_property('window-maximized', 'bool', create_state_setter('maximized',
 mp.observe_property('idle-active', 'bool', function(_, idle)
 	set_state('is_idle', idle)
 	Elements:trigger('dispositions')
+	mp.commandv('script-message-to', 'thumbfast', 'clear')
 end)
 mp.observe_property('pause', 'bool', create_state_setter('pause', function() file_end_timer:kill() end))
 mp.observe_property('volume', 'number', create_state_setter('volume'))
