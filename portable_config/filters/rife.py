@@ -14,9 +14,9 @@ def rife(clip, fps):
         ensemble=False,
         backend=BackendV2.TRT(
             num_streams=4,
-            use_cuda_graph=True,
             fp16=True,
             output_format=1,
+            use_cuda_graph=True,
             engine_folder=gettempdir(),
         ),
         video_player=True,
