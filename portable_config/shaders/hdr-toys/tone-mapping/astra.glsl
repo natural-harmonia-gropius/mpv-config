@@ -1,12 +1,13 @@
 // Astra, a tone mapping operator designed to preserve the creator's intent
 
-// shoulder segment: http://filmicworlds.com/blog/filmic-tonemapping-with-piecewise-power-curves/
-// toe segment: https://technorgb.blogspot.com/2018/02/hyperbola-tone-mapping.html
 // working space: https://doi.org/10.1364/OE.25.015131
+// lms matrix: https://doi.org/10.1364/OE.413659
 // hk effect: https://doi.org/10.1364/OE.534073
 // chroma correction: https://www.itu.int/pub/R-REP-BT.2408
 // dynamic metadata: https://github.com/mpv-player/mpv/pull/15239
 // fast gaussian blur: https://www.rastergrid.com/blog/2010/09/efficient-gaussian-blur-with-linear-sampling/
+// shoulder segment: http://filmicworlds.com/blog/filmic-tonemapping-with-piecewise-power-curves/
+// toe segment: https://technorgb.blogspot.com/2018/02/hyperbola-tone-mapping.html
 
 //!PARAM min_luma
 //!TYPE float
@@ -682,7 +683,7 @@ vec3 LMS_to_XYZ(vec3 LMS) {
 
 vec3 LMS_to_Iab(vec3 LMS) {
     return LMS * mat3(
-        0.5,       0.5,       0.0,
+        0.0,       1.0,       0.0,
         3.524000, -4.066708,  0.542708,
         0.199076,  1.096799, -1.295875
     );
@@ -690,9 +691,9 @@ vec3 LMS_to_Iab(vec3 LMS) {
 
 vec3 Iab_to_LMS(vec3 Iab) {
     return Iab * mat3(
-        1.0,  0.1386050432715393,  0.0580473161561189,
-        1.0, -0.1386050432715393, -0.0580473161561189,
-        1.0, -0.0960192420263190, -0.8118918960560390
+        1.0, 0.2772100865430786,  0.1160946323122377,
+        1.0, 0.0,                 0.0,
+        1.0, 0.0425858012452203, -0.75384457989992
     );
 }
 
@@ -724,7 +725,7 @@ float hke_fh_liao(float h, float k3, float k4, float k5) {
 }
 
 float hke_fh(float h) {
-    float result = hke_fh_liao(h, 0.3495, 45.0, 0.1567);
+    float result = hke_fh_liao(h, 0.1351, 45.0, 0.1439);
     return result * hk_effect_compensate_scaling;
 }
 
@@ -742,8 +743,7 @@ float Jhk_to_J(vec3 JCh) {
     return J - C * hke_fh(h);
 }
 
-// https://github.com/color-js/color.js/pull/629
-const float epsilon = 0.0002363;
+const float epsilon = 0.000005;
 
 vec3 Lab_to_LCh(vec3 Lab) {
     float L = Lab.x;
