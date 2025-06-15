@@ -1,0 +1,6 @@
+{
+  "Lua.diagnostics.disable": ["lowercase-global", "redefined-local"],
+  "Lua.diagnostics.globals": ["jit", "mp"],
+  "Lua.runtime.path": ["?.lua", "?/init.lua", "scripts/?.lua"]
+  // "explorer.excludeGitIgnore": true
+}
