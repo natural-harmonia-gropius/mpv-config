@@ -26,6 +26,12 @@ Personal config for mpv-player.
 - Download [VapourSynth](https://github.com/vapoursynth/vapoursynth/releases) and [Python](https://www.python.org/downloads), then extract them to the mpv directory.
 - To separate these from the mpv directory, follow this guide: [New method for separating portable VapourSynth (Python) from mpv directory](https://github.com/hooke007/MPV_lazy/discussions/484).
 
+```sh
+(Get-Content -Path .\python313._pth) -replace '# import site', 'import site' | Set-Content -Path .\python313._pth
+curl -s https://bootstrap.pypa.io/get-pip.py | ./python
+./python -m pip install ./wheel/vapoursynth-72-cp312-abi3-win_amd64.whl
+```
+
 #### Plugins
 
 - [AmusementClub/vs-mlrt](https://github.com/AmusementClub/vs-mlrt/releases)
