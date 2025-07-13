@@ -529,7 +529,7 @@ void hook() {
 //!COMPONENTS 1
 //!WIDTH 256
 //!HEIGHT 256
-//!WHEN enable_metering 1 > avg_pq_y 0 = * scene_avg 0 = *
+//!WHEN auto_exposure_anchor 0 > enable_metering 1 > * avg_pq_y 0 = * scene_avg 0 = *
 //!DESC metering (avg, 256, center-weighted)
 
 vec2 map_coords(vec2 uv, float strength) {
@@ -876,7 +876,7 @@ void hook() {
 //!HOOK OUTPUT
 //!BIND HOOKED
 //!BIND METADATA
-//!WHEN preview_metering 0 =
+//!WHEN preview_metering 0 = auto_exposure_anchor 0 > * enable_metering 1 > avg_pq_y 0 > + scene_avg 0 > + *
 //!DESC tone mapping (auto exposure)
 
 vec3 exposure(vec3 x, float ev) {
@@ -1127,8 +1127,8 @@ float curve(float x) {
     float iw = I_to_J(max_i);
     float ib = I_to_J(min_i);
 
-    iw = max(iw, ow);
-    ib = min(ib, ob);
+    iw = max(iw, ow + 1e-3);
+    ib = min(ib, ob - 1e-3);
 
     return clamp(f(x, iw, ib, ow, ob), ob, ow);
 }
