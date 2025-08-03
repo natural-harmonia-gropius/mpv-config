@@ -174,7 +174,7 @@
     "owner": "an3223",
     "paths": [
       {
-        "destination": "portable_config/shaders/nlmeans.glsl",
+        "destination": "portable_config/shaders/HQ/nlmeans.glsl",
         "source": ".config/mpv/shaders/nlmeans.glsl"
       },
       {
