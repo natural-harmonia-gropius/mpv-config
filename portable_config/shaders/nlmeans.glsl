@@ -19,7 +19,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-// Description: nlmeans.glsl: Default profile, general purpose, tuned for low noise
+// Description: HQ/nlmeans.glsl: Slow, but higher quality.
 
 // The following is shader code injected from ./nlmeans_template
 /* vi: ft=c
@@ -60,9 +60,9 @@
 
 // Denoising factor (sigma, higher means more blur)
 #ifdef LUMA_raw
-#define S 2.171842300643018
+#define S 3.8070155534513885
 #else
-#define S 3.472706940155897
+#define S 3.8391080491674847
 #endif
 
 /* Noise resistant adaptive sharpening
@@ -100,9 +100,9 @@
  * AKA the center weight, the weight of the pixel-of-interest.
  */
 #ifdef LUMA_raw
-#define SW 0.874631892412684
+#define SW 0.31161702146553555
 #else
-#define SW 0.3493678781214755
+#define SW 0.5455997832190327
 #endif
 
 /* Spatial kernel
@@ -119,12 +119,12 @@
  */
 #ifdef LUMA_raw
 #define SST 1
-#define SS 0.1786363425615082
+#define SS 1.3426595626243674
 #define PST 0
 #define PSS 0.0
 #else
 #define SST 1
-#define SS 0.3241999209926485
+#define SS 0.6454412326714503
 #define PST 0
 #define PSS 0.0
 #endif
@@ -215,7 +215,7 @@
 #define PS 0
 #else
 #define RS 3
-#define PS 3
+#define PS 4
 #endif
 
 /* Weight discard
@@ -234,9 +234,9 @@
  * WDS (not for WDK=is_zero): Higher numbers are more eager to reduce weights
  */
 #ifdef LUMA_raw
-#define WD 1
-#define WDT 0.2935708849017379
-#define WDP 1.2788519721382683
+#define WD 2
+#define WDT 0.4893345936928189
+#define WDP 0.0
 #define WDS 1.0
 #else
 #define WD 0
@@ -410,9 +410,9 @@
  * RO: range kernel (takes patch differences)
  */
 #ifdef LUMA_raw
-#define RO 6.373764517041128e-05
+#define RO 0.00014746957936752556
 #else
-#define RO 0.0
+#define RO 9.773746446023492e-05
 #endif
 
 /* Sampling method
@@ -1395,7 +1395,7 @@ vec4 hook()
 //!BIND HOOKED
 //!BIND G
 //!BIND GC
-//!DESC Non-local means (nlmeans.glsl)
+//!DESC Non-local means (HQ/nlmeans.glsl)
 
 
 
@@ -1406,9 +1406,9 @@ vec4 hook()
 
 // Denoising factor (sigma, higher means more blur)
 #ifdef LUMA_raw
-#define S 3.559719405746641
+#define S 1.0891793821856746
 #else
-#define S 0.644044031464058
+#define S 0.9261970284633889
 #endif
 
 /* Noise resistant adaptive sharpening
@@ -1446,9 +1446,9 @@ vec4 hook()
  * AKA the center weight, the weight of the pixel-of-interest.
  */
 #ifdef LUMA_raw
-#define SW 0.5211292610050897
+#define SW 1.4918935240131503
 #else
-#define SW 0.32722815587389364
+#define SW 3.3672059070451072
 #endif
 
 /* Spatial kernel
@@ -1465,12 +1465,12 @@ vec4 hook()
  */
 #ifdef LUMA_raw
 #define SST 1
-#define SS 1.3662208603933492
+#define SS 0.12303243413917926
 #define PST 0
 #define PSS 0.0
 #else
 #define SST 1
-#define SS 0.07604576880459668
+#define SS 0.04608821797323175
 #define PST 0
 #define PSS 0.0
 #endif
@@ -1533,10 +1533,10 @@ vec4 hook()
  */
 #ifdef LUMA_raw
 #define P 3
-#define R 3
+#define R 9
 #else
 #define P 3
-#define R 5
+#define R 9
 #endif
 
 /* Patch and research shapes
@@ -1558,7 +1558,7 @@ vec4 hook()
  */
 #ifdef LUMA_raw
 #define RS 3
-#define PS 3
+#define PS 0
 #else
 #define RS 3
 #define PS 3
@@ -1580,9 +1580,9 @@ vec4 hook()
  * WDS (not for WDK=is_zero): Higher numbers are more eager to reduce weights
  */
 #ifdef LUMA_raw
-#define WD 2
-#define WDT 0.6302678350888067
-#define WDP 0.0
+#define WD 1
+#define WDT 0.0882286053470455
+#define WDP 1.060997583415308
 #define WDS 1.0
 #else
 #define WD 0
@@ -1756,9 +1756,9 @@ vec4 hook()
  * RO: range kernel (takes patch differences)
  */
 #ifdef LUMA_raw
-#define RO 9.4514748889311e-05
+#define RO 2.603846182420303e-05
 #else
-#define RO 8.568093800527619e-05
+#define RO 0.00012555521925975498
 #endif
 
 /* Sampling method
