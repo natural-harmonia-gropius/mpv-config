@@ -3,13 +3,13 @@ local Element = require('elements/Element')
 ---@alias MenuAction {name: string; icon: string; label?: string; filter_hidden?: boolean;}
 
 -- Menu data structure accepted by `Menu:open(menu)`.
----@alias MenuData {id?: string; type?: string; title?: string; hint?: string; footnote: string; search_style?: 'on_demand' | 'palette' | 'disabled';  item_actions?: MenuAction[]; item_actions_place?: 'inside' | 'outside'; callback?: string[]; keep_open?: boolean; bold?: boolean; italic?: boolean; muted?: boolean; separator?: boolean; align?: 'left'|'center'|'right'; items?: MenuDataChild[]; selected_index?: integer; on_search?: string|string[]; on_paste?: string|string[]; on_move?: string|string[]; on_close?: string|string[]; search_debounce?: number|string; search_submenus?: boolean; search_suggestion?: string; search_submit?: boolean}
+---@alias MenuData {id?: string; type?: string; title?: string; hint?: string; footnote: string; search_style?: 'on_demand' | 'palette' | 'disabled';  item_actions?: MenuAction[]; item_actions_place?: 'inside' | 'outside'; callback?: string[]; keep_open?: boolean; bold?: boolean; italic?: boolean; muted?: boolean; separator?: boolean; align?: 'left'|'center'|'right'; items?: MenuDataChild[]; selected_index?: integer; on_search?: string|string[]; on_paste?: string|string[]; on_move?: string|string[]; on_close?: string|string[]; search_debounce?: number|string; search_submenus?: boolean; search_suggestion?: string; search_submit?: boolean; bind_keys?: string[]}
 ---@alias MenuDataChild MenuDataItem|MenuData
 ---@alias MenuDataItem {title?: string; hint?: string; icon?: string; value: any; actions?: MenuAction[]; actions_place?: 'inside' | 'outside'; active?: boolean; keep_open?: boolean; selectable?: boolean; bold?: boolean; italic?: boolean; muted?: boolean; separator?: boolean; align?: 'left'|'center'|'right'}
 ---@alias MenuOptions {mouse_nav?: boolean;}
 
 -- Internal data structure created from `MenuData`.
----@alias MenuStack {id?: string; type?: string; title?: string; hint?: string; footnote: string; search_style?: 'on_demand' | 'palette' | 'disabled';  item_actions?: MenuAction[]; item_actions_place?: 'inside' | 'outside'; callback?: string[]; selected_index?: number; action_index?: number; keep_open?: boolean; bold?: boolean; italic?: boolean; muted?: boolean; separator?: boolean; align?: 'left'|'center'|'right'; items: MenuStackChild[]; on_search?: string|string[]; on_paste?: string|string[]; on_move?: string|string[]; on_close?: string|string[]; search_debounce?: number|string; search_submenus?: boolean; search_suggestion?: string; search_submit?: boolean; parent_menu?: MenuStack; submenu_path: integer[]; active?: boolean; width: number; height: number; top: number; scroll_y: number; scroll_height: number; title_width: number; hint_width: number; max_width: number; is_root?: boolean; fling?: Fling, search?: Search, ass_safe_title?: string}
+---@alias MenuStack {id?: string; type?: string; title?: string; hint?: string; footnote: string; search_style?: 'on_demand' | 'palette' | 'disabled';  item_actions?: MenuAction[]; item_actions_place?: 'inside' | 'outside'; callback?: string[]; selected_index?: number; action_index?: number; keep_open?: boolean; bold?: boolean; italic?: boolean; muted?: boolean; separator?: boolean; align?: 'left'|'center'|'right'; items: MenuStackChild[]; on_search?: string|string[]; on_paste?: string|string[]; on_move?: string|string[]; on_close?: string|string[]; search_debounce?: number|string; search_submenus?: boolean; search_suggestion?: string; search_submit?: boolean; bind_keys?: string[]; parent_menu?: MenuStack; submenu_path: integer[]; active?: boolean; width: number; height: number; top: number; scroll_y: number; scroll_height: number; title_width: number; hint_width: number; max_width: number; is_root?: boolean; fling?: Fling, search?: Search, ass_safe_title?: string}
 ---@alias MenuStackChild MenuStackItem|MenuStack
 ---@alias MenuStackItem {title?: string; hint?: string; icon?: string; value: any; actions?: MenuAction[]; actions_place?: 'inside' | 'outside'; active?: boolean; keep_open?: boolean; selectable?: boolean; bold?: boolean; italic?: boolean; muted?: boolean; separator?: boolean; align?: 'left'|'center'|'right'; title_width: number; hint_width: number; ass_safe_hint?: string}
 ---@alias Fling {y: number, distance: number, time: number, easing: fun(x: number), duration: number, update_cursor?: boolean}
@@ -766,11 +766,18 @@ end
 
 ---@param offset integer
 ---@param immediate? boolean
-function Menu:navigate_by_offset(offset, immediate)
+function Menu:navigate_by_items(offset, immediate)
 	self:select_by_offset(offset)
 	if self.current.selected_index then
 		self:scroll_to_index(self.current.selected_index, self.current.id, immediate)
 	end
+end
+
+---@param offset integer
+---@param immediate? boolean
+function Menu:navigate_by_page(offset, immediate)
+	local items_per_page = round((self.current.height / self.scroll_step) * 0.4)
+	self:navigate_by_items(items_per_page * offset, immediate)
 end
 
 function Menu:paste()
@@ -829,35 +836,99 @@ end
 ---@return MenuStackChild[]
 function search_items(items, query, recursive, prefix)
 	local result = {}
+	local haystacks = {}
+	local flat_items = {}
 	local concat = table.concat
+	local romanization = need_romanization()
+
 	for _, item in ipairs(items) do
 		if item.selectable ~= false then
 			local prefixed_title = prefix and prefix .. ' / ' .. (item.title or '') or item.title
+			haystacks[#haystacks + 1] = item.title
+			flat_items[#flat_items + 1] = item
+
 			if item.items and recursive then
 				itable_append(result, search_items(item.items, query, recursive, prefixed_title))
-			else
-				local title = item.title and item.title:lower()
-				local hint = item.hint and item.hint:lower()
-				local initials_title = title and concat(initials(title)) --[[@as string]]
-				local romanization = need_romanization()
-				if romanization then
-					ligature_conv_title = title and char_conv(title, true)
-					initials_conv_title = title and concat(initials(char_conv(title, false)))
-				end
-				if title and title:find(query, 1, true) or
-					title and romanization and ligature_conv_title:find(query, 1, true) or
-					hint and hint:find(query, 1, true) or
-					title and initials_title:find(query, 1, true) or
-					title and romanization and initials_conv_title:find(query, 1, true) or
-					hint and concat(initials(hint)):find(query, 1, true) then
-					item = table_assign({}, item)
-					item.title = prefixed_title
-					item.ass_safe_title = nil
-					result[#result + 1] = item
-				end
 			end
 		end
 	end
+
+	local seen = {}
+
+	local fuzzy = fzy.filter(query, haystacks, false)
+	for _, match in ipairs(fuzzy) do
+		local idx, positions, score = match[1], match[2], match[3]
+		local matched_title = haystacks[idx]
+		local item = flat_items[idx]
+		local prefixed_title = prefix and prefix .. ' / ' .. (item.title or '') or item.title
+
+		if item.selectable ~= false and not (item.items and recursive) and not seen[item] then
+			local bold = item.bold or options.font_bold
+			local font_color = item.active and fgt or bgt
+			local ass_safe_title = highlight_match(matched_title, positions, font_color, bold) or nil
+			local new_item = table_assign({}, item)
+			new_item.title = prefixed_title
+			new_item.ass_safe_title = prefix and prefix .. ' / ' .. (ass_safe_title or '') or ass_safe_title
+			new_item.score = score
+			result[#result + 1] = new_item
+			seen[item] = true
+		end
+	end
+
+	for _, item in ipairs(items) do
+		local title = item.title and item.title:lower()
+		local hint = item.hint and item.hint:lower()
+		local bold = item.bold or options.font_bold
+		local font_color = item.active and fgt or bgt
+		local ass_safe_title = nil
+		local prefixed_title = prefix and prefix .. ' / ' .. (item.title or '') or item.title
+		if item.selectable ~= false and not (item.items and recursive) and not seen[item] then
+			local score = 0
+			local match = false
+
+			if title and romanization then
+				local ligature_conv_title, ligature_roman = char_conv(title, true)
+				local initials_arr_conv, initials_roman = char_conv(title, false)
+				local initials_conv_title = concat(initials(initials_arr_conv))
+				if ligature_conv_title:find(query, 1, true) then
+					match = true
+					score = 1000
+					local pos = get_roman_match_positions(title, query, "ligature", ligature_roman)
+					if pos then
+						ass_safe_title = highlight_match(item.title, pos, font_color, bold)
+					end
+				elseif initials_conv_title:find(query, 1, true) then
+					match = true
+					score = 900
+					local pos = get_roman_match_positions(title, query, "initial", initials_roman)
+					if pos then
+						ass_safe_title = highlight_match(item.title, pos, font_color, bold)
+					end
+				end
+			end
+
+			if hint and not match then
+				if hint:find(query, 1, true) then
+					match = true
+					score = 100
+				elseif concat(initials(hint)):find(query, 1, true) then
+					match = true
+					score = 90
+				end
+			end
+
+			if match then
+				local new_item = table_assign({}, item)
+				new_item.title = prefixed_title
+				new_item.ass_safe_title = prefix and prefix .. ' / ' .. (ass_safe_title or '') or ass_safe_title
+				new_item.score = score
+				result[#result + 1] = new_item
+			end
+		end
+	end
+
+	table.sort(result, function(a, b) return a.score > b.score end)
+
 	return result
 end
 
@@ -1120,27 +1191,22 @@ function Menu:search_ensure_key_bindings()
 end
 
 function Menu:enable_key_bindings()
+	local standalone_keys = {'/', 'kp_divide', 'mbtn_back', 'ctrl+f', 'ctrl+v', 'ctrl+c'}
+	if type(self.root.bind_keys) == 'table' then itable_append(standalone_keys, self.root.bind_keys) end
 	-- `+` at the end enables `repeatable` flag
-	local standalone_keys = {
-		'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11', 'f12', '/', 'kp_divide', 'mbtn_back',
-		{'f', 'ctrl'}, {'v', 'ctrl'}, {'c', 'ctrl'},
-	}
 	local modifiable_keys = {'up+', 'down+', 'left', 'right', 'enter', 'kp_enter', 'bs', 'tab', 'esc', 'pgup+',
 		'pgdwn+', 'home', 'end', 'del'}
 	local modifiers = {nil, 'alt', 'alt+ctrl', 'alt+shift', 'alt+ctrl+shift', 'ctrl', 'ctrl+shift', 'shift'}
-	local normalized = {kp_enter = 'enter'}
 
-	local function bind(key, modifier, flags)
-		local binding = modifier and modifier .. '+' .. key or key
-		local shortcut = create_shortcut(normalized[key] or key, modifier)
+	---@param shortcut Shortcut
+	---@param flags table<string, boolean>
+	local function bind(shortcut, flags)
 		local handler = self:create_action(function(info) self:handle_shortcut(shortcut, info) end)
-		self:add_key_binding(binding, {handler, flags})
+		self:add_key_binding(shortcut.id, {handler, flags})
 	end
 
-	for i, key_mods in ipairs(standalone_keys) do
-		local is_table = type(key_mods) == 'table'
-		local key, mods = is_table and key_mods[1] or key_mods, is_table and key_mods[2] or nil
-		bind(key, mods, {repeatable = false, complex = true})
+	for i, key in ipairs(standalone_keys) do
+		bind(create_shortcut(key), {repeatable = false, complex = true})
 	end
 
 	for i, key in ipairs(modifiable_keys) do
@@ -1152,7 +1218,7 @@ function Menu:enable_key_bindings()
 		end
 
 		for j = 1, #modifiers do
-			bind(key, modifiers[j], flags)
+			bind(create_shortcut(key, modifiers[j]), flags)
 		end
 	end
 
@@ -1190,10 +1256,9 @@ function Menu:handle_shortcut(shortcut, info)
 	elseif id == 'enter' and menu.search and menu.search_debounce == 'submit' then
 		self:search_submit()
 	elseif id == 'up' or id == 'down' then
-		self:navigate_by_offset(id == 'up' and -1 or 1, true)
+		self:navigate_by_items(id == 'up' and -1 or 1, true)
 	elseif id == 'pgup' or id == 'pgdwn' then
-		local items_per_page = round((menu.height / self.scroll_step) * 0.4)
-		self:navigate_by_offset(items_per_page * (id == 'pgup' and -1 or 1))
+		self:navigate_by_page(id == 'pgup' and -1 or 1)
 	elseif menu.search and (id == 'left' or id == 'ctrl+left') then
 		self:search_cursor_move(-1, modifiers == 'ctrl')
 	elseif menu.search and (id == 'right' or id == 'ctrl+right') then
@@ -1203,7 +1268,7 @@ function Menu:handle_shortcut(shortcut, info)
 	elseif menu.search and id == 'end' then
 		self:search_cursor_move(math.huge)
 	elseif id == 'home' or id == 'end' then
-		self:navigate_by_offset(id == 'home' and -math.huge or math.huge)
+		self:navigate_by_items(id == 'home' and -math.huge or math.huge)
 	elseif id == 'shift+tab' then
 		self:prev_action()
 	elseif id == 'tab' then

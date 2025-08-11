@@ -1,5 +1,5 @@
 --[[ uosc | https://github.com/tomasklaen/uosc ]]
-local uosc_version = '5.10.0'
+local uosc_version = '5.11.0'
 
 mp.commandv('script-message', 'uosc-version', uosc_version)
 
@@ -133,6 +133,7 @@ end
 local intl = require('lib/intl')
 t = intl.t
 require('lib/char_conv')
+fzy = require('lib/fzy')
 
 --[[ CONFIG ]]
 local config_defaults = {
@@ -144,6 +145,7 @@ local config_defaults = {
 		curtain = serialize_rgba('111111').color,
 		success = serialize_rgba('a5e075').color,
 		error = serialize_rgba('ff616e').color,
+		match = serialize_rgba('69c5ff').color,
 	},
 	opacity = {
 		timeline = 0.9,
@@ -368,8 +370,6 @@ state = {
 	cwd = mp.get_property('working-directory'),
 	path = nil, -- current file path or URL
 	history = {}, -- history of last played files stored as full paths
-	title = nil,
-	alt_title = nil,
 	time = nil, -- current media playback time
 	speed = 1,
 	---@type number|nil
@@ -380,8 +380,6 @@ state = {
 	pause = mp.get_property_native('pause'),
 	ime_active = mp.get_property_native('input-ime'),
 	chapters = {},
-	---@type {index: number; title: string}|nil
-	current_chapter = nil,
 	chapter_ranges = {},
 	border = mp.get_property_native('border'),
 	title_bar = mp.get_property_native('title-bar'),
@@ -621,21 +619,6 @@ function observe_display_fps(name, fps)
 	end
 end
 
-function select_current_chapter()
-	local current_chapter_index = state.current_chapter and state.current_chapter.index
-	local current_chapter
-	if state.time and state.chapters then
-		_, current_chapter = itable_find(state.chapters, function(c) return state.time >= c.time end, #state.chapters, 1)
-	end
-	local new_chapter_index = current_chapter and current_chapter.index
-	if current_chapter_index ~= new_chapter_index then
-		set_state('current_chapter', current_chapter)
-		if itable_has(config.top_bar_flash_on, 'chapter') then
-			Elements:flash({'top_bar'})
-		end
-	end
-end
-
 --[[ STATE HOOKS ]]
 
 mp.register_event('file-loaded', function()
@@ -659,51 +642,6 @@ mp.register_event('end-file', function(event)
 		handle_file_end()
 	end
 end)
--- Top bar titles
-do
-	local function update_state_with_template(prop, template)
-		-- escape ASS, and strip newlines and trailing slashes and trim whitespace
-		local tmp = mp.command_native({'expand-text', template}):gsub('\\n', ' '):gsub('[\\%s]+$', ''):gsub('^%s+', '')
-		set_state(prop, ass_escape(tmp))
-	end
-
-	local function add_template_listener(template, callback)
-		local props = get_expansion_props(template)
-		for prop, _ in pairs(props) do
-			mp.observe_property(prop, 'native', callback)
-		end
-		if not next(props) then callback() end
-	end
-
-	local function remove_template_listener(callback) mp.unobserve_property(callback) end
-
-	-- Main title
-	if #options.top_bar_title > 0 and options.top_bar_title ~= 'no' then
-		if options.top_bar_title == 'yes' then
-			local template = nil
-			local function update_title() update_state_with_template('title', template) end
-			mp.observe_property('title', 'string', function(_, title)
-				remove_template_listener(update_title)
-				template = title
-				if template then
-					if template:sub(-6) == ' - mpv' then template = template:sub(1, -7) end
-					add_template_listener(template, update_title)
-				end
-			end)
-		elseif type(options.top_bar_title) == 'string' then
-			add_template_listener(options.top_bar_title, function()
-				update_state_with_template('title', options.top_bar_title)
-			end)
-		end
-	end
-
-	-- Alt title
-	if #options.top_bar_alt_title > 0 and options.top_bar_alt_title ~= 'no' then
-		add_template_listener(options.top_bar_alt_title, function()
-			update_state_with_template('alt_title', options.top_bar_alt_title)
-		end)
-	end
-end
 mp.observe_property('playback-time', 'number', create_state_setter('time', function()
 	-- Create a file-end event that triggers right before file ends
 	file_end_timer:kill()
@@ -721,7 +659,6 @@ mp.observe_property('playback-time', 'number', create_state_setter('time', funct
 	end
 
 	update_human_times()
-	select_current_chapter()
 end))
 mp.observe_property('rebase-start-time', 'bool', create_state_setter('rebase_start_time', update_duration))
 mp.observe_property('demuxer-start-time', 'number', create_state_setter('start_time', update_duration))
@@ -764,7 +701,6 @@ mp.observe_property('chapter-list', 'native', function(_, chapters)
 	set_state('chapters', chapters)
 	set_state('chapter_ranges', chapter_ranges)
 	set_state('has_chapter', #chapters > 0)
-	select_current_chapter()
 	Elements:trigger('dispositions')
 end)
 mp.observe_property('border', 'bool', create_state_setter('border'))
@@ -1051,6 +987,14 @@ bind_command('delete-file-quit', function()
 	if state.path and not is_protocol(state.path) then delete_file(state.path) end
 	mp.command('quit')
 end)
+bind_command('menu-prev', function() Elements:maybe('menu', 'navigate_by_items', -1) end)
+bind_command('menu-next', function() Elements:maybe('menu', 'navigate_by_items', 1) end)
+bind_command('menu-prev-page', function() Elements:maybe('menu', 'navigate_by_page', -1) end)
+bind_command('menu-next-page', function() Elements:maybe('menu', 'navigate_by_page', 1) end)
+bind_command('menu-start', function() Elements:maybe('menu', 'navigate_by_items', -math.huge) end)
+bind_command('menu-end', function() Elements:maybe('menu', 'navigate_by_items', math.huge) end)
+bind_command('menu-activate', function() Elements:maybe('menu', 'activate_selected_item') end)
+bind_command('menu-back', function() Elements:maybe('menu', 'back') end)
 bind_command('audio-device', create_self_updating_menu_opener({
 	title = t('Audio devices'),
 	type = 'audio-device-list',
