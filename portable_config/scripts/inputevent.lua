@@ -176,11 +176,32 @@ function command_invert(command)
             end
         end
 
-        local value = mp.get_property(property)
-        local semi = i == #command_list and "" or ";"
-
         if table.has(commands, command) then
-            invert = invert .. prefix .. "set " .. property .. " " .. value .. semi
+            local restore = true
+            local use_del = false
+            local value = mp.get_property_native(property)
+            local semi = i == #command_list and "" or "; "
+
+            if type(value) == 'number' then
+                value = tostring(value)
+            elseif type(value) == 'boolean' then
+                value = value and 'yes' or 'no'
+            elseif type(value) == 'string' then
+                value = '"' .. value:replace('"', '\\"') .. '"'
+            elseif type(value) == 'nil' then
+                use_del = true
+            else
+                mp.msg.warn("the value type of \"" .. property .. "\" is " .. type(value) .. ", can't auto restore.")
+                restore = false
+            end
+
+            if restore then
+                if not use_del then
+                    invert = invert .. prefix .. "set" .. " " .. property .. " " .. value .. semi
+                else
+                    invert = invert .. prefix .. "del" .. " " .. property .. semi
+                end
+            end
         else
             mp.msg.warn("\"" .. trimed .. "\" doesn't support auto restore.")
         end
