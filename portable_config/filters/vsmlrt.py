@@ -1,4 +1,4 @@
-__version__ = "3.22.26"
+__version__ = "3.22.28"
 
 __all__ = [
     "Backend", "BackendV2",
@@ -29,6 +29,7 @@ import sys
 import tempfile
 import time
 import typing
+import warnings
 import zlib
 
 import vapoursynth as vs
@@ -2374,12 +2375,23 @@ def tensorrt_rtx(
     trt_version = parse_trt_version(int(core.trt_rtx.Version()["tensorrt_version"]))
 
     if fp16:
-        fp16_network_path = f"{network_path}_fp16{'_io' if fp16_io else ''}.onnx"
+        with open(network_path, "rb") as file:
+            checksum = zlib.adler32(file.read())
+
+        dirname, basename = os.path.split(network_path)
+
+        if engine_folder is not None:
+            os.makedirs(engine_folder, exist_ok=True)
+            dirname = engine_folder
+
+        fp16_network_path = f"{os.path.join(dirname, basename)}_{checksum}_fp16{'_io' if fp16_io else ''}.onnx"
         if not os.access(fp16_network_path, mode=os.R_OK):
             import onnx
             from onnxconverter_common.float16 import convert_float_to_float16
             model = onnx.load(network_path)
-            model = convert_float_to_float16(model, keep_io_types=not fp16_io)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                model = convert_float_to_float16(model, keep_io_types=not fp16_io)
             onnx.save(model, fp16_network_path)
         network_path = fp16_network_path
     elif fp16_io:
