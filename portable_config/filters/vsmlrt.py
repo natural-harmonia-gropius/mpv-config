@@ -1,4 +1,4 @@
-__version__ = "3.22.33"
+__version__ = "3.22.34"
 
 __all__ = [
     "Backend", "BackendV2",
@@ -230,6 +230,7 @@ class Backend:
         fp16: bool = False
         device_id: int = 0
         num_streams: int = 1
+        output_format: int = 0 # 0: fp32, 1: fp16
 
         # internal backend attributes
         supports_onnx_serialization: bool = True
@@ -1773,6 +1774,10 @@ class ArtCNNModel(enum.IntEnum):
     ArtCNN_C4F16 = 10
     ArtCNN_C4F16_DS = 11
     ArtCNN_R16F96_Chroma = 12
+    ArtCNN_C4F16_DN = 13
+    ArtCNN_C4F32_DN = 14
+    ArtCNN_R8F64_JPEG420 = 15
+    ArtCNN_R8F64_JPEG444 = 16
 
 
 def ArtCNN(
@@ -1809,6 +1814,12 @@ def ArtCNN(
                 f'{func_name}: "clip" must be without subsampling! '
                 'Bilinear upsampling is recommended.'
             )
+    elif model in (
+        ArtCNNModel.ArtCNN_R8F64_JPEG420,
+        ArtCNNModel.ArtCNN_R8F64_JPEG444,
+    ):
+        if clip.format.color_family != vs.RGB:
+            raise ValueError(f'{func_name}: "clip" must be of YUV color family')
     elif clip.format.color_family != vs.GRAY:
         raise ValueError(f'{func_name}: "clip" must be of GRAY color family')
 
@@ -2722,6 +2733,10 @@ def _inference(
             version = tuple(map(int, version_list))
 
         if version >= (1, 18, 0):
+            kwargs["output_format"] = backend.output_format
+
+    elif isinstance(backend, Backend.NCNN_VK):
+        if "output_format" in core.ncnn.Model.signature:
             kwargs["output_format"] = backend.output_format
 
     if isinstance(backend, Backend.ORT_CPU):
