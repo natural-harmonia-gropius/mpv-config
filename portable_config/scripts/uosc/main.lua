@@ -1,5 +1,5 @@
 --[[ uosc | https://github.com/tomasklaen/uosc ]]
-local uosc_version = '5.11.0'
+local uosc_version = '5.12.0'
 
 mp.commandv('script-message', 'uosc-version', uosc_version)
 
@@ -27,6 +27,7 @@ defaults = {
 	timeline_border = 1,
 	timeline_step = '5',
 	timeline_cache = true,
+	timeline_heatmap = 'overlay',
 
 	controls =
 	'menu,gap,<video,audio>subtitles,<has_many_audio>audio,<has_many_video>video,<has_many_edition>editions,<stream>stream-quality,gap,space,<video,audio>speed,space,shuffle,loop-playlist,loop-file,gap,prev,items,next,gap,fullscreen',
@@ -146,6 +147,7 @@ local config_defaults = {
 		success = serialize_rgba('a5e075').color,
 		error = serialize_rgba('ff616e').color,
 		match = serialize_rgba('69c5ff').color,
+		heatmap = serialize_rgba('00adee').color,
 	},
 	opacity = {
 		timeline = 0.9,
@@ -166,6 +168,7 @@ local config_defaults = {
 		audio_indicator = 0.5,
 		buffering_indicator = 0.3,
 		playlist_position = 0.8,
+		heatmap = 0.4,
 	},
 }
 config = {
