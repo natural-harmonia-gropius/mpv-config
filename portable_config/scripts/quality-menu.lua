@@ -1,4 +1,4 @@
--- quality-menu 4.2.0 - 2024-Oct-04
+-- quality-menu 4.2.1 - 2025-Jun-29
 -- https://github.com/christoph-heinrich/mpv-quality-menu
 --
 -- Change the stream video and audio quality on the fly.
@@ -877,7 +877,7 @@ local function format_table(formats, columns, column_align_left)
         end
     end
 
-    local identical_columns = identical_for_all(formats, columns)
+    local identical_columns = #formats < 2 and {} or identical_for_all(formats, columns)
 
     local show_columns = {}
     for i, width in ipairs(column_widths) do
@@ -910,7 +910,7 @@ end
 ---@param columns string[]
 ---@return string[]
 local function format_csv(formats, columns)
-    local identical_props = identical_for_all(formats, columns)
+    local identical_props = #formats < 2 and {} or identical_for_all(formats, columns)
     local hints = {}
     for i, format in ipairs(formats) do
         local row = {}
