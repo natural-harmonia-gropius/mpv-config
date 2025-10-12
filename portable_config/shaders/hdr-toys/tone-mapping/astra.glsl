@@ -1,13 +1,12 @@
 // Astra, a tone mapping operator designed to preserve the creator's intent
 
-// working space: https://doi.org/10.1364/OE.25.015131
-// lms matrix: https://doi.org/10.1364/OE.413659
+// working space: https://doi.org/10.2352/ISSN.2169-2629.2017.25.264
 // hk effect: https://doi.org/10.1364/OE.534073
 // chroma correction: https://www.itu.int/pub/R-REP-BT.2408
 // dynamic metadata: https://github.com/mpv-player/mpv/pull/15239
 // fast gaussian blur: https://www.rastergrid.com/blog/2010/09/efficient-gaussian-blur-with-linear-sampling/
-// shoulder segment: http://filmicworlds.com/blog/filmic-tonemapping-with-piecewise-power-curves/
-// toe segment: https://technorgb.blogspot.com/2018/02/hyperbola-tone-mapping.html
+// toe segment of curve: https://technorgb.blogspot.com/2018/02/hyperbola-tone-mapping.html
+// shoulder segment of curve: http://filmicworlds.com/blog/filmic-tonemapping-with-piecewise-power-curves/
 
 //!PARAM min_luma
 //!TYPE float
@@ -159,8 +158,6 @@
 //!WHEN enable_metering 0 > max_pq_y 0 = * scene_max_r 0 = * scene_max_g 0 = * scene_max_b 0 = *
 //!DESC metering (intensity map)
 
-const vec3 y_coef = vec3(0.2627002120112671, 0.6779980715188708, 0.05930171646986196);
-
 const float m1 = 2610.0 / 4096.0 / 4.0;
 const float m2 = 2523.0 / 4096.0 * 128.0;
 const float c1 = 3424.0 / 4096.0;
@@ -173,9 +170,14 @@ float pq_eotf_inv(float x) {
     return pow((c1 + c2 * t) / (1.0 + c3 * t), m2);
 }
 
+float RGB_to_Y(vec3 rgb) {
+    const vec3 luma_coef = vec3(0.2627002120112671, 0.6779980715188708, 0.05930171646986196);
+    return dot(rgb, luma_coef);
+}
+
 vec4 hook() {
     vec4 color = HOOKED_tex(HOOKED_pos);
-    return vec4(pq_eotf_inv(dot(color.rgb * reference_white, y_coef)));
+    return vec4(pq_eotf_inv(RGB_to_Y(color.rgb) * reference_white));
 }
 
 //!HOOK OUTPUT
@@ -668,74 +670,289 @@ void hook() {
 //!WHEN temporal_stable_frames
 //!DESC metering (temporal stabilization)
 
+// ============================================================================
+// TEMPORAL STABILIZATION - Configuration Parameters
+// ============================================================================
+// These parameters control the temporal smoothing behavior to reduce flicker
+// while maintaining responsiveness to actual scene changes.
+
+// Exponential decay factor for weighted moving average
+// Range: 0.7-0.95. Lower = more smoothing but slower response
+// Default: 0.85 balances smoothness and responsiveness
+const float TEMPORAL_DECAY = 0.85;
+
+// EMA (Exponential Moving Average) smoothing factor
+// Range: 0.1-0.3. Lower = smoother but less responsive
+// Default: 0.2 provides good stability without excessive lag
+const float TEMPORAL_EMA_ALPHA = 0.2;
+
+// Blend factor for gradual scene transition
+// Range: 0.3-0.7. Lower = smoother transitions during scene cuts
+// Default: 0.5 provides balanced transition speed
+const float TEMPORAL_SCENE_BLEND = 0.5;
+
+// Scene change blend factor (applied when cut is detected)
+// Range: 0.2-0.5. Lower = smoother but may blur real scene changes
+// Default: 0.3 maintains some smoothness during cuts
+const float TEMPORAL_CUT_BLEND = 0.3;
+
+// Base tolerance for scene change detection (in ΔE units)
+// Range: 20.0-50.0. Higher = fewer false detections but may miss real cuts
+// Default: 36.0 provides good balance for most content
+const float TEMPORAL_BASE_TOLERANCE = 36.0;
+
+// Adaptive tolerance scaling based on brightness
+// Range: 0.3-0.7. Higher = more tolerance for bright scenes
+// Default: 0.5 adapts well to various brightness levels
+const float TEMPORAL_ADAPTIVE_SCALE = 0.5;
+
+// Black scene threshold (below this is considered pure black)
+// Range: 8.0-32.0 (in 12-bit range). Higher = more aggressive black detection
+// Default: 16.0 catches most black frames without false positives
+const float TEMPORAL_BLACK_THRESHOLD = 16.0;
+
+// Metric weights for scene change detection
+// These weights determine the relative importance of each metric
+// Total should sum to 1.0 for balanced detection
+const float TEMPORAL_WEIGHT_AVG = 0.50; // Average is most reliable
+const float TEMPORAL_WEIGHT_MAX = 0.35; // Maximum is important for highlights
+const float TEMPORAL_WEIGHT_MIN = 0.15; // Minimum is least reliable (noise)
+
+// Delta scale for converting normalized differences to perceptual units
+// This converts [0,1] differences to ΔE-like perceptual differences
+const float TEMPORAL_DELTA_SCALE = 720.0;
+
+// Metric type identifiers for array access
+const int METRIC_MAX = 0;
+const int METRIC_MIN = 1;
+const int METRIC_AVG = 2;
+
+// ============================================================================
+// TEMPORAL STABILIZATION - Core Functions
+// ============================================================================
+
+/**
+ * Prepends current frame values to temporal history arrays
+ * Maintains a sliding window of the last N frames for all three metrics
+ */
 void temporal_prepend() {
+    // Shift all historical values one position forward
     for (uint i = temporal_stable_frames - 1; i > 0; i--) {
         metered_max_i_t[i] = metered_max_i_t[i - 1];
+        metered_min_i_t[i] = metered_min_i_t[i - 1];
+        metered_avg_i_t[i] = metered_avg_i_t[i - 1];
     }
+
+    // Insert current frame values at position 0
     metered_max_i_t[0] = metered_max_i;
+    metered_min_i_t[0] = metered_min_i;
+    metered_avg_i_t[0] = metered_avg_i;
 }
 
-float temporal_harmonic_mean() {
-    float sum = 0.0;
+/**
+ * Calculates weighted moving average with exponential decay
+ * Recent frames have higher weight than older frames
+ *
+ * @param type Metric type: METRIC_MAX, METRIC_MIN, or METRIC_AVG
+ * @return Weighted average value
+ */
+float temporal_weighted_mean(int type) {
+    float sum_weighted = 0.0;
+    float sum_weights = 0.0;
+
     for (uint i = 0; i < temporal_stable_frames; i++) {
-        float current = float(metered_max_i_t[i]);
-        sum += 1.0 / max(current, 1e-6);
+        // Select appropriate buffer based on metric type
+        float current;
+        if (type == METRIC_MAX) {
+            current = float(metered_max_i_t[i]);
+        } else if (type == METRIC_MIN) {
+            current = float(metered_min_i_t[i]);
+        } else { // METRIC_AVG
+            current = float(metered_avg_i_t[i]);
+        }
+
+        // Calculate exponential decay weight: w(i) = decay^i
+        // Recent frames (i=0) have weight=1.0, older frames decay exponentially
+        float weight = pow(TEMPORAL_DECAY, float(i));
+        sum_weighted += current * weight;
+        sum_weights += weight;
     }
-    return temporal_stable_frames / sum;
+
+    // Return normalized weighted average
+    return sum_weighted / max(sum_weights, 1e-6);
 }
 
-void temporal_fill() {
+/**
+ * Applies Exponential Moving Average (EMA) smoothing
+ * Provides additional stability on top of weighted average
+ *
+ * @param new_value New computed value
+ * @param prev_value Previous frame's value
+ * @return Smoothed value: prev + alpha * (new - prev)
+ */
+float apply_ema_smoothing(float new_value, float prev_value) {
+    return prev_value + TEMPORAL_EMA_ALPHA * (new_value - prev_value);
+}
+
+/**
+ * Gradually transitions temporal buffers during scene changes
+ * Blends old values towards new values to avoid sudden jumps
+ */
+void temporal_fill_gradual() {
     for (uint i = 0; i < temporal_stable_frames; i++) {
-        metered_max_i_t[i] = metered_max_i;
+        // Blend each buffer entry towards current value
+        float old_max = float(metered_max_i_t[i]);
+        float new_max = float(metered_max_i);
+        metered_max_i_t[i] = uint(mix(old_max, new_max, TEMPORAL_SCENE_BLEND) + 0.5);
+
+        float old_min = float(metered_min_i_t[i]);
+        float new_min = float(metered_min_i);
+        metered_min_i_t[i] = uint(mix(old_min, new_min, TEMPORAL_SCENE_BLEND) + 0.5);
+
+        float old_avg = float(metered_avg_i_t[i]);
+        float new_avg = float(metered_avg_i);
+        metered_avg_i_t[i] = uint(mix(old_avg, new_avg, TEMPORAL_SCENE_BLEND) + 0.5);
     }
 }
 
-float temporal_predict() {
+/**
+ * Performs linear regression prediction for scene change detection
+ * Uses least squares method to predict next frame value
+ *
+ * @param type Metric type: METRIC_MAX, METRIC_MIN, or METRIC_AVG
+ * @return Predicted value for next frame
+ */
+float temporal_predict(int type) {
     float sum_x = 0.0;
     float sum_y = 0.0;
     float sum_x2 = 0.0;
     float sum_xy = 0.0;
 
-    float n = temporal_stable_frames;
-    float xp = float(n + 1);
+    float n = float(temporal_stable_frames);
+    float xp = n + 1.0; // Predict position n+1
 
-    for (int i = 0; i < n; i++) {
+    // Accumulate sums for least squares regression
+    for (int i = 0; i < int(temporal_stable_frames); i++) {
         float x = float(i + 1);
+        float y;
+
+        // Select appropriate buffer based on metric type
+        if (type == METRIC_MAX) {
+            y = float(metered_max_i_t[i]);
+        } else if (type == METRIC_MIN) {
+            y = float(metered_min_i_t[i]);
+        } else { // METRIC_AVG
+            y = float(metered_avg_i_t[i]);
+        }
+
         sum_x += x;
-        sum_y += metered_max_i_t[i];
+        sum_y += y;
         sum_x2 += x * x;
-        sum_xy += x * metered_max_i_t[i];
+        sum_xy += x * y;
     }
 
-    float a = (n * sum_xy - sum_x * sum_y) / (n * sum_x2 - sum_x * sum_x);
-    float b = (sum_y - a * sum_x) / float(n);
+    // Calculate linear regression coefficients
+    // y = a*x + b
+    float denominator = n * sum_x2 - sum_x * sum_x;
+    float a = (n * sum_xy - sum_x * sum_y) / denominator;
+    float b = (sum_y - a * sum_x) / n;
 
+    // Return prediction for next frame
     return a * xp + b;
 }
 
-bool is_sence_changed(float m, float p) {
-    float black = 16.0;
-    if (black > metered_max_i)
+/**
+ * Detects scene changes using multi-metric prediction error analysis
+ * Combines max, min, and avg metrics with adaptive thresholding
+ *
+ * @param max_smoothed Smoothed maximum value
+ * @param min_smoothed Smoothed minimum value
+ * @param avg_smoothed Smoothed average value
+ * @param max_pred Predicted maximum value
+ * @param min_pred Predicted minimum value
+ * @param avg_pred Predicted average value
+ * @return true if scene change is detected
+ */
+bool is_scene_changed(float max_smoothed, float min_smoothed, float avg_smoothed,
+                      float max_pred, float min_pred, float avg_pred) {
+    // Detect pure black scenes (always considered a scene change)
+    if (metered_max_i < TEMPORAL_BLACK_THRESHOLD) {
         return true;
-
-    float tolerance = 36.0;
-    float im = float(m) / 4095.0;
-    float ip = float(p) / 4095.0;
-    float delta = 720 * abs(im - ip);
-    return delta > tolerance;
-}
-
-void hook() {
-    float p = temporal_predict();
-    temporal_prepend();
-    float m = temporal_harmonic_mean();
-
-    if (is_sence_changed(m, p)) {
-        temporal_fill();
-        return;
     }
 
-    metered_max_i = uint(m + 0.5);
+    // Calculate adaptive tolerance based on current brightness
+    // Brighter scenes get higher tolerance to reduce false positives
+    float brightness_factor = float(metered_max_i) / 4095.0;
+    float adaptive_tolerance = TEMPORAL_BASE_TOLERANCE *
+                               (1.0 + brightness_factor * TEMPORAL_ADAPTIVE_SCALE);
+
+    // Calculate prediction errors in perceptual units (ΔE-like)
+    // Normalize to [0,1] then scale to perceptual differences
+    float max_delta = TEMPORAL_DELTA_SCALE *
+                      abs(max_smoothed / 4095.0 - max_pred / 4095.0);
+    float min_delta = TEMPORAL_DELTA_SCALE *
+                      abs(min_smoothed / 4095.0 - min_pred / 4095.0);
+    float avg_delta = TEMPORAL_DELTA_SCALE *
+                      abs(avg_smoothed / 4095.0 - avg_pred / 4095.0);
+
+    // Combine errors using weighted average
+    // Average is most reliable, max is important, min is least reliable
+    float weighted_delta = avg_delta * TEMPORAL_WEIGHT_AVG +
+                           max_delta * TEMPORAL_WEIGHT_MAX +
+                           min_delta * TEMPORAL_WEIGHT_MIN;
+
+    // Scene change detected if weighted error exceeds adaptive threshold
+    return weighted_delta > adaptive_tolerance;
+}
+
+/**
+ * Main temporal stabilization hook
+ * Processes max, min, and avg metrics with multi-stage smoothing
+ * and intelligent scene change detection
+ */
+void hook() {
+    // Cache previous frame values for EMA smoothing
+    float prev_max = float(metered_max_i);
+    float prev_min = float(metered_min_i);
+    float prev_avg = float(metered_avg_i);
+
+    // Update temporal history with current frame
+    temporal_prepend();
+
+    // Stage 1: Weighted moving average (exponential decay)
+    // Gives more weight to recent frames
+    float max_weighted = temporal_weighted_mean(METRIC_MAX);
+    float min_weighted = temporal_weighted_mean(METRIC_MIN);
+    float avg_weighted = temporal_weighted_mean(METRIC_AVG);
+
+    // Stage 2: Exponential moving average smoothing
+    // Provides additional stability and reduces noise
+    float max_smoothed = apply_ema_smoothing(max_weighted, prev_max);
+    float min_smoothed = apply_ema_smoothing(min_weighted, prev_min);
+    float avg_smoothed = apply_ema_smoothing(avg_weighted, prev_avg);
+
+    // Generate predictions for scene change detection
+    float max_pred = temporal_predict(METRIC_MAX);
+    float min_pred = temporal_predict(METRIC_MIN);
+    float avg_pred = temporal_predict(METRIC_AVG);
+
+    // Detect and handle scene changes
+    if (is_scene_changed(max_smoothed, min_smoothed, avg_smoothed,
+                         max_pred, min_pred, avg_pred)) {
+        // Gradually transition buffer values to new scene
+        temporal_fill_gradual();
+
+        // Apply reduced smoothing for scene cuts to maintain some stability
+        // while still responding to the new scene quickly
+        max_smoothed = mix(prev_max, float(metered_max_i), TEMPORAL_CUT_BLEND);
+        min_smoothed = mix(prev_min, float(metered_min_i), TEMPORAL_CUT_BLEND);
+        avg_smoothed = mix(prev_avg, float(metered_avg_i), TEMPORAL_CUT_BLEND);
+    }
+
+    // Write back smoothed values with clamping to valid range [0, 4095]
+    metered_max_i = uint(clamp(max_smoothed, 0.0, 4095.0) + 0.5);
+    metered_min_i = uint(clamp(min_smoothed, 0.0, 4095.0) + 0.5);
+    metered_avg_i = uint(clamp(avg_smoothed, 0.0, 4095.0) + 0.5);
 }
 
 //!HOOK OUTPUT
@@ -793,8 +1010,6 @@ vec4 hook() {
 //!WHEN preview_metering 0 =
 //!DESC tone mapping (metadata)
 
-const vec3 y_coef = vec3(0.2627002120112671, 0.6779980715188708, 0.05930171646986196);
-
 const float m1 = 2610.0 / 4096.0 / 4.0;
 const float m2 = 2523.0 / 4096.0 * 128.0;
 const float c1 = 3424.0 / 4096.0;
@@ -812,6 +1027,18 @@ float pq_eotf(float x) {
     return pow(max(t - c1, 0.0) / (c2 - c3 * t), 1.0 / m1) * pw;
 }
 
+const float m2_z = 1.7 * m2;
+
+float iz_eotf_inv(float x) {
+    float t = pow(x / pw, m1);
+    return pow((c1 + c2 * t) / (1.0 + c3 * t), m2_z);
+}
+
+float iz_eotf(float x) {
+    float t = pow(x, 1.0 / m2_z);
+    return pow(max(t - c1, 0.0) / (c2 - c3 * t), 1.0 / m1) * pw;
+}
+
 const float d = -0.56;
 const float d0 = 1.6295499532821566e-11;
 
@@ -823,12 +1050,17 @@ float J_to_I(float J) {
     return (J + d0) / (1.0 + d - d * (J + d0));
 }
 
+float RGB_to_Y(vec3 rgb) {
+    const vec3 luma_coef = vec3(0.2627002120112671, 0.6779980715188708, 0.05930171646986196);
+    return dot(rgb, luma_coef);
+}
+
 float get_max_i() {
     if (max_pq_y > 0.0)
         return max_pq_y;
 
     if (scene_max_r > 0.0 || scene_max_g > 0.0 || scene_max_b > 0.0)
-        return pq_eotf_inv(dot(vec3(scene_max_r, scene_max_g, scene_max_b), y_coef));
+        return pq_eotf_inv(RGB_to_Y(vec3(scene_max_r, scene_max_g, scene_max_b)));
 
     if (enable_metering > 0)
         return float(metered_max_i) / 4095.0;
@@ -843,9 +1075,8 @@ float get_max_i() {
 }
 
 float get_min_i() {
-    // TODO：improve temporal stabilization, then enable this
-    // if (enable_metering > 0)
-    //     return float(metered_min_i) / 4095.0;
+    if (enable_metering > 0)
+        return float(metered_min_i) / 4095.0;
 
     if (min_luma > 0.0)
         return pq_eotf_inv(min_luma);
@@ -870,16 +1101,17 @@ float get_avg_i() {
     return 0.0;
 }
 
-float get_ev(float average) {
-    float anchor = pq_eotf(J_to_I(
-        auto_exposure_anchor * I_to_J(pq_eotf_inv(reference_white))
-    ));
+float get_ev(float avg_i) {
+    float reference_iz = iz_eotf_inv(reference_white);
+    float reference_j = I_to_J(reference_iz);
+    float anchor_j = auto_exposure_anchor * reference_j;
+    float anchor_iz = J_to_I(anchor_j);
+    float anchor = iz_eotf(anchor_iz);
 
-    return clamp(
-        log2(anchor / average),
-        -auto_exposure_limit_negtive,
-        auto_exposure_limit_postive
-    );
+    float average = pq_eotf(avg_i);
+
+    float ev = log2(anchor / average);
+    return clamp(ev, -auto_exposure_limit_negtive, auto_exposure_limit_postive);
 }
 
 void hook() {
@@ -887,13 +1119,16 @@ void hook() {
     min_i = get_min_i();
     avg_i = get_avg_i();
 
-    ev = (avg_i > 0.0 && auto_exposure_anchor > 0.0) ?
-        get_ev(pq_eotf(avg_i)) :
-        0.0;
+    if (avg_i > 0.0 && auto_exposure_anchor > 0.0) {
+        ev = get_ev(avg_i);
+    } else {
+        ev = 0.0;
+    }
 
     if (ev != 0.0) {
-        max_i = pq_eotf_inv(pq_eotf(max_i) * exp2(ev));
-        min_i = pq_eotf_inv(pq_eotf(min_i) * exp2(ev));
+        float ev_scale = exp2(ev);
+        max_i = pq_eotf_inv(pq_eotf(max_i) * ev_scale);
+        min_i = pq_eotf_inv(pq_eotf(min_i) * ev_scale);
     }
 }
 
@@ -933,12 +1168,9 @@ float pq_eotf_inv(float x) {
     return pow((c1 + c2 * t) / (1.0 + c3 * t), m2);
 }
 
-vec3 pq_eotf_inv(vec3 color) {
-    return vec3(
-        pq_eotf_inv(color.r),
-        pq_eotf_inv(color.g),
-        pq_eotf_inv(color.b)
-    );
+vec3 pq_eotf_inv(vec3 x) {
+    vec3 t = pow(x / pw, vec3(m1));
+    return pow((c1 + c2 * t) / (1.0 + c3 * t), vec3(m2));
 }
 
 float pq_eotf(float x) {
@@ -946,28 +1178,50 @@ float pq_eotf(float x) {
     return pow(max(t - c1, 0.0) / (c2 - c3 * t), 1.0 / m1) * pw;
 }
 
-vec3 pq_eotf(vec3 color) {
-    return vec3(
-        pq_eotf(color.r),
-        pq_eotf(color.g),
-        pq_eotf(color.b)
-    );
+vec3 pq_eotf(vec3 x) {
+    vec3 t = pow(x, vec3(1.0 / m2));
+    return pow(max(t - c1, 0.0) / (c2 - c3 * t), vec3(1.0 / m1)) * pw;
+}
+
+// Jzazbz added a factor to m2, which differs from the original PQ equation.
+const float m2_z = 1.7 * m2;
+
+float iz_eotf_inv(float x) {
+    float t = pow(x / pw, m1);
+    return pow((c1 + c2 * t) / (1.0 + c3 * t), m2_z);
+}
+
+vec3 iz_eotf_inv(vec3 x) {
+    vec3 t = pow(x / pw, vec3(m1));
+    return pow((c1 + c2 * t) / (1.0 + c3 * t), vec3(m2_z));
+}
+
+float iz_eotf(float x) {
+    float t = pow(x, 1.0 / m2_z);
+    return pow(max(t - c1, 0.0) / (c2 - c3 * t), 1.0 / m1) * pw;
+}
+
+vec3 iz_eotf(vec3 x) {
+    vec3 t = pow(x, vec3(1.0 / m2_z));
+    return pow(max(t - c1, 0.0) / (c2 - c3 * t), vec3(1.0 / m1)) * pw;
 }
 
 vec3 RGB_to_XYZ(vec3 RGB) {
-    return RGB * mat3(
+    const mat3 M = mat3(
         0.6369580483012914, 0.14461690358620832,  0.1688809751641721,
         0.2627002120112671, 0.6779980715188708,   0.05930171646986196,
         0.0               , 0.028072693049087428, 1.060985057710791
     );
+    return RGB * M;
 }
 
 vec3 XYZ_to_RGB(vec3 XYZ) {
-    return XYZ * mat3(
+    const mat3 M = mat3(
          1.716651187971268, -0.355670783776392, -0.25336628137366,
         -0.666684351832489,  1.616481236634939,  0.0157685458139111,
          0.017639857445311, -0.042770613257809,  0.942103121235474
     );
+    return XYZ * M;
 }
 
 const float b = 1.15;
@@ -986,35 +1240,59 @@ vec3 XYZm_to_XYZ(vec3 XYZm) {
 }
 
 vec3 XYZ_to_LMS(vec3 XYZ) {
-    return XYZ * mat3(
+    const mat3 M =mat3(
          0.41478972, 0.579999, 0.0146480,
         -0.2015100,  1.120649, 0.0531008,
         -0.0166008,  0.264800, 0.6684799
     );
+    return XYZ * M;
 }
 
 vec3 LMS_to_XYZ(vec3 LMS) {
-    return LMS * mat3(
+    const mat3 M = mat3(
          1.9242264357876067,  -1.0047923125953657,  0.037651404030618,
          0.35031676209499907,  0.7264811939316552, -0.06538442294808501,
         -0.09098281098284752, -0.3127282905230739,  1.5227665613052603
     );
+    return LMS * M;
 }
 
 vec3 LMS_to_Iab(vec3 LMS) {
-    return LMS * mat3(
+    const mat3 M = mat3(
+        0.0,       0.5,       0.5,
+        3.524000, -4.066708,  0.542708,
+        0.199076,  1.096799, -1.295875
+    );
+    return LMS * M;
+}
+
+vec3 Iab_to_LMS(vec3 Iab) {
+    const mat3 M = mat3(
+        1.0,  0.13860504327153927,  0.05804731615611883,
+        1.0, -0.1386050432715393,  -0.058047316156118904,
+        1.0, -0.09601924202631895, -0.81189189605603900
+    );
+    return Iab * M;
+}
+
+// ZCAM defines Iz = G' - ε, where ε = 3.7035226210190005e-11.
+// However, it appears we do not need it.
+vec3 LMS_to_Iab_optimized(vec3 LMS) {
+    const mat3 M = mat3(
         0.0,       1.0,       0.0,
         3.524000, -4.066708,  0.542708,
         0.199076,  1.096799, -1.295875
     );
+    return LMS * M;
 }
 
-vec3 Iab_to_LMS(vec3 Iab) {
-    return Iab * mat3(
+vec3 Iab_to_LMS_optimized(vec3 Iab) {
+    const mat3 M = mat3(
         1.0, 0.2772100865430786,  0.1160946323122377,
         1.0, 0.0,                 0.0,
         1.0, 0.0425858012452203, -0.75384457989992
     );
+    return Iab * M;
 }
 
 const float d = -0.56;
@@ -1081,8 +1359,10 @@ float Jhk_to_J(vec3 JCh) {
     return J - C * hke_fh(h);
 }
 
-// 1/720 of PQ to Jz
-const float epsilon = 0.0005938;
+// https://www.itu.int/rec/R-REC-BT.2124
+// ΔE_ITP_JND = 1 / 720
+// 0.0001 of Cz is much smaller than it
+const float epsilon = 0.0001;
 
 vec3 Lab_to_LCh(vec3 Lab) {
     float L = Lab.x;
@@ -1112,8 +1392,8 @@ vec3 RGB_to_Jab(vec3 color) {
     color = RGB_to_XYZ(color);
     color = XYZ_to_XYZm(color);
     color = XYZ_to_LMS(color);
-    color = pq_eotf_inv(color);
-    color = LMS_to_Iab(color);
+    color = iz_eotf_inv(color);
+    color = LMS_to_Iab_optimized(color);
     color.x = I_to_J(color.x);
     color.x = J_to_Jhk(Lab_to_LCh(color));
     return color;
@@ -1122,8 +1402,8 @@ vec3 RGB_to_Jab(vec3 color) {
 vec3 Jab_to_RGB(vec3 color) {
     color.x = Jhk_to_J(Lab_to_LCh(color));
     color.x = J_to_I(color.x);
-    color = Iab_to_LMS(color);
-    color = pq_eotf(color);
+    color = Iab_to_LMS_optimized(color);
+    color = iz_eotf(color);
     color = LMS_to_XYZ(color);
     color = XYZm_to_XYZ(color);
     color = XYZ_to_RGB(color);
@@ -1201,10 +1481,10 @@ float f(
 }
 
 float curve(float x) {
-    float ow = I_to_J(pq_eotf_inv(reference_white));
-    float ob = I_to_J(pq_eotf_inv(reference_white / contrast_ratio));
-    float iw = I_to_J(max_i);
-    float ib = I_to_J(min_i);
+    float ow = I_to_J(iz_eotf_inv(reference_white));
+    float ob = I_to_J(iz_eotf_inv(reference_white / contrast_ratio));
+    float iw = I_to_J(iz_eotf_inv(pq_eotf(max_i)));
+    float ib = I_to_J(iz_eotf_inv(pq_eotf(min_i)));
 
     iw = max(iw, ow);
     ib = min(ib, ob);
@@ -1215,13 +1495,14 @@ float curve(float x) {
     ), ob, ow);
 }
 
-// this preserves the direction of the Vividness vector
+// this is a correction in generic vividness and depth.
 // V = sqrt(J^2 + C^2)
-// K = Norm - V
+// D = sqrt((J_max - J)^2 + C^2)
+// more specific definitions of V and D at the link below:
+// https://doi.org/10.2352/ISSN.2169-2629.2018.26.96
+// https://doi.org/10.2352/issn.2169-2629.2019.27.43
 vec2 chroma_correction(vec2 ab, float l1, float l2) {
-    float r1 = l1 / max(l2, 1e-6);
-    float r2 = l2 / max(l1, 1e-6);
-    float r_min = min(r1, r2);
+    float r_min = min(l1, l2) / max(max(l1, l2), 1e-6);
     float r_scaled = mix(1.0, r_min, chroma_correction_scaling);
     float r_safe = max(r_scaled, 0.0);
     return ab * r_safe;
