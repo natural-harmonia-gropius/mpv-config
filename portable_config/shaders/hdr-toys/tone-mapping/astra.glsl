@@ -1,6 +1,6 @@
 // Astra, a tone mapping operator designed to preserve the creator's intent
 
-// working space: https://doi.org/10.2352/ISSN.2169-2629.2017.25.264
+// working space: https://doi.org/10.1364/OE.25.015131
 // hk effect: https://doi.org/10.1364/OE.534073
 // chroma correction: https://www.itu.int/pub/R-REP-BT.2408
 // dynamic metadata: https://github.com/mpv-player/mpv/pull/15239
@@ -1275,6 +1275,9 @@ vec3 Iab_to_LMS(vec3 Iab) {
     return Iab * M;
 }
 
+// https://doi.org/10.2352/ISSN.2169-2629.2017.25.264
+// Optimized matrices for Jzazbz about LMS to I conversion.
+// https://doi.org/10.1364/OE.413659
 // ZCAM defines Iz = G' - ε, where ε = 3.7035226210190005e-11.
 // However, it appears we do not need it.
 vec3 LMS_to_Iab_optimized(vec3 LMS) {
@@ -1414,7 +1417,7 @@ vec3 Jab_to_RGB(vec3 color) {
 float f_slope(float x0, float y0, float x1, float y1) {
     float num = (y1 - y0);
     float den = (x1 - x0);
-    return abs(den) < 1e-6 ? 0.0 : num / den;
+    return abs(den) < 1e-6 ? 1.0 : num / den;
 }
 
 float f_intercept(float slope, float x0, float y0) {
@@ -1423,6 +1426,52 @@ float f_intercept(float slope, float x0, float y0) {
 
 float f_linear(float x, float slope, float intercept) {
     return slope * x + intercept;
+}
+
+// Modified to make x0 and y0 controllable.
+float f_toe_suzuki(float x, float slope, float x0, float y0, float x1, float y1) {
+    float dx = x1 - x0;
+    float dy = y1 - y0;
+    float dx2 = dx * dx;
+    float dy2 = dy * dy;
+    float den = dy - slope * dx;
+
+    float a = slope * dx2 * dy2 / (den * den);
+    float b = slope * dx2 / den;
+    float c = dy2 / den;
+
+    return -(a / (x - x0 + b)) + c + y0;
+}
+
+float f_shoulder_suzuki(float x, float slope, float x0, float y0, float x1, float y1) {
+    float d = slope * (x0 - x1) - y0 + y1;
+    float a = (slope * (x0 - x1) * (x0 - x1) * (y0 - y1) * (y0 - y1)) / (d * d);
+    float b = (slope * x0 * (x1 - x0) + x1 * (y0 - y1)) / d;
+    float c = (y1 * (slope * (x0 - x1) + y0) - y0 * y0) / d;
+    return -(a / (x + b)) + c;
+}
+
+float f_toe_hable(float x, float slope, float x0, float y0, float x1, float y1) {
+    float dx = x1 - x0;
+    float dy = y1 - y0;
+
+    float b = slope * dx / dy;
+    float a = log(dy) - b * log(dx);
+    float s = 1.0;
+
+    return exp(a + b * log(max((x - x0) * s, 1e-6))) * s + y0;
+}
+
+// Simplified, no overshoot.
+float f_shoulder_hable(float x, float slope, float x0, float y0, float x1, float y1) {
+    float dx = x1 - x0;
+    float dy = y1 - y0;
+
+    float b = slope * dx / dy;
+    float a = log(dy) - b * log(dx);
+    float s = -1.0;
+
+    return exp(a + b * log(max((x - x1) * s, 1e-6))) * s + y1;
 }
 
 float f(
@@ -1456,15 +1505,7 @@ float f(
             return f_linear(x, slope, intercept);
         }
 
-        float dx = x1 - x0;
-        float dy = y1 - y0;
-        float dx2 = dx * dx;
-        float dy2 = dy * dy;
-        float den = dy - slope * dx;
-        float at = slope * dx2 * dy2 / (den * den);
-        float bt = slope * dx2 / den;
-        float ct = dy2 / den;
-        return -at / (x - x0 + bt) + ct + y0;
+        return f_toe_suzuki(x, slope, x0, y0, x1, y1);
     }
 
     if (x > x2) {
@@ -1473,12 +1514,17 @@ float f(
             return f_linear(x, slope, intercept);
         }
 
-        float bs = slope * (x3 - x2) / (y3 - y2);
-        float as = log(y3 - y2) - bs * log(x3 - x2);
-        return -exp(as + bs * log(max(x3 - x, 1e-6))) + y3;
+        return f_shoulder_hable(x, slope, x2, y2, x3, y3);
     }
 
     return x;
+}
+
+float f(float x, float iw, float ib, float ow, float ob) {
+    return f(
+        x, iw, ib, ow, ob,
+        shadow_weight, highlight_weight, contrast_bias
+    );
 }
 
 float curve(float x) {
@@ -1490,16 +1536,16 @@ float curve(float x) {
     iw = max(iw, ow);
     ib = min(ib, ob);
 
-    return clamp(f(
-        x, iw, ib, ow, ob,
-        shadow_weight, highlight_weight, contrast_bias
-    ), ob, ow);
+    float y = f(x, iw, ib, ow, ob);
+
+    return clamp(y, ob, ow);
 }
 
 // this is a correction in generic vividness and depth.
 // V = sqrt(J^2 + C^2)
 // D = sqrt((J_max - J)^2 + C^2)
-// more specific definitions of V and D at the link below:
+// more specific definitions of V and D for Jzazbz,
+// see the following links:
 // https://doi.org/10.2352/ISSN.2169-2629.2018.26.96
 // https://doi.org/10.2352/issn.2169-2629.2019.27.43
 vec2 chroma_correction(vec2 ab, float l1, float l2) {
