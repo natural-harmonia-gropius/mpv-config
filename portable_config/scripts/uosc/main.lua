@@ -335,7 +335,7 @@ function create_default_menu_items()
 				{
 					title = t('Aspect ratio'),
 					items = {
-						{title = t('Default'), value = 'set video-aspect-override "-1"'},
+						{title = t('Default'), value = 'set video-aspect-override no'},
 						{title = '16:9', value = 'set video-aspect-override "16:9"'},
 						{title = '4:3', value = 'set video-aspect-override "4:3"'},
 						{title = '2.35:1', value = 'set video-aspect-override "2.35:1"'},
@@ -746,6 +746,7 @@ mp.observe_property('demuxer-cache-state', 'native', function(prop, cache_state)
 		set_state('cache_duration', not cache_state.eof and cache_state['cache-duration'] or nil)
 	else
 		cached_ranges = {}
+		set_state('cache_underrun', false)
 	end
 
 	if not (state.duration and (#cached_ranges > 0 or state.cache == 'yes' or
