@@ -150,6 +150,12 @@
 //!VAR uint metered_avg_i_t[128]
 //!STORAGE
 
+//!BUFFER METERED_SMOOTHED
+//!VAR uint smoothed_max_i
+//!VAR uint smoothed_min_i
+//!VAR uint smoothed_avg_i
+//!STORAGE
+
 //!BUFFER METADATA
 //!VAR float max_i
 //!VAR float min_i
@@ -669,6 +675,7 @@ void hook() {
 //!BIND METERING
 //!BIND METERED
 //!BIND METERED_TEMPORAL
+//!BIND METERED_SMOOTHED
 //!SAVE EMPTY
 //!WIDTH 1
 //!HEIGHT 1
@@ -763,7 +770,7 @@ void temporal_prepend() {
  * @return Weighted average value
  */
 float temporal_weighted_mean(int type) {
-    float sum_weighted = 0.0;
+    float sum_inv_weighted = 0.0;
     float sum_weights = 0.0;
 
     for (uint i = 0; i < temporal_stable_frames; i++) {
@@ -780,12 +787,14 @@ float temporal_weighted_mean(int type) {
         // Calculate exponential decay weight: w(i) = decay^i
         // Recent frames (i=0) have weight=1.0, older frames decay exponentially
         float weight = pow(TEMPORAL_DECAY, float(i));
-        sum_weighted += current * weight;
+
+        // Harmonic mean: H = sum(w) / sum(w/x)
+        sum_inv_weighted += weight / max(current, 1e-6);
         sum_weights += weight;
     }
 
-    // Return normalized weighted average
-    return sum_weighted / max(sum_weights, 1e-6);
+    // Return weighted harmonic mean
+    return sum_weights / max(sum_inv_weighted, 1e-6);
 }
 
 /**
@@ -869,37 +878,37 @@ float temporal_predict(int type) {
 
 /**
  * Detects scene changes using multi-metric prediction error analysis
- * Combines max, min, and avg metrics with adaptive thresholding
+ * Compares current frame raw values against predictions from history
  *
- * @param max_smoothed Smoothed maximum value
- * @param min_smoothed Smoothed minimum value
- * @param avg_smoothed Smoothed average value
+ * @param max_current Current frame maximum value (raw)
+ * @param min_current Current frame minimum value (raw)
+ * @param avg_current Current frame average value (raw)
  * @param max_pred Predicted maximum value
  * @param min_pred Predicted minimum value
  * @param avg_pred Predicted average value
  * @return true if scene change is detected
  */
-bool is_scene_changed(float max_smoothed, float min_smoothed, float avg_smoothed,
+bool is_scene_changed(float max_current, float min_current, float avg_current,
                       float max_pred, float min_pred, float avg_pred) {
     // Detect pure black scenes (always considered a scene change)
-    if (metered_max_i < TEMPORAL_BLACK_THRESHOLD) {
+    if (max_current < TEMPORAL_BLACK_THRESHOLD) {
         return true;
     }
 
     // Calculate adaptive tolerance based on current brightness
     // Brighter scenes get higher tolerance to reduce false positives
-    float brightness_factor = float(metered_max_i) / 4095.0;
+    float brightness_factor = max_current / 4095.0;
     float adaptive_tolerance = TEMPORAL_BASE_TOLERANCE *
                                (1.0 + brightness_factor * TEMPORAL_ADAPTIVE_SCALE);
 
     // Calculate prediction errors in perceptual units (ΔE-like)
-    // Normalize to [0,1] then scale to perceptual differences
+    // Compare current raw values against predictions
     float max_delta = TEMPORAL_DELTA_SCALE *
-                      abs(max_smoothed / 4095.0 - max_pred / 4095.0);
+                      abs(max_current / 4095.0 - max_pred / 4095.0);
     float min_delta = TEMPORAL_DELTA_SCALE *
-                      abs(min_smoothed / 4095.0 - min_pred / 4095.0);
+                      abs(min_current / 4095.0 - min_pred / 4095.0);
     float avg_delta = TEMPORAL_DELTA_SCALE *
-                      abs(avg_smoothed / 4095.0 - avg_pred / 4095.0);
+                      abs(avg_current / 4095.0 - avg_pred / 4095.0);
 
     // Combine errors using weighted average
     // Average is most reliable, max is important, min is least reliable
@@ -917,48 +926,62 @@ bool is_scene_changed(float max_smoothed, float min_smoothed, float avg_smoothed
  * and intelligent scene change detection
  */
 void hook() {
-    // Cache previous frame values for EMA smoothing
-    float prev_max = float(metered_max_i);
-    float prev_min = float(metered_min_i);
-    float prev_avg = float(metered_avg_i);
+    // Cache current frame raw values before any processing
+    float max_current = float(metered_max_i);
+    float min_current = float(metered_min_i);
+    float avg_current = float(metered_avg_i);
+
+    // Get previous frame's smoothed values from persistent buffer
+    float prev_max = float(smoothed_max_i);
+    float prev_min = float(smoothed_min_i);
+    float prev_avg = float(smoothed_avg_i);
+
+    // Generate predictions BEFORE prepending current frame to history
+    // This ensures predictions are based on historical data only
+    float max_pred = temporal_predict(METRIC_MAX);
+    float min_pred = temporal_predict(METRIC_MIN);
+    float avg_pred = temporal_predict(METRIC_AVG);
+
+    // Detect scene changes by comparing current raw values against predictions
+    bool scene_changed = is_scene_changed(max_current, min_current, avg_current,
+                                          max_pred, min_pred, avg_pred);
 
     // Update temporal history with current frame
     temporal_prepend();
 
-    // Stage 1: Weighted moving average (exponential decay)
-    // Gives more weight to recent frames
+    // Stage 1: Weighted harmonic mean (exponential decay)
+    // Gives more weight to recent frames, resistant to outliers
     float max_weighted = temporal_weighted_mean(METRIC_MAX);
     float min_weighted = temporal_weighted_mean(METRIC_MIN);
     float avg_weighted = temporal_weighted_mean(METRIC_AVG);
 
     // Stage 2: Exponential moving average smoothing
-    // Provides additional stability and reduces noise
+    // Uses previous frame's smoothed output for proper EMA
     float max_smoothed = apply_ema_smoothing(max_weighted, prev_max);
     float min_smoothed = apply_ema_smoothing(min_weighted, prev_min);
     float avg_smoothed = apply_ema_smoothing(avg_weighted, prev_avg);
 
-    // Generate predictions for scene change detection
-    float max_pred = temporal_predict(METRIC_MAX);
-    float min_pred = temporal_predict(METRIC_MIN);
-    float avg_pred = temporal_predict(METRIC_AVG);
-
-    // Detect and handle scene changes
-    if (is_scene_changed(max_smoothed, min_smoothed, avg_smoothed,
-                         max_pred, min_pred, avg_pred)) {
+    // Handle scene changes
+    if (scene_changed) {
         // Gradually transition buffer values to new scene
         temporal_fill_gradual();
 
         // Apply reduced smoothing for scene cuts to maintain some stability
         // while still responding to the new scene quickly
-        max_smoothed = mix(prev_max, float(metered_max_i), TEMPORAL_CUT_BLEND);
-        min_smoothed = mix(prev_min, float(metered_min_i), TEMPORAL_CUT_BLEND);
-        avg_smoothed = mix(prev_avg, float(metered_avg_i), TEMPORAL_CUT_BLEND);
+        max_smoothed = mix(prev_max, max_current, TEMPORAL_CUT_BLEND);
+        min_smoothed = mix(prev_min, min_current, TEMPORAL_CUT_BLEND);
+        avg_smoothed = mix(prev_avg, avg_current, TEMPORAL_CUT_BLEND);
     }
 
     // Write back smoothed values with clamping to valid range [0, 4095]
     metered_max_i = uint(clamp(max_smoothed, 0.0, 4095.0) + 0.5);
     metered_min_i = uint(clamp(min_smoothed, 0.0, 4095.0) + 0.5);
     metered_avg_i = uint(clamp(avg_smoothed, 0.0, 4095.0) + 0.5);
+
+    // Store smoothed values for next frame's EMA calculation
+    smoothed_max_i = metered_max_i;
+    smoothed_min_i = metered_min_i;
+    smoothed_avg_i = metered_avg_i;
 }
 
 //!HOOK OUTPUT
@@ -1107,17 +1130,23 @@ float get_avg_i() {
     return 0.0;
 }
 
-float get_ev(float avg_i) {
+float get_ev(float avg_i, float max_i, float min_i) {
     float reference_iz = iz_eotf_inv(reference_white);
     float reference_j = I_to_J(reference_iz);
     float anchor_j = auto_exposure_anchor * reference_j;
     float anchor_iz = J_to_I(anchor_j);
     float anchor = iz_eotf(anchor_iz);
 
-    float average = pq_eotf(avg_i);
+    float average = max(pq_eotf(avg_i), 1e-6);
+    float maximum = max(pq_eotf(max_i), 1e-6);
+    float minimum = max(pq_eotf(min_i), 1e-6);
 
     float ev = log2(anchor / average);
-    return clamp(ev, -auto_exposure_limit_negtive, auto_exposure_limit_postive);
+
+    float ev_limit_neg = min(auto_exposure_limit_negtive, log2(maximum / average));
+    float ev_limit_pos = min(auto_exposure_limit_postive, log2(average / minimum));
+
+    return clamp(ev, -ev_limit_neg, ev_limit_pos);
 }
 
 void hook() {
@@ -1126,7 +1155,7 @@ void hook() {
     avg_i = get_avg_i();
 
     if (avg_i > 0.0 && auto_exposure_anchor > 0.0) {
-        ev = get_ev(avg_i);
+        ev = get_ev(avg_i, max_i, min_i);
     } else {
         ev = 0.0;
     }
@@ -1513,7 +1542,7 @@ float f(
 
     if (x < x1) {
         float slope_toe = f_slope(x0, y0, x1, y1);
-        if (slope_toe >= slope) {
+        if (slope_toe >= slope * 0.99) {
             return f_linear(x, slope, intercept);
         }
 
@@ -1522,11 +1551,11 @@ float f(
 
     if (x > x2) {
         float slope_shoulder = f_slope(x2, y2, x3, y3);
-        if (slope_shoulder >= slope) {
+        if (slope_shoulder >= slope * 0.99) {
             return f_linear(x, slope, intercept);
         }
 
-        return f_shoulder_hable(x, slope, x2, y2, x3, y3);
+        return f_shoulder_suzuki(x, slope, x2, y2, x3, y3);
     }
 
     return x;
