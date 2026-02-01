@@ -835,7 +835,7 @@ function open_open_file_menu()
 			active_path = active_file,
 			directory_actions = {
 				{name = 'add_to_playlist', icon = 'playlist_add', label = t('Add to playlist') .. ' (shift+enter/click)'},
-				{name = 'force_open', icon = 'play_circle_outline', label = t('Open in mpv') .. ' (ctrl+enter/click)'},
+				{name = 'force_open', icon = 'play_circle', label = t('Open in mpv') .. ' (ctrl+enter/click)'},
 			},
 			file_actions = {
 				{name = 'add_to_playlist', icon = 'playlist_add', label = t('Add to playlist') .. ' (shift+enter/click)'},
