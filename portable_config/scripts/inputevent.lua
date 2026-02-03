@@ -187,7 +187,7 @@ function command_invert(command)
             elseif type(value) == 'boolean' then
                 value = value and 'yes' or 'no'
             elseif type(value) == 'string' then
-                value = '"' .. value:replace('"', '\\"') .. '"'
+                value = '"' .. value:replace('\\', '\\\\'):replace('"', '\\"') .. '"'
             elseif type(value) == 'nil' then
                 use_del = true
             else
