@@ -105,15 +105,10 @@ Scripts and shaders used in this configuration:
 [igv/gist](https://gist.github.com/igv)
 
 - KrigBilateral.glsl
-- SSimSuperRes.glsl
-- SSimDownscaler.glsl
-- adaptive-sharpen.glsl
 
 [an3223/dotfiles](https://github.com/AN3223/dotfiles/tree/master/.config/mpv/shaders)
 
 - nlmeans.glsl
-- guided.glsl
-- hdeband.glsl
 
 [haasn/libplacebo.org#example](https://libplacebo.org/custom-shaders/#full-example)
 

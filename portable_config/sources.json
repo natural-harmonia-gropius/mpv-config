@@ -130,28 +130,6 @@
     "owner": "igv",
     "paths": [
       {
-        "destination": "portable_config/shaders/SSimDownscaler.glsl",
-        "source": "SSimDownscaler.glsl"
-      }
-    ],
-    "ref": "gists",
-    "repo": "36508af3ffc84410fe39761d6969be10"
-  },
-  {
-    "owner": "igv",
-    "paths": [
-      {
-        "destination": "portable_config/shaders/SSimSuperRes.glsl",
-        "source": "SSimSuperRes.glsl"
-      }
-    ],
-    "ref": "gists",
-    "repo": "2364ffa6e81540f29cb7ab4c9bc05b6b"
-  },
-  {
-    "owner": "igv",
-    "paths": [
-      {
         "destination": "portable_config/shaders/KrigBilateral.glsl",
         "source": "KrigBilateral.glsl"
       }
@@ -160,30 +138,11 @@
     "repo": "a015fc885d5c22e6891820ad89555637"
   },
   {
-    "owner": "igv",
-    "paths": [
-      {
-        "destination": "portable_config/shaders/adaptive-sharpen.glsl",
-        "source": "adaptive-sharpen.glsl"
-      }
-    ],
-    "ref": "gists",
-    "repo": "8a77e4eb8276753b54bb94c1c50c317e"
-  },
-  {
     "owner": "an3223",
     "paths": [
       {
         "destination": "portable_config/shaders/nlmeans.glsl",
         "source": ".config/mpv/shaders/HQ/nlmeans.glsl"
-      },
-      {
-        "destination": "portable_config/shaders/guided.glsl",
-        "source": ".config/mpv/shaders/guided.glsl"
-      },
-      {
-        "destination": "portable_config/shaders/hdeband.glsl",
-        "source": ".config/mpv/shaders/hdeband.glsl"
       }
     ],
     "repo": "dotfiles"
