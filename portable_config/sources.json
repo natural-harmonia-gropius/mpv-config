@@ -151,10 +151,6 @@
     "owner": "natural-harmonia-gropius",
     "paths": [
       {
-        "destination": "portable_config/scripts/hdr-toys.lua",
-        "source": "scripts/hdr-toys.lua"
-      },
-      {
         "destination": "portable_config/shaders/hdr-toys/",
         "source": "shaders/hdr-toys/"
       },
