@@ -4,7 +4,16 @@ const { dirname } = require("path");
 const { Readable } = require("stream");
 const { pipeline } = require("stream/promises");
 
-module.exports = async ({ github, context, core, glob, io, exec, require }) => {
+module.exports = async ({
+  github,
+  context,
+  core,
+  glob,
+  io,
+  exec,
+  getOctokit,
+  require,
+}) => {
   async function handleRepo(owner, repo, ref, path) {
     const { data } = await github.rest.repos.getContent({
       owner,
@@ -50,7 +59,7 @@ module.exports = async ({ github, context, core, glob, io, exec, require }) => {
 
     if (!response.ok) {
       throw new Error(
-        `Failed to download asset "${assetName}": ${response.status} ${response.statusText}`
+        `Failed to download asset "${assetName}": ${response.status} ${response.statusText}`,
       );
     }
 
@@ -76,12 +85,12 @@ module.exports = async ({ github, context, core, glob, io, exec, require }) => {
           Accept: "application/octet-stream",
           "User-Agent": "actions/github-script",
         },
-      }
+      },
     );
 
     if (!response.ok) {
       throw new Error(
-        `Failed to download asset "${fileName}": ${response.status} ${response.statusText}`
+        `Failed to download asset "${fileName}": ${response.status} ${response.statusText}`,
       );
     }
 
@@ -107,7 +116,7 @@ module.exports = async ({ github, context, core, glob, io, exec, require }) => {
           repo,
           ref,
           `${source}${name}/`,
-          `${destination}${name}/`
+          `${destination}${name}/`,
         )) {
           yield { newSource, newDestination };
         }
@@ -127,7 +136,7 @@ module.exports = async ({ github, context, core, glob, io, exec, require }) => {
             repo,
             ref,
             source,
-            destination
+            destination,
           )) {
             yield {
               owner,
@@ -151,7 +160,7 @@ module.exports = async ({ github, context, core, glob, io, exec, require }) => {
   }
 
   for await (const { owner, repo, ref, source, destination } of updateIter(
-    "portable_config/sources.json"
+    "portable_config/sources.json",
   )) {
     let buffer = null;
     if (ref === "gists") {
