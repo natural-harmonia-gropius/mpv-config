@@ -117,5 +117,4 @@ Scripts and shaders used in this configuration:
 [natural-harmonia-gropius/hdr-toys](https://github.com/natural-harmonia-gropius/hdr-toys)
 
 - hdr-toys.conf
-- hdr-toys.lua
 - hdr-toys/\*.glsl
