@@ -48,7 +48,7 @@ curl -s https://bootstrap.pypa.io/get-pip.py | ./python
 
 ## Credits
 
-Scripts and shaders used in this configuration:
+Third-party scripts and shaders used in this configuration:
 
 [mpv-player/TOOLS/lua](https://github.com/mpv-player/mpv/tree/master/TOOLS/lua)
 
@@ -110,9 +110,9 @@ Scripts and shaders used in this configuration:
 
 - nlmeans.glsl
 
-[haasn/libplacebo.org#example](https://libplacebo.org/custom-shaders/#full-example)
+[mr-berndt/cinegrain](https://github.com/mr-berndt/cinegrain)
 
-- filmgrain.glsl
+- cinegrain.glsl
 
 [natural-harmonia-gropius/hdr-toys](https://github.com/natural-harmonia-gropius/hdr-toys)
 
