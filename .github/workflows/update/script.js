@@ -1,25 +1,21 @@
-const { createWriteStream } = require("fs");
-const { mkdir, readFile } = require("fs/promises");
-const { dirname } = require("path");
-const { Readable } = require("stream");
-const { pipeline } = require("stream/promises");
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
+import { Octokit } from "@octokit/rest";
 
-module.exports = async ({
-  github,
-  context,
-  core,
-  glob,
-  io,
-  exec,
-  getOctokit,
-  require,
-}) => {
+const token = process.env.GITHUB_TOKEN;
+
+const octokit = new Octokit({
+  ...(token ? { auth: token } : {}),
+  userAgent: "mpv-config-updater",
+});
+
+async function main() {
   async function handleRepo(owner, repo, ref, path) {
-    const { data } = await github.rest.repos.getContent({
+    const { data } = await octokit.rest.repos.getContent({
       owner,
       repo,
-      path,
-      ref,
+      path: path.replace(/^\/+|\/+$/g, ""),
+      ...(ref ? { ref } : {}),
     });
 
     if (Array.isArray(data)) {
@@ -32,28 +28,29 @@ module.exports = async ({
       return Buffer.from(content, "base64");
     }
 
-    const blob = await github.rest.git.getBlob({ owner, repo, file_sha: sha });
-    return Buffer.from(blob.data.content, blob.data.encoding);
+    const { data: blob } = await octokit.rest.git.getBlob({
+      owner,
+      repo,
+      file_sha: sha,
+    });
+    return Buffer.from(blob.content, blob.encoding);
   }
 
   async function handleRelease(owner, repo, assetName) {
     const {
       data: { assets },
-    } = await github.rest.repos.getLatestRelease({
-      owner,
-      repo,
-    });
+    } = await octokit.rest.repos.getLatestRelease({ owner, repo });
 
-    const asset = assets.find((asset) => asset.name === assetName);
+    const asset = assets.find((candidate) => candidate.name === assetName);
 
     if (!asset) {
       throw new Error(`Asset "${assetName}" not found in latest release`);
     }
 
-    const response = await fetch(asset.url, {
+    const response = await fetch(asset.browser_download_url, {
       headers: {
         Accept: "application/octet-stream",
-        "User-Agent": "actions/github-script",
+        "User-Agent": "mpv-config-updater",
       },
     });
 
@@ -66,27 +63,31 @@ module.exports = async ({
     return Buffer.from(await response.arrayBuffer());
   }
 
-  async function handleGist(owner, gistId, fileName) {
-    // const res = await github.rest.gists.get({ gist_id: gistId });
+  async function handleGist(gistId, fileName) {
+    const {
+      data: { files },
+    } = await octokit.rest.gists.get({ gist_id: gistId });
 
-    // const files = res.data.files;
-    // const file = files[fileName];
+    const file = files?.[fileName];
 
-    // if (!file) {
-    //   throw new Error(`File "${fileName}" not found in gist ${gistId}`);
-    // }
+    if (!file) {
+      throw new Error(`File "${fileName}" not found in gist ${gistId}`);
+    }
 
-    // return Buffer.from(file.content, "utf-8");
+    if (file.content != null && !file.truncated) {
+      return Buffer.from(file.content, "utf-8");
+    }
 
-    const response = await fetch(
-      `https://gist.githubusercontent.com/${owner}/${gistId}/raw/${fileName}`,
-      {
-        headers: {
-          Accept: "application/octet-stream",
-          "User-Agent": "actions/github-script",
-        },
+    if (!file.raw_url) {
+      throw new Error(`Raw URL for "${fileName}" not found in gist ${gistId}`);
+    }
+
+    const response = await fetch(file.raw_url, {
+      headers: {
+        Accept: "application/octet-stream",
+        "User-Agent": "mpv-config-updater",
       },
-    );
+    });
 
     if (!response.ok) {
       throw new Error(
@@ -98,13 +99,18 @@ module.exports = async ({
   }
 
   async function* dirIter(owner, repo, ref, source, destination) {
-    const content = await github.rest.repos.getContent({
+    const { data: content } = await octokit.rest.repos.getContent({
       owner,
       repo,
       path: source.replace(/^\/+|\/+$/g, ""),
-      ref,
+      ...(ref ? { ref } : {}),
     });
-    for (const { type, name } of content.data) {
+
+    if (!Array.isArray(content)) {
+      throw new Error(`Path "${source}" is not a directory.`);
+    }
+
+    for (const { type, name } of content) {
       if (type === "file") {
         yield {
           newSource: `${source}${name}`,
@@ -127,10 +133,11 @@ module.exports = async ({
   async function* updateIter(json = "sources.json") {
     const text = await readFile(json, "utf-8");
     const data = JSON.parse(text);
+
     for (const { owner, repo, ref, paths } of data) {
       for (const { source, destination } of paths) {
         if (source.endsWith("/") && destination.endsWith("/")) {
-          await io.rmRF(destination);
+          await rm(destination, { recursive: true, force: true });
           for await (const { newSource, newDestination } of dirIter(
             owner,
             repo,
@@ -162,15 +169,22 @@ module.exports = async ({
   for await (const { owner, repo, ref, source, destination } of updateIter(
     "portable_config/sources.json",
   )) {
-    let buffer = null;
+    let buffer;
+
     if (ref === "gists") {
-      buffer = await handleGist(owner, repo, source);
+      buffer = await handleGist(repo, source);
     } else if (ref === "releases") {
       buffer = await handleRelease(owner, repo, source);
     } else {
       buffer = await handleRepo(owner, repo, ref, source);
     }
+
     await mkdir(dirname(destination), { recursive: true });
-    await pipeline(Readable.from(buffer), createWriteStream(destination));
+    await writeFile(destination, buffer);
   }
-};
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
