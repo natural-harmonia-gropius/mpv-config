@@ -143,6 +143,7 @@ local config_defaults = {
 		foreground_text = serialize_rgba('000000').color,
 		background = serialize_rgba('000000').color,
 		background_text = serialize_rgba('ffffff').color,
+		window_border = serialize_rgba('000000').color,
 		curtain = serialize_rgba('111111').color,
 		success = serialize_rgba('a5e075').color,
 		error = serialize_rgba('ff616e').color,
