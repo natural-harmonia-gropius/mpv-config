@@ -9,6 +9,10 @@ const octokit = new Octokit({
   userAgent: "mpv-config-updater",
 });
 
+const publicOctokit = new Octokit({
+  userAgent: "mpv-config-updater",
+});
+
 async function main() {
   async function handleRepo(owner, repo, ref, path) {
     const { data } = await octokit.rest.repos.getContent({
@@ -66,7 +70,7 @@ async function main() {
   async function handleGist(gistId, fileName) {
     const {
       data: { files },
-    } = await octokit.rest.gists.get({ gist_id: gistId });
+    } = await publicOctokit.rest.gists.get({ gist_id: gistId });
 
     const file = files?.[fileName];
 
