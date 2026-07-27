@@ -9,10 +9,6 @@ const octokit = new Octokit({
   userAgent: "mpv-config-updater",
 });
 
-const publicOctokit = new Octokit({
-  userAgent: "mpv-config-updater",
-});
-
 async function main() {
   async function handleRepo(owner, repo, ref, path) {
     const { data } = await octokit.rest.repos.getContent({
@@ -67,35 +63,23 @@ async function main() {
     return Buffer.from(await response.arrayBuffer());
   }
 
-  async function handleGist(gistId, fileName) {
-    const {
-      data: { files },
-    } = await publicOctokit.rest.gists.get({ gist_id: gistId });
-
-    const file = files?.[fileName];
-
-    if (!file) {
-      throw new Error(`File "${fileName}" not found in gist ${gistId}`);
-    }
-
-    if (file.content != null && !file.truncated) {
-      return Buffer.from(file.content, "utf-8");
-    }
-
-    if (!file.raw_url) {
-      throw new Error(`Raw URL for "${fileName}" not found in gist ${gistId}`);
-    }
-
-    const response = await fetch(file.raw_url, {
+  async function handleGist(owner, gistId, fileName) {
+    const url = new URL(
+      `${encodeURIComponent(owner)}/${encodeURIComponent(gistId)}/raw/` +
+        encodeURIComponent(fileName),
+      "https://gist.githubusercontent.com/",
+    );
+    const response = await fetch(url, {
       headers: {
         Accept: "application/octet-stream",
         "User-Agent": "mpv-config-updater",
       },
+      signal: AbortSignal.timeout(30_000),
     });
 
     if (!response.ok) {
       throw new Error(
-        `Failed to download asset "${fileName}": ${response.status} ${response.statusText}`,
+        `Failed to download Gist file "${fileName}": ${response.status} ${response.statusText}`,
       );
     }
 
@@ -176,7 +160,7 @@ async function main() {
     let buffer;
 
     if (ref === "gists") {
-      buffer = await handleGist(repo, source);
+      buffer = await handleGist(owner, repo, source);
     } else if (ref === "releases") {
       buffer = await handleRelease(owner, repo, source);
     } else {
