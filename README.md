@@ -8,8 +8,8 @@ Personal config for mpv-player.
 
 Download mpv from one of following repositories.
 
-- [shinchiro/mpv-winbuild-cmake](https://github.com/shinchiro/mpv-winbuild-cmake/releases)
-- [zhongfly/mpv-winbuild](https://github.com/zhongfly/mpv-winbuild/releases)
+- [shinchiro/mpv-winbuild-cmake](https://github.com/shinchiro/mpv-winbuild-cmake/releases/latest)
+- [zhongfly/mpv-winbuild](https://github.com/zhongfly/mpv-winbuild/releases/latest)
 
 After Installation
 
@@ -59,11 +59,12 @@ sudo winget install Gyan.FFmpeg
 ```
 
 - Download plugins for vapoursynth, put into `VapourSynth\vs-plugins` folder.
-  - [AmusementClub/vs-mlrt](https://github.com/AmusementClub/vs-mlrt/releases)
-  - [vapoursynth/vs-miscfilters-obsolete](https://github.com/vapoursynth/vs-miscfilters-obsolete/releases)
-  - [HomeOfVapourSynthEvolution/VapourSynth-VMAF](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-VMAF/releases)
+  - [AmusementClub/vs-mlrt](https://github.com/AmusementClub/vs-mlrt/releases/latest)
+  - [AmusementClub/vs-mlrt/External Models](https://github.com/AmusementClub/vs-mlrt/releases/tag/external-models)
+  - [vapoursynth/vs-miscfilters-obsolete](https://github.com/vapoursynth/vs-miscfilters-obsolete/releases/latest)
+  - [HomeOfVapourSynthEvolution/VapourSynth-VMAF](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-VMAF/releases/latest)
   - [SVPflow](https://www.svp-team.com/get/)
-  - [dubhater/vapoursynth-mvtools](https://github.com/dubhater/vapoursynth-mvtools/releases)
+  - [dubhater/vapoursynth-mvtools](https://github.com/dubhatervapoursynth/vapoursynth-mvtools/releases/latest)
 
 ## Credits
 
