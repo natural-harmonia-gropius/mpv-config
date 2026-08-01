@@ -39,7 +39,7 @@ sudo winget install Gyan.FFmpeg
 - Download [Python 3.13](https://www.python.org/downloads/latest/python3.13/)
 - Copy all files from the VapourSynth folder to the Python folder, if a conflict arises, choose to replace them.
 - Move the `VapourSynth` folder to where `mpv.exe` is located.
-- Download [VSScript.dll](https://github.com/hooke007/mpv_PlayKit/discussions/484).
+- Download [VSScript.dll](https://github.com/hooke007/mpv_PlayKit/discussions/484)
 - Move the `VSScript.dll` to where `mpv.exe` is located.
 - Run the following command in the VapourSynth folder.
 
