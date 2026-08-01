@@ -68,24 +68,56 @@ sudo winget install Gyan.FFmpeg
 
 ## Credits
 
-Third-party scripts and shaders used in this configuration:
+[AmusementClub/vs-mlrt](https://github.com/AmusementClub/vs-mlrt/tree/master/scripts)
 
-[mpv-player/TOOLS/lua](https://github.com/mpv-player/mpv/tree/master/TOOLS/lua)
+- vsmlrt.py
 
-- autocrop.lua
+[an3223/dotfiles](https://github.com/AN3223/dotfiles/tree/master/.config/mpv/shaders)
+
+- nlmeans.glsl
+
+[Artoriuz/glsl-chroma-from-luma-prediction](https://github.com/Artoriuz/glsl-chroma-from-luma-prediction)
+
+- CfL_Prediction.glsl
+
+[bjin/mpv-prescalers](https://github.com/bjin/mpv-prescalers/tree/master/compute)
+
+- ravu-zoom-ar-r3.glsl
+- nnedi3-nns128-win8x4.glsl
 
 [fbriere/mpv-scripts](https://github.com/fbriere/mpv-scripts)
 
 - sub-fonts-dir-auto.lua
 
-[natural-harmonia-gropius/uosc](https://github.com/natural-harmonia-gropius/uosc) (forked from [tomasklaen/uosc](https://github.com/tomasklaen/uosc))
+[igv/FSRCNNX](https://github.com/igv/FSRCNN-TensorFlow/releases)
 
-- scripts/uosc/\*
-- fonts/uosc\_\*
+- FSRCNNX_x2_8-0-4-1.glsl
+- FSRCNNX_x2_16-0-4-1.glsl
 
-[po5/thumbfast](https://github.com/po5/thumbfast)
+[igv/gist](https://gist.github.com/igv)
 
-- thumbfast.lua
+- KrigBilateral.glsl
+
+[mpv-player/TOOLS/lua](https://github.com/mpv-player/mpv/tree/master/TOOLS/lua)
+
+- autocrop.lua
+
+[mr-berndt/cinegrain](https://github.com/mr-berndt/cinegrain)
+
+- cinegrain.glsl
+
+[natural-harmonia-gropius/hdr-toys](https://github.com/natural-harmonia-gropius/hdr-toys)
+
+- shaders/hdr-toys/\*
+
+[natural-harmonia-gropius/input-event](https://github.com/natural-harmonia-gropius/input-event)
+
+- inputevent.lua
+
+[natural-harmonia-gropius/mpv-config](https://github.com/natural-harmonia-gropius/mpv-config)
+
+- auto-window-resize-once.lua
+- open_drt.glsl (ported from [jedypod/open-display-transform](https://github.com/jedypod/open-display-transform))
 
 [natural-harmonia-gropius/mpv-quality-menu](https://github.com/natural-harmonia-gropius/mpv-quality-menu) (forked from [christoph-heinrich/mpv-quality-menu](https://github.com/christoph-heinrich/mpv-quality-menu))
 
@@ -95,44 +127,15 @@ Third-party scripts and shaders used in this configuration:
 
 - recentmenu.lua
 
-[natural-harmonia-gropius/input-event](https://github.com/natural-harmonia-gropius/input-event)
+[natural-harmonia-gropius/uosc](https://github.com/natural-harmonia-gropius/uosc) (forked from [tomasklaen/uosc](https://github.com/tomasklaen/uosc))
 
-- inputevent.lua
+- scripts/uosc/\*
+- fonts/uosc\_\*
 
 [po5/celebi](https://github.com/po5/celebi)
 
 - celebi.lua
 
-[AmusementClub/vs-mlrt](https://github.com/AmusementClub/vs-mlrt/tree/master/scripts)
+[po5/thumbfast](https://github.com/po5/thumbfast)
 
-- vsmlrt.py
-
-[bjin/mpv-prescalers](https://github.com/bjin/mpv-prescalers/tree/master/compute)
-
-- ravu-zoom-ar-r3.glsl
-- nnedi3-nns128-win8x4.glsl
-
-[igv/FSRCNNX](https://github.com/igv/FSRCNN-TensorFlow/releases)
-
-- FSRCNNX_x2_8-0-4-1.glsl
-- FSRCNNX_x2_16-0-4-1.glsl
-
-[Artoriuz/glsl-chroma-from-luma-prediction](https://github.com/Artoriuz/glsl-chroma-from-luma-prediction)
-
-- CfL_Prediction.glsl
-
-[igv/gist](https://gist.github.com/igv)
-
-- KrigBilateral.glsl
-
-[an3223/dotfiles](https://github.com/AN3223/dotfiles/tree/master/.config/mpv/shaders)
-
-- nlmeans.glsl
-
-[mr-berndt/cinegrain](https://github.com/mr-berndt/cinegrain)
-
-- cinegrain.glsl
-
-[natural-harmonia-gropius/hdr-toys](https://github.com/natural-harmonia-gropius/hdr-toys)
-
-- shaders/hdr-toys/\*
+- thumbfast.lua
