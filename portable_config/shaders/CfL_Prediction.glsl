@@ -250,12 +250,16 @@ vec4 hook() {
     }
 
     float luma_avg_12 = (luma_sum_4 + luma_sum_4y + luma_sum_4x) / 12.0;
+    float luma_min_12 = luma_pixels[i12[0]];
+    float luma_max_12 = luma_pixels[i12[0]];
     float luma_var_12 = 0.0;
     vec2 chroma_avg_12 = (chroma_sum_4 + chroma_sum_4y + chroma_sum_4x) / 12.0;
     vec2 chroma_var_12 = vec2(0.0);
     vec2 luma_chroma_cov_12 = vec2(0.0);
 
     for (int i = 0; i < 12; i++) {
+        luma_min_12 = min(luma_min_12, luma_pixels[i12[i]]);
+        luma_max_12 = max(luma_max_12, luma_pixels[i12[i]]);
         luma_var_12 += pow(luma_pixels[i12[i]] - luma_avg_12, 2.0);
         chroma_var_12 += pow(chroma_pixels[i12[i]] - chroma_avg_12, vec2(2.0));
         luma_chroma_cov_12 += (luma_pixels[i12[i]] - luma_avg_12) * (chroma_pixels[i12[i]] - chroma_avg_12);
@@ -263,6 +267,10 @@ vec4 hook() {
 
     vec2 corr = clamp(abs(luma_chroma_cov_12 / max(sqrt(luma_var_12 * chroma_var_12), 1e-6)), 0.0, 1.0);
     mix_coeff = pow(corr, corr_exponent) * mix_coeff;
+
+    float luma_range_12 = max(luma_max_12 - luma_min_12, 1e-6);
+    float extrapolation = max(max(luma_zero - luma_max_12, luma_min_12 - luma_zero), 0.0) / luma_range_12;
+    mix_coeff *= clamp((8.0 - extrapolation) / 4.0, 0.0, 1.0);
 #endif
 
 #if (USE_12_TAP_REGRESSION == 1)
