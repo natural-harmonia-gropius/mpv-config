@@ -6,45 +6,64 @@ Personal config for mpv-player.
 
 ### mpv
 
+Download mpv from one of following repositories.
+
 - [shinchiro/mpv-winbuild-cmake](https://github.com/shinchiro/mpv-winbuild-cmake/releases)
 - [zhongfly/mpv-winbuild](https://github.com/zhongfly/mpv-winbuild/releases)
-- [aur/mpv-full-git](https://aur.archlinux.org/packages/mpv-full-git) (Arch Linux)
 
-#### After Installation
+After Installation
 
-1. Download and extract the [natural-harmonia-gropius/mpv-config](https://github.com/natural-harmonia-gropius/mpv-config/archive/refs/heads/master.zip).
-2. Move the `portable_config` directory to where `mpv.exe` is located.
+1. Download [natural-harmonia-gropius/mpv-config](https://github.com/natural-harmonia-gropius/mpv-config/archive/refs/heads/master.zip).
+2. Move the `portable_config` folder to where `mpv.exe` is located.
 3. If you're not using chinese, remove or edit the `uosc-languages` line in `mpv.conf`.
 
 ### yt-dlp (Optional)
 
-- Download [yt-dlp](https://github.com/yt-dlp/yt-dlp/releases) and add it to the mpv directory.
-- Alternatively, use the [yt-dlp-nightly-builds](https://github.com/yt-dlp/yt-dlp-nightly-builds/releases) for more up-to-date versions.
+Download yt-dlp from winget
 
-### VapourSynth (Optional)
-
-- Download [VapourSynth](https://github.com/vapoursynth/vapoursynth/releases) and [Python](https://www.python.org/downloads), then extract them to the mpv directory.
-- To separate these from the mpv directory, follow this guide: [将便携版vapoursynth（python）与mpv目录分开的新方法](https://github.com/hooke007/mpv_PlayKit/discussions/484).
-
-```pwsh
-Get-Item .\python*._pth | ForEach-Object {
-  (Get-Content $_ -Encoding UTF8) -replace '#\s*import site', 'import site' | Set-Content $_ -Encoding UTF8
-}
-curl -s https://bootstrap.pypa.io/get-pip.py | ./python
-./python -m pip install ./wheel/vapoursynth-73-cp312-abi3-win_amd64.whl
+```sh
+sudo winget install yt-dlp.yt-dlp --skip-dependencies
 ```
-
-#### Plugins
-
-- [AmusementClub/vs-mlrt](https://github.com/AmusementClub/vs-mlrt/releases)
-- [vapoursynth/vs-miscfilters-obsolete](https://github.com/vapoursynth/vs-miscfilters-obsolete/releases)
-- [HomeOfVapourSynthEvolution/VapourSynth-VMAF](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-VMAF/releases)
-- [SVPflow](https://www.svp-team.com/get/)
-- [dubhater/vapoursynth-mvtools](https://github.com/dubhater/vapoursynth-mvtools/releases)
 
 ### FFmpeg (Optional)
 
-- Download [FFmpeg](https://ffmpeg.org/download.html) and move it to the mpv directory.
+Download FFmpeg from winget
+
+```sh
+sudo winget install Gyan.FFmpeg
+```
+
+### VapourSynth (Optional)
+
+- Download [VapourSynth R73](https://github.com/vapoursynth/vapoursynth/releases/tag/R73)
+- Download [Python 3.13](https://www.python.org/downloads/latest/python3.13/)
+- Copy all files from the VapourSynth folder to the Python folder, if a conflict arises, choose to replace them.
+- Move the `VapourSynth` folder to where `mpv.exe` is located.
+- Download [VSScript.dll](https://github.com/hooke007/mpv_PlayKit/discussions/484).
+- Move the `VSScript.dll` to where `mpv.exe` is located.
+- Run the following command in the VapourSynth folder.
+
+```pwsh
+& {
+  # https://docs.python.org/3/library/site.html
+  Get-Item .\python*._pth | ForEach-Object {
+    (Get-Content $_ -Encoding UTF8) -replace '#\s*import site', 'import site' | Set-Content $_ -Encoding UTF8
+  }
+
+  # get-pip
+  curl -s https://bootstrap.pypa.io/get-pip.py | ./python
+
+  # pip install vapoursynth
+  ./python -m pip install ./wheel/vapoursynth-73-cp312-abi3-win_amd64.whl
+}
+```
+
+- Download plugins for vapoursynth, put into `VapourSynth\vs-plugins` folder.
+  - [AmusementClub/vs-mlrt](https://github.com/AmusementClub/vs-mlrt/releases)
+  - [vapoursynth/vs-miscfilters-obsolete](https://github.com/vapoursynth/vs-miscfilters-obsolete/releases)
+  - [HomeOfVapourSynthEvolution/VapourSynth-VMAF](https://github.com/HomeOfVapourSynthEvolution/VapourSynth-VMAF/releases)
+  - [SVPflow](https://www.svp-team.com/get/)
+  - [dubhater/vapoursynth-mvtools](https://github.com/dubhater/vapoursynth-mvtools/releases)
 
 ## Credits
 
@@ -53,7 +72,6 @@ Third-party scripts and shaders used in this configuration:
 [mpv-player/TOOLS/lua](https://github.com/mpv-player/mpv/tree/master/TOOLS/lua)
 
 - autocrop.lua
-- autoload.lua
 
 [fbriere/mpv-scripts](https://github.com/fbriere/mpv-scripts)
 
@@ -61,8 +79,8 @@ Third-party scripts and shaders used in this configuration:
 
 [natural-harmonia-gropius/uosc](https://github.com/natural-harmonia-gropius/uosc) (forked from [tomasklaen/uosc](https://github.com/tomasklaen/uosc))
 
-- uosc/\*.lua
-- uosc\_\*.ttf
+- scripts/uosc/\*
+- fonts/uosc\_\*
 
 [po5/thumbfast](https://github.com/po5/thumbfast)
 
@@ -116,5 +134,4 @@ Third-party scripts and shaders used in this configuration:
 
 [natural-harmonia-gropius/hdr-toys](https://github.com/natural-harmonia-gropius/hdr-toys)
 
-- hdr-toys.conf
-- hdr-toys/\*.glsl
+- shaders/hdr-toys/\*
