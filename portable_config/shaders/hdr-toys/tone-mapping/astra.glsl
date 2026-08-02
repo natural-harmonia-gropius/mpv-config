@@ -80,6 +80,12 @@
 //!MAXIMUM 1
 1
 
+//!PARAM exposure_value
+//!TYPE float
+//!MINIMUM -64
+//!MAXIMUM  64
+0.0
+
 //!PARAM shadow_weight
 //!TYPE float
 //!MINIMUM 0.0
@@ -938,6 +944,12 @@ float temporal_predict(int type, uint count) {
         sum_xy += x * y;
     }
 
+    // Linear regression requires at least two samples. With one sample,
+    // use that value directly instead of producing 0 / 0 below.
+    if (count < 2u) {
+        return sum_y;
+    }
+
     // Calculate linear regression coefficients
     // y = a*x + b
     float denominator = n * sum_x2 - sum_x * sum_x;
@@ -1210,6 +1222,12 @@ void hook() {
         ev = get_ev(avg_i, max_i, min_i);
     } else {
         ev = 0.0;
+    }
+
+    // Optional external override (name and range per utils/exposure.glsl):
+    // replaces the metered value entirely. 0.0 = automatic metering.
+    if (exposure_value != 0.0) {
+        ev = exposure_value;
     }
 
     if (ev != 0.0) {
