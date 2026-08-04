@@ -1,5 +1,5 @@
 {
-  "$schema": "../.github/workflows/update/sources.schema.json",
+  "$schema": "https://github.com/natural-harmonia-gropius/mpv-config/raw/refs/heads/master/.github/workflows/update/sources.schema.json",
   "sources": [
     {
       "owner": "mpv-player",
