@@ -40,7 +40,7 @@ type UpdateItem = RepoRef & PathMapping;
 
 const DIRECTORY_MARKER = "/";
 const GIST_TIMEOUT_MS = 30_000;
-const REPO_ROOT = resolvePath(import.meta.dirname, "../..");
+const REPO_ROOT = resolvePath(import.meta.dirname, "../../..");
 const SOURCES_PATH = resolvePath(REPO_ROOT, "portable_config/sources.json");
 
 // ═══════════════════════════════════════════════════════════════════════════════
