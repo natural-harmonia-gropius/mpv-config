@@ -40,7 +40,8 @@ type UpdateItem = RepoRef & PathMapping;
 
 const DIRECTORY_MARKER = "/";
 const GIST_TIMEOUT_MS = 30_000;
-const SOURCES_PATH = "portable_config/sources.json";
+const GITHUB_TOKEN = process.env["GITHUB_TOKEN"];
+const SOURCES_PATH = process.env["SOURCES_PATH"] ?? "sources.json";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Runtime validation
@@ -152,8 +153,7 @@ function isDirectoryMapping(source: string, destination: string): boolean {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function createOctokit(): Octokit {
-  const token = process.env.GITHUB_TOKEN;
-  return new Octokit(token ? { auth: token } : {});
+  return new Octokit(GITHUB_TOKEN ? { auth: GITHUB_TOKEN } : {});
 }
 
 /**

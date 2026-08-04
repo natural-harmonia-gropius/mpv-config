@@ -36,6 +36,7 @@ jobs:
         run: npx tsx .github/workflows/update/script.ts
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          SOURCES_PATH: portable_config/sources.json
 
       - name: Stage and check changes
         id: changes
