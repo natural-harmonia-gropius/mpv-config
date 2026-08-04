@@ -3,5 +3,10 @@
   "type": "module",
   "dependencies": {
     "@octokit/rest": "22.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.2",
+    "tsx": "^4.23.5",
+    "typescript": "^7.0.2"
   }
 }

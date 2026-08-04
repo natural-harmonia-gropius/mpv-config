@@ -33,7 +33,7 @@ jobs:
         working-directory: .github/workflows/update
 
       - name: Update files
-        run: node .github/workflows/update/script.js
+        run: npx tsx ./script.ts
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
