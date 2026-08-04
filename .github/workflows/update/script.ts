@@ -1,7 +1,7 @@
 import { Octokit } from "@octokit/rest";
 import { Buffer } from "node:buffer";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { dirname, resolve as resolvePath } from "node:path";
+import { dirname } from "node:path";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Types — atomic building blocks composed via intersection
@@ -40,8 +40,7 @@ type UpdateItem = RepoRef & PathMapping;
 
 const DIRECTORY_MARKER = "/";
 const GIST_TIMEOUT_MS = 30_000;
-const REPO_ROOT = resolvePath(import.meta.dirname, "../../..");
-const SOURCES_PATH = resolvePath(REPO_ROOT, "portable_config/sources.json");
+const SOURCES_PATH = "portable_config/sources.json";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Runtime validation
