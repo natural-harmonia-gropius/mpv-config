@@ -117,7 +117,7 @@
     "repo": "FSRCNN-TensorFlow"
   },
   {
-    "owner": "Artoriuz",
+    "owner": "natural-harmonia-gropius",
     "paths": [
       {
         "destination": "portable_config/shaders/CfL_Prediction.glsl",

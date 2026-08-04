@@ -76,10 +76,6 @@ sudo winget install Gyan.FFmpeg
 
 - nlmeans.glsl
 
-[Artoriuz/glsl-chroma-from-luma-prediction](https://github.com/Artoriuz/glsl-chroma-from-luma-prediction)
-
-- CfL_Prediction.glsl
-
 [bjin/mpv-prescalers](https://github.com/bjin/mpv-prescalers/tree/master/compute)
 
 - ravu-zoom-ar-r3.glsl
@@ -105,6 +101,10 @@ sudo winget install Gyan.FFmpeg
 [mr-berndt/cinegrain](https://github.com/mr-berndt/cinegrain)
 
 - cinegrain.glsl
+
+[natural-harmonia-gropius/glsl-chroma-from-luma-prediction](https://github.com/natural-harmonia-gropius/glsl-chroma-from-luma-prediction) (forked from [Artoriuz/glsl-chroma-from-luma-prediction](https://github.com/Artoriuz/glsl-chroma-from-luma-prediction))
+
+- CfL_Prediction.glsl
 
 [natural-harmonia-gropius/hdr-toys](https://github.com/natural-harmonia-gropius/hdr-toys)
 
