@@ -70,11 +70,15 @@ function parseSourcesJson(json: string): SourceEntry[] {
     throw new Error("sources.json: invalid JSON", { cause });
   }
 
-  if (!Array.isArray(raw)) {
-    throw new TypeError("sources.json: expected an array at the top level");
+  assertPlainObject(raw, "(root)");
+
+  if (!Array.isArray(raw.sources)) {
+    throw new TypeError(
+      'sources.json: expected "sources" array at the top level',
+    );
   }
 
-  return raw.map(validateEntry);
+  return raw.sources.map(validateEntry);
 }
 
 function validateEntry(entry: unknown, index: number): SourceEntry {

@@ -2,44 +2,55 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "MPV Config Sources",
   "description": "Source definitions for pulling portable mpv configuration files from GitHub repositories, releases, and gists.",
-  "type": "array",
-  "items": {
-    "type": "object",
-    "required": ["owner", "repo", "paths"],
-    "properties": {
-      "owner": {
-        "type": "string",
-        "description": "GitHub user or organization that owns the repository or gist."
-      },
-      "repo": {
-        "type": "string",
-        "description": "Repository name, or the Gist ID when ref is \"gists\"."
-      },
-      "ref": {
-        "type": "string",
-        "description": "A git ref (branch, tag, or commit SHA), or a special discriminator: \"releases\" to download a named asset from the latest GitHub Release, or \"gists\" to download a file from a GitHub Gist. Omit to use the repository's default branch."
-      },
-      "paths": {
-        "type": "array",
-        "description": "File or directory mappings from the remote source to the local destination.",
-        "minItems": 1,
-        "items": {
-          "type": "object",
-          "required": ["source", "destination"],
-          "properties": {
-            "source": {
-              "type": "string",
-              "description": "Path to the file or directory in the remote repository. When both source and destination end with \"/\", the entire directory tree is copied recursively."
-            },
-            "destination": {
-              "type": "string",
-              "description": "Local filesystem path where the file or directory tree should be written."
-            }
-          },
-          "additionalProperties": false
-        }
-      }
+  "type": "object",
+  "required": ["sources"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Reference to the JSON Schema for this file."
     },
-    "additionalProperties": false
-  }
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["owner", "repo", "paths"],
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "GitHub user or organization that owns the repository or gist."
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name, or the Gist ID when ref is \"gists\"."
+          },
+          "ref": {
+            "type": "string",
+            "description": "A git ref (branch, tag, or commit SHA), or a special discriminator: \"releases\" to download a named asset from the latest GitHub Release, or \"gists\" to download a file from a GitHub Gist. Omit to use the repository's default branch."
+          },
+          "paths": {
+            "type": "array",
+            "description": "File or directory mappings from the remote source to the local destination.",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["source", "destination"],
+              "properties": {
+                "source": {
+                  "type": "string",
+                  "description": "Path to the file or directory in the remote repository. When both source and destination end with \"/\", the entire directory tree is copied recursively."
+                },
+                "destination": {
+                  "type": "string",
+                  "description": "Local filesystem path where the file or directory tree should be written."
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
 }
