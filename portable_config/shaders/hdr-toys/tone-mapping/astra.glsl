@@ -140,7 +140,7 @@
 //!MAXIMUM 8
 2
 
-//!PARAM temporal_stable_window
+//!PARAM temporal_stable_duration
 //!TYPE float
 //!MINIMUM 0.0
 //!MAXIMUM 2.0
@@ -168,28 +168,52 @@
 //!VAR uint metered_max_i
 //!VAR uint metered_min_i
 //!VAR uint metered_avg_i
+//!VAR uint metered_histogram[1024]
+//!VAR uint metered_coarse_histogram[64]
+//!VAR float metered_average_groups[256]
 //!STORAGE
 
 //!BUFFER METERED_TEMPORAL
-//!VAR uint metered_max_i_t[256]
-//!VAR uint metered_min_i_t[256]
-//!VAR uint metered_avg_i_t[256]
-//!VAR uint metered_pts_t[256]
-//!VAR uint metered_history_head
-//!VAR uint metered_history_valid
+//!VAR float metered_reference_histogram[64]
+//!VAR float metered_previous_histogram[64]
+//!VAR uint metered_histogram_valid
+//!VAR uint metered_temporal_pts
+//!VAR uint metered_scene_candidate_start_pts
+//!VAR uint metered_scene_candidate_active
+//!VAR uint metered_scene_adaptation_end_pts
+//!VAR uint metered_scene_fast_response
 //!STORAGE
 
-//!BUFFER METERED_SMOOTHED
-//!VAR float smoothed_max_i
-//!VAR float smoothed_min_i
-//!VAR float smoothed_avg_i
+//!BUFFER EXPOSURE_TEMPORAL
+//!VAR float smoothed_ev
+//!VAR uint smoothed_ev_pts
+//!VAR uint smoothed_ev_valid
+//!STORAGE
+
+//!BUFFER CURVE_TEMPORAL
+//!VAR float smoothed_curve[1024]
+//!VAR float curve_temporal_alpha
+//!VAR uint curve_temporal_reset
+//!VAR uint curve_temporal_pts
+//!VAR uint curve_temporal_valid
 //!STORAGE
 
 //!BUFFER METADATA
 //!VAR float max_i
 //!VAR float min_i
 //!VAR float avg_i
+//!VAR float input_max_i
+//!VAR float input_min_i
+//!VAR float input_avg_i
 //!VAR float ev
+//!VAR float exposure_scale
+//!STORAGE
+
+//!BUFFER VECTORSCOPE
+//!VAR uint vectorscope_histogram[16384]
+//!VAR uint vectorscope_color_r[16384]
+//!VAR uint vectorscope_color_g[16384]
+//!VAR uint vectorscope_color_b[16384]
 //!STORAGE
 
 //!HOOK OUTPUT
@@ -216,11 +240,14 @@ float RGB_to_Y(vec3 rgb) {
     return dot(rgb, coefficients);
 }
 
-vec4 hook() {
-    vec4 color = HOOKED_tex(HOOKED_pos);
-    float y = RGB_to_Y(color.rgb);
+float metering_intensity(vec3 rgb) {
+    float y = RGB_to_Y(rgb);
     float y_abs = clamp(y * reference_white, 0.0, pw);
-    float intensity = pq_eotf_inv(y_abs);
+    return pq_eotf_inv(y_abs);
+}
+
+vec4 hook() {
+    float intensity = metering_intensity(HOOKED_tex(HOOKED_pos).rgb);
     return vec4(vec3(intensity), 1.0);
 }
 
@@ -275,7 +302,7 @@ vec4 hook() { return METERING_tex(METERING_pos); }
 //!HEIGHT 288
 //!DESC metering (spatial stabilization, downscaling)
 
-vec4 hook() {
+vec4 sample_metering_downscaled() {
     const vec2 target_size = vec2(512.0, 288.0);
     vec2 scale = METERING_size / target_size;
 
@@ -292,6 +319,8 @@ vec4 hook() {
              + METERING_texOff(vec2( offset.x,  offset.y));
     return sum * 0.25;
 }
+
+vec4 hook() { return sample_metering_downscaled(); }
 
 //!HOOK OUTPUT
 //!BIND METERING
@@ -637,14 +666,19 @@ vec4 hook() {
 //!BIND METERING
 //!BIND METERED
 //!SAVE EMPTY
-//!WIDTH 1
+//!WIDTH 1024
 //!HEIGHT 1
-//!COMPUTE 1 1
-//!DESC metering (max, min, init)
+//!COMPUTE 256 1 256 1
+//!DESC metering (histogram, init)
+
+void clear_metering_histogram_bin(uint index) {
+    if (index < 1024u)
+        metered_histogram[index] = 0u;
+}
 
 void hook() {
-    metered_max_i = 0;
-    metered_min_i = 4095;
+    uint index = gl_GlobalInvocationID.x;
+    clear_metering_histogram_bin(index);
 }
 
 //!HOOK OUTPUT
@@ -654,58 +688,212 @@ void hook() {
 //!WIDTH METERING.w
 //!HEIGHT METERING.h
 //!COMPUTE 32 32 16 16
-//!DESC metering (max, min)
+//!DESC metering (histogram)
 
-shared uint smax[256];
-shared uint smin[256];
+shared uint shistogram[1024];
 
 uint to_uint(float x) {
     return uint(x * 4095.0 + 0.5);
+}
+
+uint to_histogram_bin(float x) {
+    return min(to_uint(x) >> 2u, 1023u);
 }
 
 float fetch_metering(ivec2 position) {
     return (METERING_mul * texelFetch(METERING_raw, position, 0)).x;
 }
 
+vec4 fetch_metering_quad(ivec2 position) {
+    return vec4(
+        fetch_metering(position),
+        fetch_metering(position + ivec2(1, 0)),
+        fetch_metering(position + ivec2(0, 1)),
+        fetch_metering(position + ivec2(1, 1))
+    );
+}
+
+void clear_workgroup_histogram(uint tid) {
+    for (uint i = tid; i < 1024u; i += 256u)
+        shistogram[i] = 0u;
+}
+
+void accumulate_workgroup_histogram(vec4 values) {
+    atomicAdd(shistogram[to_histogram_bin(values.x)], 1u);
+    atomicAdd(shistogram[to_histogram_bin(values.y)], 1u);
+    atomicAdd(shistogram[to_histogram_bin(values.z)], 1u);
+    atomicAdd(shistogram[to_histogram_bin(values.w)], 1u);
+}
+
+void merge_workgroup_histogram(uint tid) {
+    // Accumulate locally first. This replaces one contended global atomic per
+    // metering pixel with at most one global merge per non-empty workgroup bin.
+    for (uint i = tid; i < 1024u; i += 256u) {
+        uint count = shistogram[i];
+        if (count > 0u)
+            atomicAdd(metered_histogram[i], count);
+    }
+}
+
 void hook() {
     ivec2 block_base = ivec2(gl_WorkGroupID.xy) * 32;
     ivec2 position = block_base + ivec2(gl_LocalInvocationID.xy) * 2;
-
-    float value00 = fetch_metering(position);
-    float value10 = fetch_metering(position + ivec2(1, 0));
-    float value01 = fetch_metering(position + ivec2(0, 1));
-    float value11 = fetch_metering(position + ivec2(1, 1));
-    float local_max = max(max(value00, value10), max(value01, value11));
-    float local_min = min(min(value00, value10), min(value01, value11));
-
+    vec4 values = fetch_metering_quad(position);
     uint tid = gl_LocalInvocationIndex;
-    smax[tid] = to_uint(local_max);
-    smin[tid] = to_uint(local_min);
 
+    clear_workgroup_histogram(tid);
     barrier();
 
-    for (uint s = 128; s > 0; s >>= 1) {
-        if (tid < s) {
-            smax[tid] = max(smax[tid], smax[tid + s]);
-            smin[tid] = min(smin[tid], smin[tid + s]);
-        }
-        barrier();
-    }
+    accumulate_workgroup_histogram(values);
+    barrier();
 
-    if (tid == 0) {
-        atomicMax(metered_max_i, smax[0]);
-        atomicMin(metered_min_i, smin[0]);
-    }
+    merge_workgroup_histogram(tid);
 }
 
 //!HOOK OUTPUT
 //!BIND METERING
-//!SAVE AVG
-//!COMPONENTS 1
+//!BIND METERED
+//!SAVE EMPTY
+//!WIDTH 256
+//!HEIGHT 1
+//!COMPUTE 256 1 256 1
+//!DESC metering (histogram reduction)
+
+const uint METERING_HISTOGRAM_SIZE = 1024u;
+const uint METERING_REDUCTION_SIZE = 256u;
+const uint METERING_BINS_PER_THREAD = 4u;
+const uint METERING_COARSE_HISTOGRAM_SIZE = 64u;
+const uint METERING_BLOCKS_PER_COARSE_BIN = 4u;
+const uint METERING_SAMPLE_COUNT = 512u * 288u;
+const float METERING_BLACK_PERCENTILE = 0.005;
+const float METERING_WHITE_PERCENTILE = 0.995;
+
+shared uint histogram_prefix[METERING_REDUCTION_SIZE];
+shared uint black_bin;
+shared uint white_bin;
+
+uvec4 load_histogram_block(uint first) {
+    return uvec4(
+        metered_histogram[first],
+        metered_histogram[first + 1u],
+        metered_histogram[first + 2u],
+        metered_histogram[first + 3u]
+    );
+}
+
+uint sum_histogram_block(uvec4 counts) {
+    return counts.x + counts.y + counts.z + counts.w;
+}
+
+void scan_histogram_blocks(uint tid, uint block_count) {
+    histogram_prefix[tid] = block_count;
+    barrier();
+
+    for (uint offset = 1u; offset < METERING_REDUCTION_SIZE; offset <<= 1u) {
+        uint inclusive = histogram_prefix[tid];
+        if (tid >= offset)
+            inclusive += histogram_prefix[tid - offset];
+        barrier();
+        histogram_prefix[tid] = inclusive;
+        barrier();
+    }
+}
+
+uint find_percentile_bin(
+    uvec4 counts,
+    uint first,
+    uint cumulative,
+    uint target
+) {
+    for (uint i = 0u; i < METERING_BINS_PER_THREAD; i++) {
+        cumulative += counts[i];
+        if (cumulative >= target)
+            return first + i;
+    }
+    return first + METERING_BINS_PER_THREAD - 1u;
+}
+
+void publish_coarse_histogram(uint tid) {
+    if (tid >= METERING_COARSE_HISTOGRAM_SIZE)
+        return;
+
+    uint last_block = (tid + 1u) * METERING_BLOCKS_PER_COARSE_BIN - 1u;
+    uint first_block = tid * METERING_BLOCKS_PER_COARSE_BIN;
+    uint cumulative_before = first_block == 0u
+        ? 0u
+        : histogram_prefix[first_block - 1u];
+    metered_coarse_histogram[tid] =
+        histogram_prefix[last_block] - cumulative_before;
+}
+
+void locate_percentiles(uint tid, uint first, uvec4 counts) {
+    uint cumulative_before = tid == 0u ? 0u : histogram_prefix[tid - 1u];
+    uint cumulative = histogram_prefix[tid];
+    uint black_target = max(
+        uint(ceil(float(METERING_SAMPLE_COUNT) * METERING_BLACK_PERCENTILE)),
+        1u
+    );
+    uint white_target = max(
+        uint(ceil(float(METERING_SAMPLE_COUNT) * METERING_WHITE_PERCENTILE)),
+        1u
+    );
+
+    if (cumulative_before < black_target && cumulative >= black_target) {
+        black_bin = find_percentile_bin(
+            counts,
+            first,
+            cumulative_before,
+            black_target
+        );
+    }
+    if (cumulative_before < white_target && cumulative >= white_target) {
+        white_bin = find_percentile_bin(
+            counts,
+            first,
+            cumulative_before,
+            white_target
+        );
+    }
+}
+
+void reduce_metering_histogram() {
+    uint tid = gl_LocalInvocationIndex;
+    uint first = tid * METERING_BINS_PER_THREAD;
+    uvec4 counts = load_histogram_block(first);
+
+    if (tid == 0u) {
+        black_bin = 0u;
+        white_bin = METERING_HISTOGRAM_SIZE - 1u;
+    }
+
+    scan_histogram_blocks(tid, sum_histogram_block(counts));
+    publish_coarse_histogram(tid);
+    locate_percentiles(tid, first, counts);
+    barrier();
+
+    if (tid == 0u) {
+        metered_min_i = black_bin << 2u;
+        metered_max_i = min((white_bin << 2u) + 3u, 4095u);
+    }
+}
+
+void hook() { reduce_metering_histogram(); }
+
+//!HOOK OUTPUT
+//!BIND METERING
+//!BIND METERED
+//!SAVE EMPTY
 //!WIDTH 256
 //!HEIGHT 256
+//!COMPUTE 16 16 16 16
 //!WHEN auto_exposure_anchor 0 > enable_metering 1 > * avg_pq_y 0 = * scene_avg 0 = *
-//!DESC metering (avg, 256, center-weighted)
+//!DESC metering (avg, center-weighted partials)
+
+const uint METERING_AVERAGE_SIZE = 256u;
+const uint METERING_AVERAGE_GROUP_SIZE = 256u;
+const uint METERING_AVERAGE_GROUPS_PER_AXIS = 16u;
+
+shared float average_partial[METERING_AVERAGE_GROUP_SIZE];
 
 vec2 map_coords(vec2 uv, float strength) {
     if (strength < 0.001) {
@@ -735,128 +923,130 @@ vec2 map_coords(vec2 uv) {
     return map_coords(uv, 2.0);
 }
 
-vec4 hook() {
-    return METERING_tex(map_coords(METERING_pos));
+float sample_center_weighted_metering() {
+    vec2 position = (vec2(gl_GlobalInvocationID.xy) + 0.5) /
+                    float(METERING_AVERAGE_SIZE);
+    return (
+        METERING_mul * textureLod(METERING_raw, map_coords(position), 0.0)
+    ).x;
 }
 
-//!HOOK OUTPUT
-//!BIND AVG
-//!SAVE AVG
-//!WIDTH AVG.w 16 /
-//!HEIGHT AVG.h 16 /
-//!DESC metering (avg, 16)
-// Sixty-four bilinear taps, each averaging 2x2, tile the 16x16 source block.
-vec4 hook() {
-    float sum = 0.0;
-    for (int y = -7; y <= 7; y += 2) {
-        for (int x = -7; x <= 7; x += 2) {
-            sum += AVG_texOff(vec2(float(x), float(y))).x;
+void reduce_average_partial(uint tid, float value) {
+    average_partial[tid] = value;
+    barrier();
+
+    for (uint size = METERING_AVERAGE_GROUP_SIZE >> 1u;
+         size > 0u;
+         size >>= 1u) {
+        if (tid < size) {
+            average_partial[tid] += average_partial[tid + size];
         }
+        barrier();
     }
-    return vec4(sum / 64.0, 0.0, 0.0, 1.0);
 }
 
-//!HOOK OUTPUT
-//!BIND AVG
-//!SAVE AVG
-//!WIDTH AVG.w 16 /
-//!HEIGHT AVG.h 16 /
-//!DESC metering (avg, 1)
-// Sixty-four bilinear taps, each averaging 2x2, tile the 16x16 source block.
-vec4 hook() {
-    float sum = 0.0;
-    for (int y = -7; y <= 7; y += 2) {
-        for (int x = -7; x <= 7; x += 2) {
-            sum += AVG_texOff(vec2(float(x), float(y))).x;
-        }
-    }
-    return vec4(sum / 64.0, 0.0, 0.0, 1.0);
+uint average_group_index() {
+    return gl_WorkGroupID.y * METERING_AVERAGE_GROUPS_PER_AXIS +
+           gl_WorkGroupID.x;
 }
 
+void publish_average_partial(uint tid) {
+    if (tid == 0u) {
+        metered_average_groups[average_group_index()] =
+            average_partial[0] / float(METERING_AVERAGE_GROUP_SIZE);
+    }
+}
+
+void calculate_center_weighted_average_partial() {
+    uint tid = gl_LocalInvocationIndex;
+    reduce_average_partial(tid, sample_center_weighted_metering());
+    publish_average_partial(tid);
+}
+
+void hook() { calculate_center_weighted_average_partial(); }
+
 //!HOOK OUTPUT
-//!BIND AVG
 //!BIND METERED
-//!SAVE AVG
-//!WIDTH 1
+//!SAVE EMPTY
+//!WIDTH 256
 //!HEIGHT 1
-//!COMPUTE 1 1
-//!DESC metering (avg)
+//!COMPUTE 256 1 256 1
+//!WHEN auto_exposure_anchor 0 > enable_metering 1 > * avg_pq_y 0 = * scene_avg 0 = *
+//!DESC metering (avg, reduction)
+
+const uint METERING_AVERAGE_GROUP_COUNT = 256u;
+
+shared float average_partial[METERING_AVERAGE_GROUP_COUNT];
 
 uint to_uint(float x) {
     return uint(x * 4095.0 + 0.5);
 }
 
+void reduce_average_groups(uint tid) {
+    average_partial[tid] = metered_average_groups[tid];
+    barrier();
+
+    for (uint size = METERING_AVERAGE_GROUP_COUNT >> 1u;
+         size > 0u;
+         size >>= 1u) {
+        if (tid < size)
+            average_partial[tid] += average_partial[tid + size];
+        barrier();
+    }
+}
+
+void publish_center_weighted_average(uint tid) {
+    if (tid == 0u) {
+        float average = average_partial[0] /
+                        float(METERING_AVERAGE_GROUP_COUNT);
+        metered_avg_i = to_uint(average);
+    }
+}
+
 void hook() {
-    metered_avg_i = to_uint(AVG_tex(AVG_pos).x);
+    uint tid = gl_LocalInvocationIndex;
+    reduce_average_groups(tid);
+    publish_center_weighted_average(tid);
 }
 
 //!HOOK OUTPUT
 //!BIND METERING
 //!BIND METERED
 //!BIND METERED_TEMPORAL
-//!BIND METERED_SMOOTHED
 //!SAVE EMPTY
-//!WIDTH 1
+//!WIDTH 64
 //!HEIGHT 1
-//!COMPUTE 1 1
-//!WHEN temporal_stable_window 0.0 >
+//!COMPUTE 64 1 64 1
+//!WHEN temporal_stable_duration 0.0 >
 //!DESC metering (temporal stabilization)
 
-// ============================================================================
-// TEMPORAL STABILIZATION - Configuration Parameters
-// ============================================================================
-// These parameters control the temporal smoothing behavior to reduce flicker
-// while maintaining responsiveness to actual scene changes.
+// Scene analysis is distribution-based. The current frame is compared both
+// with a slowly moving shot reference and with the immediately previous frame:
+// only an abrupt transition can start a cut candidate, so gradual ramps do not
+// become cuts merely because they eventually move far from the old reference.
 
-// Historical-weight half-life relative to the configured temporal window.
-// At the default 0.33 s window this yields a half-life of about 0.178 s.
-const float TEMPORAL_WEIGHT_HALF_LIFE_SCALE = 0.54;
+const uint TEMPORAL_HISTOGRAM_SIZE = 64u;
+const uint TEMPORAL_HISTOGRAM_SAMPLE_COUNT = 512u * 288u;
+const float TEMPORAL_HISTOGRAM_CUT_THRESHOLD = 0.20;
+const float TEMPORAL_HISTOGRAM_FRAME_THRESHOLD = 0.10;
+const float TEMPORAL_HISTOGRAM_TIME_SCALE = 0.50;
+const float TEMPORAL_SCENE_CONFIRM_TIME_SCALE = 0.25;
+const float TEMPORAL_SCENE_ADAPTATION_TIME_SCALE = 0.50;
 const float TEMPORAL_MIN_TIME_CONSTANT = 1.0 / 240.0;
-const float TEMPORAL_FAST_TIME_SCALE = 0.125;
-const float TEMPORAL_AVERAGE_TIME_SCALE = 0.25;
-const float TEMPORAL_SLOW_TIME_SCALE = 0.5;
-// Re-arm cut detection after history covers this fraction of the window.
-const float TEMPORAL_SCENE_MIN_HISTORY_SCALE = 0.25;
 const float TEMPORAL_PTS_EPSILON = 1e-6;
 
-// Scene change blend factor (applied when cut is detected)
-// Range: 0.2-0.5. Lower = smoother but may blur real scene changes
-// Default: 0.3 maintains some smoothness during cuts
-const float TEMPORAL_CUT_BLEND = 0.3;
+const uint TEMPORAL_FRAME_SKIP = 0u;
+const uint TEMPORAL_FRAME_INITIALIZE = 1u;
+const uint TEMPORAL_FRAME_PROCESS = 2u;
+const uint TEMPORAL_REFERENCE_KEEP = 0u;
+const uint TEMPORAL_REFERENCE_BLEND = 1u;
+const uint TEMPORAL_REFERENCE_REPLACE = 2u;
 
-// Base tolerance for scene change detection (in ΔE units)
-// Range: 20.0-50.0. Higher = fewer false detections but may miss real cuts
-// Default: 36.0 provides good balance for most content
-const float TEMPORAL_BASE_TOLERANCE = 36.0;
-
-// Adaptive tolerance scaling based on brightness
-// Range: 0.3-0.7. Higher = more tolerance for bright scenes
-// Default: 0.5 adapts well to various brightness levels
-const float TEMPORAL_ADAPTIVE_SCALE = 0.5;
-
-// Black scene threshold (below this is considered pure black)
-// Range: ~0.002-0.008 (normalized). Higher = more aggressive black detection
-// Default: 16/4095 catches most black frames without false positives
-const float TEMPORAL_BLACK_THRESHOLD = 16.0 / 4095.0;
-
-// Metric weights for scene change detection
-// These weights determine the relative importance of each metric
-// Total should sum to 1.0 for balanced detection
-const float TEMPORAL_WEIGHT_AVG = 0.50; // Average is most reliable
-const float TEMPORAL_WEIGHT_MAX = 0.35; // Maximum is important for highlights
-const float TEMPORAL_WEIGHT_MIN = 0.15; // Minimum is least reliable (noise)
-
-// Delta scale for converting normalized differences to perceptual units
-// This converts [0,1] differences to ΔE-like perceptual differences
-const float TEMPORAL_DELTA_SCALE = 720.0;
-
-float to_float(uint x) {
-    return float(x) / 4095.0;
-}
-
-uint to_uint(float x) {
-    return uint(x * 4095.0 + 0.5);
-}
+shared vec2 temporal_distance_partial[TEMPORAL_HISTOGRAM_SIZE];
+shared uint temporal_frame_operation;
+shared uint temporal_reference_operation;
+shared float temporal_delta_time;
+shared float temporal_reference_alpha;
 
 float pts_to_float(uint x) {
     return uintBitsToFloat(x);
@@ -866,357 +1056,218 @@ uint pts_to_uint(float x) {
     return floatBitsToUint(x);
 }
 
-// ============================================================================
-// TEMPORAL STABILIZATION - Core Functions
-// ============================================================================
-
-// Must remain a power of two for the ring-buffer mask below.
-const uint TEMPORAL_BUFFER_SIZE = 256u;
-
-uint temporal_history_index(uint age) {
-    return (metered_history_head + age) & (TEMPORAL_BUFFER_SIZE - 1u);
-}
-
-void temporal_store_sample(uint index, uvec3 value) {
-    metered_max_i_t[index] = value.x;
-    metered_min_i_t[index] = value.y;
-    metered_avg_i_t[index] = value.z;
-    metered_pts_t[index] = pts_to_uint(PTS);
-}
-
-/** Inserts the current frame at the front of the temporal ring buffer. */
-void temporal_prepend(uvec3 current) {
-    metered_history_head = (metered_history_head + TEMPORAL_BUFFER_SIZE - 1u)
-                         & (TEMPORAL_BUFFER_SIZE - 1u);
-    temporal_store_sample(metered_history_head, current);
-    metered_history_valid = min(metered_history_valid + 1u, TEMPORAL_BUFFER_SIZE);
-}
-
-struct TemporalPredictionStatistics {
-    vec3 weighted_value_sum;
-    vec3 weighted_time_value_sum;
-    vec3 newest;
-    float weight_sum;
-    float weighted_time_sum;
-    float weighted_time_squared_sum;
-};
-
-struct TemporalMeanStatistics {
-    vec3 weighted_reciprocal_sum;
-    float weight_sum;
-};
-
-struct TemporalStatistics {
-    TemporalPredictionStatistics prediction;
-    TemporalMeanStatistics mean;
-    uint count;
-    float history_span;
-};
-
-void temporal_add_prediction_sample(
-    inout TemporalPredictionStatistics statistics,
-    vec3 value,
-    float time,
-    float weight
-) {
-    statistics.weighted_value_sum += weight * value;
-    statistics.weighted_time_value_sum += weight * time * value;
-    statistics.weight_sum += weight;
-    statistics.weighted_time_sum += weight * time;
-    statistics.weighted_time_squared_sum += weight * time * time;
-}
-
-void temporal_add_mean_sample(
-    inout TemporalMeanStatistics statistics,
-    vec3 value,
-    float weight
-) {
-    statistics.weighted_reciprocal_sum += weight / max(value, vec3(1e-6));
-    statistics.weight_sum += weight;
-}
-
-/** Traverses the active history once and accumulates all temporal statistics. */
-TemporalStatistics temporal_collect_statistics(
-    uint valid,
-    vec3 current,
-    float newest_age
-) {
-    TemporalStatistics statistics;
-    statistics.prediction.weighted_value_sum = vec3(0.0);
-    statistics.prediction.weighted_time_value_sum = vec3(0.0);
-    statistics.prediction.newest = current;
-    statistics.prediction.weight_sum = 0.0;
-    statistics.prediction.weighted_time_sum = 0.0;
-    statistics.prediction.weighted_time_squared_sum = 0.0;
-    statistics.mean.weighted_reciprocal_sum = vec3(0.0);
-    statistics.mean.weight_sum = 0.0;
-    statistics.count = 0u;
-    statistics.history_span = 0.0;
-    float half_life = max(
-        temporal_stable_window * TEMPORAL_WEIGHT_HALF_LIFE_SCALE,
-        TEMPORAL_MIN_TIME_CONSTANT
-    );
-
-    // Treat samples as points on a continuous time axis. Midpoints between
-    // adjacent PTS values bound each sample's interval, and integrating the
-    // exponential kernel over those intervals removes sample-rate bias.
-    float boundary_decay = exp2(-0.5 * newest_age / half_life);
-    float current_weight = 1.0 - boundary_decay;
-    temporal_add_mean_sample(statistics.mean, current, current_weight);
-
-    float age = newest_age;
-    float sample_age = newest_age;
-
-    for (uint i = 0u; i < valid; i++) {
-        uint index = temporal_history_index(i);
-        float time = -age;
-        float interval_end = temporal_stable_window;
-        float next_age = age;
-        float next_sample_age = sample_age;
-        bool has_next = false;
-
-        if (i + 1u < valid) {
-            uint next_index = temporal_history_index(i + 1u);
-            next_sample_age = PTS - pts_to_float(metered_pts_t[next_index]);
-
-            if (next_sample_age >= 0.0 &&
-                next_sample_age <= temporal_stable_window) {
-                next_age = max(next_sample_age, age);
-                interval_end = 0.5 * (age + next_age);
-                has_next = true;
-            }
-        }
-
-        float next_boundary_decay = exp2(-interval_end / half_life);
-        float weight = max(boundary_decay - next_boundary_decay, 0.0);
-        vec3 value = vec3(
-            to_float(metered_max_i_t[index]),
-            to_float(metered_min_i_t[index]),
-            to_float(metered_avg_i_t[index])
-        );
-
-        if (i == 0u)
-            statistics.prediction.newest = value;
-
-        temporal_add_prediction_sample(
-            statistics.prediction,
-            value,
-            time,
-            weight
-        );
-        temporal_add_mean_sample(statistics.mean, value, weight);
-        statistics.count = i + 1u;
-        statistics.history_span = sample_age;
-        boundary_decay = next_boundary_decay;
-
-        if (!has_next)
-            break;
-
-        age = next_age;
-        sample_age = next_sample_age;
-    }
-
-    return statistics;
-}
-
-/**
- * Predicts maximum, minimum, and average intensity with a weighted regression.
- * Each sample receives the integrated temporal-kernel weight of its PTS
- * interval, so denser sampling does not receive more influence.
- */
-vec3 temporal_predict(uint count, TemporalPredictionStatistics statistics) {
-    if (count < 2u) {
-        return statistics.newest;
-    }
-
-    float weight_sum = statistics.weight_sum;
-    float denominator = weight_sum * statistics.weighted_time_squared_sum
-                      - statistics.weighted_time_sum
-                      * statistics.weighted_time_sum;
-
-    if (weight_sum < 1e-6 || abs(denominator) < 1e-10) {
-        return statistics.newest;
-    }
-
-    vec3 slope = (weight_sum * statistics.weighted_time_value_sum
-               - statistics.weighted_time_sum
-               * statistics.weighted_value_sum)
-               / denominator;
-    vec3 intercept = (statistics.weighted_value_sum
-                   - slope * statistics.weighted_time_sum)
-                   / weight_sum;
-
-    // Historical sample times are negative relative to the current frame, so
-    // the prediction at the current frame (t = 0) is the intercept.
-    return clamp(intercept, vec3(0.0), vec3(1.0));
-}
-
-/**
- * Calculates the weighted harmonic mean including the current frame.
- * Recent frames receive more weight through exponential decay, while harmonic
- * averaging reduces the influence of bright outliers.
- * H = sum(w) / sum(w / x)
- */
-vec3 temporal_weighted_mean(TemporalMeanStatistics statistics) {
-    return vec3(statistics.weight_sum)
-         / max(statistics.weighted_reciprocal_sum, vec3(1e-6));
-}
-
-/** Calculates a frame-rate-independent EMA coefficient. */
 float temporal_alpha(float delta_time, float time_constant) {
-    return 1.0 - exp(-delta_time / max(time_constant, TEMPORAL_MIN_TIME_CONSTANT));
+    return 1.0 - exp(
+        -delta_time / max(time_constant, TEMPORAL_MIN_TIME_CONSTANT)
+    );
 }
 
-vec3 apply_temporal_smoothing(vec3 current, vec3 previous, float delta_time) {
-    float fast_time = temporal_stable_window * TEMPORAL_FAST_TIME_SCALE;
-    float average_time = temporal_stable_window * TEMPORAL_AVERAGE_TIME_SCALE;
-    float slow_time = temporal_stable_window * TEMPORAL_SLOW_TIME_SCALE;
-
-    vec3 time_constant = vec3(
-        current.x > previous.x ? fast_time : slow_time,
-        current.y < previous.y ? fast_time : slow_time,
-        average_time
-    );
-    vec3 alpha = vec3(
-        temporal_alpha(delta_time, time_constant.x),
-        temporal_alpha(delta_time, time_constant.y),
-        temporal_alpha(delta_time, time_constant.z)
-    );
-    return mix(previous, current, alpha);
+float temporal_histogram_value(uint coarse_index) {
+    return float(metered_coarse_histogram[coarse_index]) /
+           float(TEMPORAL_HISTOGRAM_SAMPLE_COUNT);
 }
 
-bool temporal_scene_history_ready(uint count, float history_span) {
-    if (count < 2u) {
-        return false;
+void temporal_clear_scene_candidate() {
+    metered_scene_candidate_start_pts = 0u;
+    metered_scene_candidate_active = 0u;
+}
+
+void temporal_initialize_scalar_state() {
+    temporal_clear_scene_candidate();
+    metered_histogram_valid = 1u;
+    metered_temporal_pts = pts_to_uint(PTS);
+    metered_scene_adaptation_end_pts = 0u;
+    metered_scene_fast_response = 0u;
+}
+
+vec2 temporal_measure_distance(uint index, float current) {
+    vec2 distance = vec2(
+        abs(current - metered_reference_histogram[index]),
+        abs(current - metered_previous_histogram[index])
+    );
+    metered_previous_histogram[index] = current;
+    return distance;
+}
+
+void temporal_reduce_distances(uint tid, vec2 distance) {
+    temporal_distance_partial[tid] = distance;
+    barrier();
+
+    for (uint size = TEMPORAL_HISTOGRAM_SIZE >> 1u;
+         size > 0u;
+         size >>= 1u) {
+        if (tid < size) {
+            temporal_distance_partial[tid] +=
+                temporal_distance_partial[tid + size];
+        }
+        barrier();
     }
+}
 
-    float required_span = max(
-        temporal_stable_window * TEMPORAL_SCENE_MIN_HISTORY_SCALE,
+float temporal_reference_blend_alpha(float delta_time) {
+    float time_constant = temporal_stable_duration *
+                          TEMPORAL_HISTOGRAM_TIME_SCALE;
+    return temporal_alpha(delta_time, time_constant);
+}
+
+float temporal_scene_confirmation_time() {
+    return max(
+        temporal_stable_duration * TEMPORAL_SCENE_CONFIRM_TIME_SCALE,
         TEMPORAL_MIN_TIME_CONSTANT
     );
-    return history_span >= required_span;
 }
 
-void temporal_reset_history(uvec3 current) {
-    metered_history_head = 0u;
-    metered_history_valid = 1u;
-    temporal_store_sample(0u, current);
-}
-
-void temporal_publish(vec3 smoothed) {
-    metered_max_i = to_uint(smoothed.x);
-    metered_min_i = to_uint(smoothed.y);
-    metered_avg_i = to_uint(smoothed.z);
-    smoothed_max_i = smoothed.x;
-    smoothed_min_i = smoothed.y;
-    smoothed_avg_i = smoothed.z;
-}
-
-float temporal_scene_change_score(vec3 current, vec3 predicted) {
-    // Metric layout is (max, min, avg).
-    vec3 delta = TEMPORAL_DELTA_SCALE * abs(current - predicted);
-    return dot(delta, vec3(
-        TEMPORAL_WEIGHT_MAX,
-        TEMPORAL_WEIGHT_MIN,
-        TEMPORAL_WEIGHT_AVG
-    ));
-}
-
-/** Detects scene changes by comparing current values with their prediction. */
-bool temporal_is_scene_changed(vec3 current, vec3 predicted) {
-    // Entering black is a cut, but a sustained black scene is not.
-    if (current.x < TEMPORAL_BLACK_THRESHOLD) {
-        return predicted.x >= TEMPORAL_BLACK_THRESHOLD;
-    }
-
-    // Calculate adaptive tolerance based on current brightness
-    // Brighter scenes get higher tolerance to reduce false positives
-    float adaptive_tolerance = TEMPORAL_BASE_TOLERANCE *
-                               (1.0 + current.x * TEMPORAL_ADAPTIVE_SCALE);
-
-    return temporal_scene_change_score(current, predicted) > adaptive_tolerance;
-}
-
-/**
- * Main temporal stabilization hook
- * Processes max, min, and avg metrics with multi-stage smoothing
- * and intelligent scene change detection
- * Uses PTS-based time window instead of fixed frame count
- */
-void hook() {
-    // Cache current frame raw values before any processing
-    uvec3 current_quantized = uvec3(
-        metered_max_i,
-        metered_min_i,
-        metered_avg_i
+float temporal_scene_adaptation_time() {
+    return max(
+        temporal_stable_duration * TEMPORAL_SCENE_ADAPTATION_TIME_SCALE,
+        TEMPORAL_MIN_TIME_CONSTANT
     );
-    vec3 current = vec3(current_quantized) / 4095.0;
+}
 
-    // Get previous frame's smoothed values from persistent buffer
-    vec3 previous = vec3(smoothed_max_i, smoothed_min_i, smoothed_avg_i);
-    uint valid = min(metered_history_valid, TEMPORAL_BUFFER_SIZE);
+void temporal_update_fast_response() {
+    if (metered_scene_fast_response == 0u)
+        return;
 
-    if (valid == 0u) {
-        temporal_reset_history(current_quantized);
-        temporal_publish(current);
+    float end_pts = pts_to_float(metered_scene_adaptation_end_pts);
+    if (PTS >= end_pts)
+        metered_scene_fast_response = 0u;
+}
+
+bool temporal_scene_candidate_active(
+    float reference_distance,
+    float frame_distance
+) {
+    bool far_from_reference = reference_distance >
+                              TEMPORAL_HISTOGRAM_CUT_THRESHOLD;
+    if (metered_scene_candidate_active > 0u)
+        return far_from_reference;
+
+    return far_from_reference &&
+           frame_distance > TEMPORAL_HISTOGRAM_FRAME_THRESHOLD;
+}
+
+void temporal_confirm_scene_change() {
+    temporal_clear_scene_candidate();
+    metered_scene_adaptation_end_pts = pts_to_uint(
+        PTS + temporal_scene_adaptation_time()
+    );
+    metered_scene_fast_response = 1u;
+    temporal_reference_operation = TEMPORAL_REFERENCE_REPLACE;
+}
+
+void temporal_process_distances(vec2 distance) {
+    bool candidate = temporal_stable_scene_change > 0 &&
+                     temporal_scene_candidate_active(
+                         distance.x,
+                         distance.y
+                     );
+
+    if (!candidate) {
+        temporal_clear_scene_candidate();
+        temporal_reference_operation = TEMPORAL_REFERENCE_BLEND;
+        temporal_reference_alpha = temporal_reference_blend_alpha(
+            temporal_delta_time
+        );
         return;
     }
 
-    float newest_pts = pts_to_float(
-        metered_pts_t[temporal_history_index(0u)]
+    if (metered_scene_candidate_active == 0u) {
+        metered_scene_candidate_start_pts = pts_to_uint(PTS);
+        metered_scene_candidate_active = 1u;
+    }
+
+    float elapsed = PTS - pts_to_float(
+        metered_scene_candidate_start_pts
     );
-    float delta_time = PTS - newest_pts;
+    if (elapsed >= temporal_scene_confirmation_time())
+        temporal_confirm_scene_change();
+}
+
+void temporal_prepare_frame() {
+    temporal_frame_operation = TEMPORAL_FRAME_SKIP;
+    temporal_reference_operation = TEMPORAL_REFERENCE_KEEP;
+
+    if (metered_histogram_valid == 0u) {
+        temporal_initialize_scalar_state();
+        temporal_frame_operation = TEMPORAL_FRAME_INITIALIZE;
+        return;
+    }
+
+    float previous_pts = pts_to_float(metered_temporal_pts);
+    float delta_time = PTS - previous_pts;
 
     // Redrawing the same video frame must not advance temporal state.
-    if (abs(delta_time) <= TEMPORAL_PTS_EPSILON) {
-        temporal_publish(previous);
+    if (abs(delta_time) <= TEMPORAL_PTS_EPSILON)
+        return;
+
+    if (delta_time < 0.0 || delta_time > temporal_stable_duration) {
+        temporal_initialize_scalar_state();
+        temporal_frame_operation = TEMPORAL_FRAME_INITIALIZE;
         return;
     }
 
-    // Reset on seeks, timestamp discontinuities, or gaps outside the active
-    // history window instead of mixing unrelated temporal segments.
-    if (delta_time < 0.0 || delta_time > temporal_stable_window) {
-        temporal_reset_history(current_quantized);
-        temporal_publish(current);
-        return;
-    }
-
-    TemporalStatistics statistics = temporal_collect_statistics(
-        valid,
-        current,
-        delta_time
-    );
-    uint count = statistics.count;
-
-    if (count == 0u) {
-        temporal_reset_history(current_quantized);
-        temporal_publish(current);
-        return;
-    }
-
-    vec3 predicted = temporal_predict(count, statistics.prediction);
-    vec3 weighted = temporal_weighted_mean(statistics.mean);
-
-    // Detect scene changes by comparing current raw values against predictions
-    bool scene_changed = false;
-
-    if (temporal_stable_scene_change > 0 &&
-        temporal_scene_history_ready(count, statistics.history_span)) {
-        scene_changed = temporal_is_scene_changed(current, predicted);
-    }
-
-    if (scene_changed) {
-        temporal_reset_history(current_quantized);
-        temporal_publish(mix(previous, current, TEMPORAL_CUT_BLEND));
-        return;
-    }
-
-    temporal_prepend(current_quantized);
-    temporal_publish(apply_temporal_smoothing(weighted, previous, delta_time));
+    temporal_delta_time = delta_time;
+    metered_temporal_pts = pts_to_uint(PTS);
+    temporal_update_fast_response();
+    temporal_frame_operation = TEMPORAL_FRAME_PROCESS;
 }
+
+void temporal_initialize_histogram(uint index, float current) {
+    metered_reference_histogram[index] = current;
+    metered_previous_histogram[index] = current;
+}
+
+void temporal_update_reference_bin(uint index, float current) {
+    if (temporal_reference_operation == TEMPORAL_REFERENCE_BLEND) {
+        metered_reference_histogram[index] = mix(
+            metered_reference_histogram[index],
+            current,
+            temporal_reference_alpha
+        );
+    } else if (
+        temporal_reference_operation == TEMPORAL_REFERENCE_REPLACE
+    ) {
+        metered_reference_histogram[index] = current;
+    }
+}
+
+void analyze_metering_temporally() {
+    uint index = gl_LocalInvocationIndex;
+
+    if (index == 0u)
+        temporal_prepare_frame();
+    barrier();
+
+    if (temporal_frame_operation == TEMPORAL_FRAME_SKIP)
+        return;
+
+    float current = temporal_histogram_value(index);
+
+    if (temporal_frame_operation == TEMPORAL_FRAME_INITIALIZE) {
+        temporal_initialize_histogram(index, current);
+        return;
+    }
+
+    vec2 distance = temporal_measure_distance(index, current);
+    temporal_reduce_distances(index, distance);
+
+    if (index == 0u) {
+        temporal_process_distances(
+            0.5 * temporal_distance_partial[0]
+        );
+    }
+    barrier();
+
+    temporal_update_reference_bin(index, current);
+}
+
+void hook() { analyze_metering_temporally(); }
 
 //!HOOK OUTPUT
 //!BIND METERED
+//!BIND METERED_TEMPORAL
+//!BIND EXPOSURE_TEMPORAL
+//!BIND CURVE_TEMPORAL
 //!BIND METADATA
 //!SAVE EMPTY
 //!WIDTH 1
@@ -1226,6 +1277,22 @@ void hook() {
 
 // For content with dynamic metadata, it will be provided by mpv
 // https://github.com/mpv-player/mpv/pull/15239
+
+// Filter automatic exposure in its final EV domain so observation noise cannot
+// become a large nonlinear luminance change. Manual exposure remains direct.
+const float EXPOSURE_RISE_TIME_SCALE = 0.50;
+const float EXPOSURE_FALL_TIME_SCALE = 0.35;
+const float EXPOSURE_MIN_TIME_CONSTANT = 1.0 / 240.0;
+const float EXPOSURE_PTS_EPSILON = 1e-6;
+const float OUTPUT_TEMPORAL_SCENE_TIME_SCALE = 0.125;
+const float OUTPUT_TEMPORAL_SCENE_ADAPTATION_SCALE = 0.50;
+
+// All curve samples use one PTS-derived coefficient. Compute it once in this
+// single-invocation pass instead of repeating the timestamp state and exp()
+// evaluation in every curve-LUT invocation.
+const float CURVE_TEMPORAL_TIME_SCALE = 0.35;
+const float CURVE_TEMPORAL_MIN_TIME_CONSTANT = 1.0 / 240.0;
+const float CURVE_TEMPORAL_PTS_EPSILON = 1e-6;
 
 const float m1 = 2610.0 / 4096.0 / 4.0;
 const float m2 = 2523.0 / 4096.0 * 128.0;
@@ -1364,314 +1431,145 @@ float resolve_exposure(MeteringMetrics metrics) {
     return calculate_auto_exposure(metrics);
 }
 
-void apply_exposure_to_range(inout MeteringMetrics metrics, float exposure) {
-    if (exposure == 0.0)
+float output_temporal_time_scale(float normal_scale) {
+    float adaptation_end = uintBitsToFloat(
+        metered_scene_adaptation_end_pts
+    );
+    float adaptation_duration = max(
+        temporal_stable_duration * OUTPUT_TEMPORAL_SCENE_ADAPTATION_SCALE,
+        EXPOSURE_MIN_TIME_CONSTANT
+    );
+    bool fast_response = metered_scene_fast_response > 0u &&
+                         PTS < adaptation_end &&
+                         PTS >= adaptation_end - adaptation_duration;
+    return fast_response
+        ? min(normal_scale, OUTPUT_TEMPORAL_SCENE_TIME_SCALE)
+        : normal_scale;
+}
+
+float stabilize_auto_exposure(float target, bool automatic) {
+    if (!automatic || temporal_stable_duration <= 0.0) {
+        smoothed_ev = target;
+        smoothed_ev_pts = floatBitsToUint(PTS);
+        smoothed_ev_valid = 1u;
+        return target;
+    }
+
+    if (smoothed_ev_valid == 0u) {
+        smoothed_ev = target;
+        smoothed_ev_pts = floatBitsToUint(PTS);
+        smoothed_ev_valid = 1u;
+        return target;
+    }
+
+    float delta_time = PTS - uintBitsToFloat(smoothed_ev_pts);
+    if (abs(delta_time) <= EXPOSURE_PTS_EPSILON)
+        return smoothed_ev;
+
+    if (delta_time < 0.0 || delta_time > temporal_stable_duration) {
+        smoothed_ev = target;
+        smoothed_ev_pts = floatBitsToUint(PTS);
+        return target;
+    }
+
+    float time_scale = target > smoothed_ev
+        ? EXPOSURE_RISE_TIME_SCALE
+        : EXPOSURE_FALL_TIME_SCALE;
+    time_scale = output_temporal_time_scale(time_scale);
+    float time_constant = max(
+        temporal_stable_duration * time_scale,
+        EXPOSURE_MIN_TIME_CONSTANT
+    );
+    float alpha = 1.0 - exp(-delta_time / time_constant);
+    smoothed_ev = mix(smoothed_ev, target, alpha);
+    smoothed_ev_pts = floatBitsToUint(PTS);
+    return smoothed_ev;
+}
+
+void prepare_curve_temporal() {
+    curve_temporal_alpha = 1.0;
+    curve_temporal_reset = 1u;
+
+    if (temporal_stable_duration <= 0.0) {
+        curve_temporal_pts = floatBitsToUint(PTS);
+        curve_temporal_valid = 1u;
+        return;
+    }
+
+    if (curve_temporal_valid == 0u) {
+        curve_temporal_pts = floatBitsToUint(PTS);
+        curve_temporal_valid = 1u;
+        return;
+    }
+
+    float delta_time = PTS - uintBitsToFloat(curve_temporal_pts);
+    if (abs(delta_time) <= CURVE_TEMPORAL_PTS_EPSILON) {
+        curve_temporal_alpha = 0.0;
+        curve_temporal_reset = 0u;
+        return;
+    }
+
+    curve_temporal_pts = floatBitsToUint(PTS);
+    if (delta_time < 0.0 || delta_time > temporal_stable_duration)
         return;
 
-    float scale = exp2(exposure);
+    float time_scale = output_temporal_time_scale(
+        CURVE_TEMPORAL_TIME_SCALE
+    );
+    float time_constant = max(
+        temporal_stable_duration * time_scale,
+        CURVE_TEMPORAL_MIN_TIME_CONSTANT
+    );
+    curve_temporal_alpha = 1.0 - exp(-delta_time / time_constant);
+    curve_temporal_reset = 0u;
+}
+
+void apply_exposure_to_range(inout MeteringMetrics metrics, float scale) {
+    if (scale == 1.0)
+        return;
+
     metrics.maximum = pq_eotf_inv(pq_eotf(metrics.maximum) * scale);
     metrics.minimum = pq_eotf_inv(pq_eotf(metrics.minimum) * scale);
 }
 
-void hook() {
-    MeteringMetrics metrics = resolve_metering_metrics();
+bool automatic_exposure_enabled(MeteringMetrics metrics) {
+    return exposure_value == 0.0 &&
+           metrics.average > 0.0 &&
+           auto_exposure_anchor > 0.0;
+}
 
-    ev = resolve_exposure(metrics);
-    apply_exposure_to_range(metrics, ev);
-
+void publish_metering_metadata(MeteringMetrics metrics) {
     max_i = metrics.maximum;
     min_i = metrics.minimum;
     avg_i = metrics.average;
 }
 
-//!HOOK OUTPUT
-//!BIND HOOKED
-//!BIND METERING
-//!BIND METERED
-//!BIND METADATA
-//!WHEN preview_metering
-//!DESC metering (metadata, preview)
-
-const float JND = 1.0 / 720.0;
-
-float to_float(uint x) {
-    return float(x) / 4095.0;
+void publish_input_metering_metadata(MeteringMetrics metrics) {
+    input_max_i = metrics.maximum;
+    input_min_i = metrics.minimum;
+    input_avg_i = metrics.average;
 }
 
-vec4 draw_highlights(float value) {
-    vec3 metrics = vec3(
-        to_float(metered_max_i),
-        to_float(metered_avg_i),
-        to_float(metered_min_i)
+void update_metering_metadata() {
+    prepare_curve_temporal();
+
+    MeteringMetrics metrics = resolve_metering_metrics();
+    publish_input_metering_metadata(metrics);
+    float target_ev = resolve_exposure(metrics);
+    ev = stabilize_auto_exposure(
+        target_ev,
+        automatic_exposure_enabled(metrics)
     );
-    vec3 matches = 1.0 - step(vec3(5.0 * JND), abs(metrics - value));
-
-    if (enable_metering <= 1)
-        matches.y = 0.0;
-
-    float opacity = 0.75 * max(max(matches.x, matches.y), matches.z);
-    return vec4(matches, opacity);
+    exposure_scale = exp2(ev);
+    apply_exposure_to_range(metrics, exposure_scale);
+    publish_metering_metadata(metrics);
 }
 
-const float m1 = 2610.0 / 4096.0 / 4.0;
-const float m2 = 2523.0 / 4096.0 * 128.0;
-const float c1 = 3424.0 / 4096.0;
-const float c2 = 2413.0 / 4096.0 * 32.0;
-const float c3 = 2392.0 / 4096.0 * 32.0;
-const float pw = 10000.0;
-
-float pq_eotf(float x) {
-    float t = pow(x, 1.0 / m2);
-    return pow(max(t - c1, 0.0) / (c2 - c3 * t), 1.0 / m1) * pw;
-}
-
-// 3x5 bitmap font rendering
-const float CHAR_W = 3.0;
-const float CHAR_H = 5.0;
-const float SPACING = 1.0;
-const float MARGIN = 8.0;
-const float PAD = 2.0;
-const float SCALE = 4.0;
-const float LINE_H = CHAR_H + 2.0;
-
-const uint FONT_DIGITS[10] = uint[10](
-    0x7B6Fu, 0x749Au, 0x73E7u, 0x79E7u, 0x49EDu,
-    0x79CFu, 0x7BCFu, 0x4927u, 0x7BEFu, 0x79EFu
-);
-const uint FONT_LETTERS[26] = uint[26](
-    0x5BEFu, 0x3AEBu, 0x724Fu, 0x3B6Bu, 0x72CFu, 0x12CFu, 0x7B4Fu,
-    0x5BEDu, 0x7497u, 0x7B24u, 0x5AEDu, 0x7249u, 0x5BFDu, 0x5B6Fu,
-    0x7B6Fu, 0x13EFu, 0x49EFu, 0x5AEFu, 0x388Eu, 0x2497u, 0x7B6Du,
-    0x256Du, 0x5FEDu, 0x5AADu, 0x24ADu, 0x72A7u
-);
-const uint FONT_COLON = 0x0410u;
-const uint FONT_DOT   = 0x2000u;
-const uint FONT_MINUS = 0x01C0u;
-const uint FONT_SPACE = 0x0000u;
-const uint FONT_TOFU  = 0x7FFFu;
-
-const int CH_SPACE = 32;
-const int CH_MINUS = 45;
-const int CH_DOT   = 46;
-const int CH_0 = 48;
-const int CH_9 = 57;
-const int CH_COLON = 58;
-const int CH_A = 65;
-const int CH_E = 69;
-const int CH_G = 71;
-const int CH_I = 73;
-const int CH_M = 77;
-const int CH_N = 78;
-const int CH_V = 86;
-const int CH_X = 88;
-const int CH_Z = 90;
-
-uint get_glyph(int ch) {
-    if (ch >= CH_0 && ch <= CH_9)
-        return FONT_DIGITS[ch - CH_0];
-    if (ch >= CH_A && ch <= CH_Z)
-        return FONT_LETTERS[ch - CH_A];
-
-    if (ch == CH_SPACE) return FONT_SPACE;
-    if (ch == CH_MINUS) return FONT_MINUS;
-    if (ch == CH_DOT)   return FONT_DOT;
-    if (ch == CH_COLON) return FONT_COLON;
-    return FONT_TOFU;
-}
-
-bool glyph_pixel(uint glyph, vec2 p) {
-    if (p.x < 0.0 || p.x >= CHAR_W || p.y < 0.0 || p.y >= CHAR_H) return false;
-    uint bit = uint(p.y) * 3u + uint(p.x);
-    return (glyph & (1u << bit)) != 0u;
-}
-
-vec4 draw_char(int ch, vec2 local, inout float cx) {
-    vec2 cp = local - vec2(cx, 0.0);
-    cx += CHAR_W + SPACING;
-    if (cp.x >= 0.0 && cp.x < CHAR_W && cp.y >= 0.0 && cp.y < CHAR_H) {
-        if (glyph_pixel(get_glyph(ch), cp))
-            return vec4(1.0, 1.0, 1.0, 1.0);
-    }
-    return vec4(0.0);
-}
-
-float number_width(float value) {
-    float abs_val = min(abs(value), 99999.99);
-    uint int_part = uint(abs_val * 100.0 + 0.5) / 100u;
-
-    uint digits = 1u;
-    if      (int_part >= 10000u) digits = 5u;
-    else if (int_part >= 1000u)  digits = 4u;
-    else if (int_part >= 100u)   digits = 3u;
-    else if (int_part >= 10u)    digits = 2u;
-
-    float characters = float(digits + 3u) + (value < 0.0 ? 1.0 : 0.0);
-    return characters * (CHAR_W + SPACING);
-}
-
-float pq_number_width(float value) {
-    // PQ codes where two-decimal formatting rounds up to 10, 100, 1000,
-    // and 10000 nits respectively.
-    const vec4 digit_thresholds = vec4(
-        0.299659661,
-        0.508073403,
-        0.751826551,
-        0.999999948
-    );
-    float digits = 1.0 + dot(step(digit_thresholds, vec4(value)), vec4(1.0));
-    return (digits + 3.0) * (CHAR_W + SPACING);
-}
-
-vec4 draw_number(float value, vec2 local, inout float cx) {
-    bool negative = value < 0.0;
-    float abs_val = min(abs(value), 99999.99);
-
-    uint fixed_value = uint(abs_val * 100.0 + 0.5);
-    uint int_part = fixed_value / 100u;
-    uint dec_part = fixed_value - int_part * 100u;
-
-    uint d0 = (int_part / 10000u) % 10u;
-    uint d1 = (int_part / 1000u) % 10u;
-    uint d2 = (int_part / 100u) % 10u;
-    uint d3 = (int_part / 10u) % 10u;
-    uint d4 = int_part % 10u;
-    uint d5 = dec_part / 10u;
-    uint d6 = dec_part % 10u;
-
-    uint first = 4u;
-    if (d0 > 0u) first = 0u;
-    else if (d1 > 0u) first = 1u;
-    else if (d2 > 0u) first = 2u;
-    else if (d3 > 0u) first = 3u;
-
-    vec4 r = vec4(0.0);
-
-    if (negative)    r = max(r, draw_char(CH_MINUS, local, cx));
-    if (first <= 0u) r = max(r, draw_char(int(d0) + CH_0, local, cx));
-    if (first <= 1u) r = max(r, draw_char(int(d1) + CH_0, local, cx));
-    if (first <= 2u) r = max(r, draw_char(int(d2) + CH_0, local, cx));
-    if (first <= 3u) r = max(r, draw_char(int(d3) + CH_0, local, cx));
-    r = max(r, draw_char(int(d4) + CH_0, local, cx));
-    r = max(r, draw_char(CH_DOT, local, cx));
-    r = max(r, draw_char(int(d5) + CH_0, local, cx));
-    r = max(r, draw_char(int(d6) + CH_0, local, cx));
-
-    return r;
-}
-
-// Draw a labeled row: "LABEL:value"
-// Returns max cx across all rows for background width.
-vec4 draw_row(float value, vec2 origin, vec2 px, int c0, int c1, int c2, inout float cx) {
-    float label_width = 4.0 * (CHAR_W + SPACING);
-    float width = label_width + number_width(value);
-    vec2 local = (px - origin) / SCALE;
-
-    if (local.x < 0.0 || local.x >= width ||
-        local.y < 0.0 || local.y >= CHAR_H) {
-        cx = width;
-        return vec4(0.0);
-    }
-
-    vec4 r = vec4(0.0);
-
-    if (local.x < label_width) {
-        r = max(r, draw_char(c0, local, cx));
-        r = max(r, draw_char(c1, local, cx));
-        r = max(r, draw_char(c2, local, cx));
-        r = max(r, draw_char(CH_COLON, local, cx));
-    } else {
-        cx = label_width;
-        r = max(r, draw_number(value, local, cx));
-    }
-
-    cx = width;
-    return r;
-}
-
-vec4 hook() {
-    vec4 color = HOOKED_tex(HOOKED_pos);
-    vec2 px = HOOKED_pos * HOOKED_size;
-    float value = METERING_tex(METERING_pos).x;
-
-    vec4 highlight = draw_highlights(value);
-
-    color.rgb = mix(color.rgb, highlight.rgb, highlight.a);
-
-    // The longest row contains four label characters and a signed 5.2 number.
-    const float MAX_ROW_WIDTH = 13.0 * (CHAR_W + SPACING);
-    vec2 o3 = vec2(MARGIN * SCALE, HOOKED_size.y - MARGIN * SCALE - CHAR_H * SCALE);
-    vec2 o0 = o3 - vec2(0.0, 3.0 * LINE_H * SCALE);
-    vec2 panel_min = o0 - vec2(PAD * SCALE);
-    vec2 panel_max = vec2(
-        o0.x + (MAX_ROW_WIDTH + PAD) * SCALE,
-        o3.y + (CHAR_H + PAD) * SCALE
-    );
-
-    if (any(lessThan(px, panel_min)) || any(greaterThan(px, panel_max))) {
-        return color;
-    }
-
-    float label_width = 4.0 * (CHAR_W + SPACING);
-    vec4 row_widths = label_width + vec4(
-        pq_number_width(max_i),
-        pq_number_width(min_i),
-        pq_number_width(avg_i),
-        number_width(ev)
-    );
-    float max_w = max(max(row_widths.x, row_widths.y),
-                      max(row_widths.z, row_widths.w));
-
-    if (px.x > o0.x + (max_w + PAD) * SCALE) {
-        return color;
-    }
-
-    vec4 r = vec4(0.0, 0.0, 0.0, 1.0);
-    float row_stride = LINE_H * SCALE;
-    int row = int(floor((px.y - o0.y) / row_stride));
-
-    if (row >= 0 && row < 4) {
-        vec2 origin = o0 + vec2(0.0, float(row) * row_stride);
-        vec2 local = px - origin;
-
-        if (local.x >= 0.0 && local.x < row_widths[row] * SCALE &&
-            local.y >= 0.0 && local.y < CHAR_H * SCALE) {
-            float cx = 0.0;
-
-            if (row == 0)
-                r = max(r, draw_row(pq_eotf(max_i), origin, px, CH_M, CH_A, CH_X, cx));
-            else if (row == 1)
-                r = max(r, draw_row(pq_eotf(min_i), origin, px, CH_M, CH_I, CH_N, cx));
-            else if (row == 2)
-                r = max(r, draw_row(pq_eotf(avg_i), origin, px, CH_A, CH_V, CH_G, cx));
-            else
-                r = max(r, draw_row(ev, origin, px, CH_E, CH_V, CH_SPACE, cx));
-        }
-    }
-
-    color.rgb = mix(color.rgb, r.rgb, r.a);
-    return color;
-}
-
-//!HOOK OUTPUT
-//!BIND HOOKED
-//!BIND METADATA
-//!WHEN auto_exposure_anchor 0 > enable_metering 1 > avg_pq_y 0 > + scene_avg 0 > + *
-//!DESC tone mapping (auto exposure)
-
-vec3 exposure(vec3 x, float ev) {
-    return x * exp2(ev);
-}
-
-vec4 hook() {
-    vec4 color = HOOKED_tex(HOOKED_pos);
-
-    color.rgb = exposure(color.rgb, ev);
-
-    return color;
-}
+void hook() { update_metering_metadata(); }
 
 //!HOOK OUTPUT
 //!BIND METADATA
+//!BIND CURVE_TEMPORAL
 //!SAVE LUTS
 //!WIDTH 4225
 //!HEIGHT 131
@@ -2177,14 +2075,28 @@ void generate_LAB_to_RGB_lut(ivec2 atlas_position) {
     store_atlas(atlas_position, Jab_to_RGB(lab));
 }
 
-void generate_curve_lut(ivec2 atlas_position) {
-    float coordinate = float(atlas_position.x) / float(CURVE_SIZE - 1);
-    store_atlas(atlas_position, vec3(curve(coordinate), 0.0, 0.0));
+float stabilize_curve_value(int index, float target) {
+    if (curve_temporal_reset > 0u) {
+        smoothed_curve[index] = target;
+        return target;
+    }
+
+    smoothed_curve[index] = mix(
+        smoothed_curve[index],
+        target,
+        curve_temporal_alpha
+    );
+    return smoothed_curve[index];
 }
 
-void hook() {
-    ivec2 atlas_position = ivec2(gl_GlobalInvocationID.xy);
+void generate_curve_lut(ivec2 atlas_position) {
+    int index = atlas_position.x;
+    float coordinate = float(index) / float(CURVE_SIZE - 1);
+    float value = stabilize_curve_value(index, curve(coordinate));
+    store_atlas(atlas_position, vec3(value, 0.0, 0.0));
+}
 
+void generate_lut_atlas_texel(ivec2 atlas_position) {
     if (atlas_position.x >= LUT_SIZE * LUT_SIZE ||
         atlas_position.y > CURVE_ROW) {
         return;
@@ -2199,9 +2111,192 @@ void hook() {
     }
 }
 
+void hook() {
+    generate_lut_atlas_texel(ivec2(gl_GlobalInvocationID.xy));
+}
+
+//!HOOK OUTPUT
+//!BIND VECTORSCOPE
+//!SAVE EMPTY
+//!COMPONENTS 1
+//!WIDTH 128
+//!HEIGHT 128
+//!COMPUTE 16 16 16 16
+//!WHEN preview_metering
+//!DESC metering (vectorscope, init)
+
+const uint VECTORSCOPE_SIZE = 128u;
+
+void hook() {
+    uvec2 position = gl_GlobalInvocationID.xy;
+    if (any(greaterThanEqual(position, uvec2(VECTORSCOPE_SIZE))))
+        return;
+
+    uint index = position.y * VECTORSCOPE_SIZE + position.x;
+    vectorscope_histogram[index] = 0u;
+    vectorscope_color_r[index] = 0u;
+    vectorscope_color_g[index] = 0u;
+    vectorscope_color_b[index] = 0u;
+}
+
 //!HOOK OUTPUT
 //!BIND HOOKED
 //!BIND LUTS
+//!BIND VECTORSCOPE
+//!SAVE EMPTY
+//!COMPONENTS 1
+//!WIDTH 256
+//!HEIGHT 144
+//!COMPUTE 16 16 16 16
+//!WHEN preview_metering
+//!DESC metering (vectorscope, Jab projection)
+
+// Sample Astra's original linear-RGB input sparsely, convert it with the
+// generated RGB-to-Jab LUT, and scatter its a/b projection into a compact
+// density map. The fixed range covers the Rec. 2020 gamut up to PQ peak while
+// retaining useful resolution around ordinary display colours.
+const int VECTORSCOPE_LUT_SIZE = 65;
+const int VECTORSCOPE_LUT_LAST = VECTORSCOPE_LUT_SIZE - 1;
+const int VECTORSCOPE_RGB_TO_LAB_ROW = 0;
+const uint VECTORSCOPE_SIZE = 128u;
+const float VECTORSCOPE_AB_RANGE = 0.36;
+const float VECTORSCOPE_COLOR_SCALE = 65535.0;
+
+const float m1 = 2610.0 / 4096.0 / 4.0;
+const float m2 = 2523.0 / 4096.0 * 128.0;
+const float c1 = 3424.0 / 4096.0;
+const float c2 = 2413.0 / 4096.0 * 32.0;
+const float c3 = 2392.0 / 4096.0 * 32.0;
+const float pw = 10000.0;
+
+vec3 pq_eotf_inv(vec3 x) {
+    vec3 t = pow(x / pw, vec3(m1));
+    return pow((c1 + c2 * t) / (1.0 + c3 * t), vec3(m2));
+}
+
+vec3 fetch_vectorscope_atlas(ivec2 position) {
+    return texelFetch(LUTS_raw, position, 0).rgb;
+}
+
+vec3 fetch_vectorscope_lut(ivec3 texel) {
+    ivec2 atlas_position = ivec2(
+        texel.x + texel.y * VECTORSCOPE_LUT_SIZE,
+        VECTORSCOPE_RGB_TO_LAB_ROW + texel.z
+    );
+    return fetch_vectorscope_atlas(atlas_position);
+}
+
+void select_vectorscope_tetrahedron(
+    vec3 fraction,
+    out ivec3 second_offset,
+    out ivec3 third_offset,
+    out vec3 weights
+) {
+    if (fraction.x >= fraction.y) {
+        if (fraction.y >= fraction.z) {
+            second_offset = ivec3(1, 0, 0);
+            third_offset = ivec3(1, 1, 0);
+            weights = fraction.xyz;
+        } else if (fraction.x >= fraction.z) {
+            second_offset = ivec3(1, 0, 0);
+            third_offset = ivec3(1, 0, 1);
+            weights = fraction.xzy;
+        } else {
+            second_offset = ivec3(0, 0, 1);
+            third_offset = ivec3(1, 0, 1);
+            weights = fraction.zxy;
+        }
+    } else {
+        if (fraction.x >= fraction.z) {
+            second_offset = ivec3(0, 1, 0);
+            third_offset = ivec3(1, 1, 0);
+            weights = fraction.yxz;
+        } else if (fraction.y >= fraction.z) {
+            second_offset = ivec3(0, 1, 0);
+            third_offset = ivec3(0, 1, 1);
+            weights = fraction.yzx;
+        } else {
+            second_offset = ivec3(0, 0, 1);
+            third_offset = ivec3(0, 1, 1);
+            weights = fraction.zyx;
+        }
+    }
+}
+
+vec3 sample_vectorscope_rgb_to_jab(vec3 rgb) {
+    vec3 absolute_rgb = clamp(
+        max(rgb, vec3(0.0)) * max(reference_white, 0.0),
+        0.0,
+        pw
+    );
+    vec3 position = pq_eotf_inv(absolute_rgb) *
+                    float(VECTORSCOPE_LUT_LAST);
+    ivec3 base_texel = ivec3(floor(position));
+    vec3 fraction = fract(position);
+
+    ivec3 second_offset;
+    ivec3 third_offset;
+    vec3 weights;
+    select_vectorscope_tetrahedron(
+        fraction,
+        second_offset,
+        third_offset,
+        weights
+    );
+
+    ivec3 last_texel = ivec3(VECTORSCOPE_LUT_LAST);
+    vec3 value0 = fetch_vectorscope_lut(base_texel);
+    vec3 value1 = fetch_vectorscope_lut(
+        min(base_texel + second_offset, last_texel)
+    );
+    vec3 value2 = fetch_vectorscope_lut(
+        min(base_texel + third_offset, last_texel)
+    );
+    vec3 value3 = fetch_vectorscope_lut(
+        min(base_texel + ivec3(1), last_texel)
+    );
+
+    return LUTS_mul * (
+        value0
+        + weights.x * (value1 - value0)
+        + weights.y * (value2 - value1)
+        + weights.z * (value3 - value2)
+    );
+}
+
+uint vectorscope_bin(vec2 ab) {
+    vec2 coordinate = vec2(
+        0.5 + 0.5 * ab.x / VECTORSCOPE_AB_RANGE,
+        0.5 - 0.5 * ab.y / VECTORSCOPE_AB_RANGE
+    );
+    uvec2 bin = min(
+        uvec2(clamp(coordinate, 0.0, 1.0) *
+              float(VECTORSCOPE_SIZE)),
+        uvec2(VECTORSCOPE_SIZE - 1u)
+    );
+    return bin.y * VECTORSCOPE_SIZE + bin.x;
+}
+
+void hook() {
+    vec3 rgb = HOOKED_tex(HOOKED_pos).rgb;
+    vec3 jab = sample_vectorscope_rgb_to_jab(rgb);
+    uint index = vectorscope_bin(jab.yz);
+    uvec3 encoded_rgb = uvec3(
+        clamp(rgb, 0.0, 1.0) * VECTORSCOPE_COLOR_SCALE + 0.5
+    );
+
+    // At 256x144 samples, even a single fully occupied bin remains below the
+    // uint limit with 16-bit channel sums.
+    atomicAdd(vectorscope_histogram[index], 1u);
+    atomicAdd(vectorscope_color_r[index], encoded_rgb.r);
+    atomicAdd(vectorscope_color_g[index], encoded_rgb.g);
+    atomicAdd(vectorscope_color_b[index], encoded_rgb.b);
+}
+
+//!HOOK OUTPUT
+//!BIND HOOKED
+//!BIND LUTS
+//!BIND METADATA
 //!DESC tone mapping (LUT application)
 
 // LUT atlas layout: two flattened 65^3 LUTs followed by one 1024-point row.
@@ -2343,6 +2438,10 @@ vec3 RGB_to_LAB(vec3 rgb) {
     return sample_lut_tetrahedral(coordinates, RGB_TO_LAB_ROW);
 }
 
+vec3 apply_exposure(vec3 rgb) {
+    return rgb * exposure_scale;
+}
+
 vec3 LAB_to_RGB(vec3 lab) {
     vec3 coordinates = LAB_to_lut_coordinates(lab);
     return sample_lut_tetrahedral(coordinates, LAB_TO_RGB_ROW);
@@ -2396,8 +2495,544 @@ vec3 tone_mapping(vec3 lab) {
 
 vec4 hook() {
     vec4 color = HOOKED_tex(HOOKED_pos);
+    color.rgb = apply_exposure(color.rgb);
     color.rgb = RGB_to_LAB(color.rgb);
     color.rgb = tone_mapping(color.rgb);
     color.rgb = LAB_to_RGB(color.rgb);
     return color;
 }
+
+
+//!HOOK OUTPUT
+//!BIND HOOKED
+//!BIND METERING
+//!BIND METERED
+//!BIND METERED_TEMPORAL
+//!BIND METADATA
+//!BIND LUTS
+//!BIND VECTORSCOPE
+//!WHEN preview_metering
+//!DESC metering (preview)
+
+const float JND = 1.0 / 720.0;
+
+float to_float(uint x) {
+    return float(x) / 4095.0;
+}
+
+vec4 draw_highlights(float value) {
+    vec3 metrics = vec3(
+        to_float(metered_max_i),
+        to_float(metered_avg_i),
+        to_float(metered_min_i)
+    );
+    vec3 matches = 1.0 - step(vec3(5.0 * JND), abs(metrics - value));
+
+    if (enable_metering <= 1)
+        matches.y = 0.0;
+
+    float opacity = 0.75 * max(max(matches.x, matches.y), matches.z);
+    return vec4(matches, opacity);
+}
+
+const float m1 = 2610.0 / 4096.0 / 4.0;
+const float m2 = 2523.0 / 4096.0 * 128.0;
+const float c1 = 3424.0 / 4096.0;
+const float c2 = 2413.0 / 4096.0 * 32.0;
+const float c3 = 2392.0 / 4096.0 * 32.0;
+const float pw = 10000.0;
+
+float pq_eotf(float x) {
+    float t = pow(x, 1.0 / m2);
+    return pow(max(t - c1, 0.0) / (c2 - c3 * t), 1.0 / m1) * pw;
+}
+
+float pq_eotf_inv(float x) {
+    float t = pow(max(x, 0.0) / pw, m1);
+    return pow((c1 + c2 * t) / (1.0 + c3 * t), m2);
+}
+
+// The 1D LUT is stored in Astra's J domain. For a neutral stimulus the H-K
+// compensation is zero, so J <-> Iz <-> absolute luminance gives its PQ-domain
+// transfer curve for direct comparison with the metering histogram.
+const float m2_z = 1.7 * m2;
+const float d = -0.56;
+const float d0 = 1.6295499532821566e-11;
+const int PREVIEW_CURVE_ROW = 130;
+const int PREVIEW_CURVE_SIZE = 1024;
+
+float iz_eotf_inv(float x) {
+    float t = pow(max(x, 0.0) / pw, m1);
+    return pow((c1 + c2 * t) / (1.0 + c3 * t), m2_z);
+}
+
+float iz_eotf(float x) {
+    float t = pow(max(x, 0.0), 1.0 / m2_z);
+    return pow(max(t - c1, 0.0) / (c2 - c3 * t), 1.0 / m1) * pw;
+}
+
+float I_to_J(float I) {
+    return ((1.0 + d) * I) / (1.0 + d * I) - d0;
+}
+
+float J_to_I(float J) {
+    return (J + d0) / (1.0 + d - d * (J + d0));
+}
+
+float sample_preview_curve_j(float coordinate) {
+    float position = clamp(coordinate, 0.0, 1.0) *
+                     float(PREVIEW_CURVE_SIZE - 1);
+    int lower_index = int(floor(position));
+    int upper_index = min(lower_index + 1, PREVIEW_CURVE_SIZE - 1);
+    float weight = fract(position);
+    float lower_value = texelFetch(
+        LUTS_raw,
+        ivec2(lower_index, PREVIEW_CURVE_ROW),
+        0
+    ).x;
+    float upper_value = texelFetch(
+        LUTS_raw,
+        ivec2(upper_index, PREVIEW_CURVE_ROW),
+        0
+    ).x;
+    return LUTS_mul * mix(lower_value, upper_value, weight);
+}
+
+float preview_curve_pq(float pq_coordinate) {
+    float absolute_input = pq_eotf(clamp(pq_coordinate, 0.0, 1.0));
+    float input_j = I_to_J(iz_eotf_inv(absolute_input));
+    float output_j = sample_preview_curve_j(input_j);
+    float absolute_output = iz_eotf(J_to_I(output_j));
+    return clamp(pq_eotf_inv(absolute_output), 0.0, 1.0);
+}
+
+// 3x5 bitmap font rendering
+const float CHAR_W = 3.0;
+const float CHAR_H = 5.0;
+const float SPACING = 1.0;
+const float MARGIN = 8.0;
+const float PAD = 2.0;
+const float SCALE = 4.0;
+const float LINE_H = CHAR_H + 2.0;
+
+// The preview histogram uses the same 64-bin grouping as scene-change
+// detection. Cyan bars are the current frame, the orange trace is the
+// timestamp-smoothed reference, and the yellow curve is the J-domain LUT
+// transformed onto the same PQ horizontal and vertical axes.
+const uint PREVIEW_HISTOGRAM_SIZE = 64u;
+const uint PREVIEW_HISTOGRAM_RAW_SIZE = 1024u;
+const float PREVIEW_HISTOGRAM_BIN_WIDTH = 4.0;
+const float PREVIEW_HISTOGRAM_EXTENT = 256.0;
+const uint PREVIEW_VECTORSCOPE_SIZE = 128u;
+const float PREVIEW_VECTORSCOPE_EXTENT = 256.0;
+const float PREVIEW_PANEL_GAP = 6.0 * SCALE;
+const float PREVIEW_VECTORSCOPE_COLOR_SCALE = 65535.0;
+
+float preview_unexposed_pq(float exposed_pq, float inverse_exposure) {
+    float absolute_exposed = pq_eotf(clamp(exposed_pq, 0.0, 1.0));
+    if (absolute_exposed <= 0.0)
+        return 0.0;
+
+    float absolute_unexposed = absolute_exposed * inverse_exposure;
+    return clamp(pq_eotf_inv(min(absolute_unexposed, pw)), 0.0, 1.0);
+}
+
+// Convert one displayed, post-exposure histogram bin back to its source-PQ
+// interval. Values clipped above PQ 1 after positive exposure belong to the
+// final displayed bin, so that bin deliberately extends to source PQ 1.
+vec2 preview_histogram_source_interval(uint displayed_index) {
+    float inverse_size = 1.0 / float(PREVIEW_HISTOGRAM_SIZE);
+    float inverse_exposure = 1.0 / exposure_scale;
+    float exposed_lower = float(displayed_index) * inverse_size;
+    float exposed_upper = float(displayed_index + 1u) * inverse_size;
+    float source_lower = preview_unexposed_pq(
+        exposed_lower,
+        inverse_exposure
+    );
+    float source_upper = displayed_index + 1u == PREVIEW_HISTOGRAM_SIZE
+        ? 1.0
+        : preview_unexposed_pq(exposed_upper, inverse_exposure);
+    return vec2(source_lower, max(source_upper, source_lower));
+}
+
+float preview_histogram_count(vec2 source_interval) {
+    vec2 interval = source_interval * float(PREVIEW_HISTOGRAM_RAW_SIZE);
+    uint first = min(uint(floor(interval.x)),
+                     PREVIEW_HISTOGRAM_RAW_SIZE - 1u);
+    uint end = min(uint(ceil(interval.y)), PREVIEW_HISTOGRAM_RAW_SIZE);
+    float count = 0.0;
+
+    for (uint i = first; i < end; i++) {
+        float overlap = max(
+            min(interval.y, float(i + 1u)) - max(interval.x, float(i)),
+            0.0
+        );
+        count += float(metered_histogram[i]) * overlap;
+    }
+
+    return count;
+}
+
+float preview_reference_histogram_count(
+    vec2 source_interval,
+    float total
+) {
+    vec2 interval = source_interval * float(PREVIEW_HISTOGRAM_SIZE);
+    uint first = min(uint(floor(interval.x)), PREVIEW_HISTOGRAM_SIZE - 1u);
+    uint end = min(uint(ceil(interval.y)), PREVIEW_HISTOGRAM_SIZE);
+    float count = 0.0;
+
+    for (uint i = first; i < end; i++) {
+        float overlap = max(
+            min(interval.y, float(i + 1u)) - max(interval.x, float(i)),
+            0.0
+        );
+        count += metered_reference_histogram[i] * total * overlap;
+    }
+
+    return count;
+}
+
+float preview_histogram_height(float count, float total) {
+    return log2(1.0 + count) / max(log2(1.0 + total), 1e-6);
+}
+
+vec4 draw_histogram(vec2 px) {
+    vec2 origin = vec2(MARGIN * SCALE);
+    vec2 padding = vec2(PAD * SCALE);
+    vec2 panel_min = origin - padding;
+    vec2 panel_max = origin + vec2(PREVIEW_HISTOGRAM_EXTENT) + padding;
+
+    if (any(lessThan(px, panel_min)) || any(greaterThan(px, panel_max)))
+        return vec4(0.0);
+
+    vec2 local = px - origin;
+
+    if (local.x < 0.0 || local.x >= PREVIEW_HISTOGRAM_EXTENT ||
+        local.y < 0.0 || local.y >= PREVIEW_HISTOGRAM_EXTENT)
+        return vec4(0.0, 0.0, 0.0, 1.0);
+
+    uint index = min(
+        uint(local.x / PREVIEW_HISTOGRAM_BIN_WIDTH),
+        PREVIEW_HISTOGRAM_SIZE - 1u
+    );
+    float total = max(METERING_size.x * METERING_size.y, 1.0);
+    vec2 source_interval = preview_histogram_source_interval(index);
+    float current_count = preview_histogram_count(source_interval);
+    float current_height = preview_histogram_height(current_count, total);
+    float reference_count = metered_histogram_valid > 0u
+        ? preview_reference_histogram_count(source_interval, total)
+        : current_count;
+    float reference_height = preview_histogram_height(reference_count, total);
+    float plot_width = PREVIEW_HISTOGRAM_EXTENT - 2.0;
+    float plot_height = PREVIEW_HISTOGRAM_EXTENT - 2.0;
+    float pq_input = clamp((local.x - 1.0) / plot_width, 0.0, 1.0);
+    float pq_output = preview_curve_pq(pq_input);
+    float level = 1.0 - clamp((local.y - 1.0) / plot_height, 0.0, 1.0);
+
+    vec3 tint = vec3(0.0);
+
+    float grid_distance = abs(fract(level * 4.0 + 0.5) - 0.5);
+    if (grid_distance < 0.012)
+        tint = vec3(0.10);
+
+    if (level <= current_height)
+        tint = vec3(0.12, 0.72, 0.92);
+
+    if (abs(level - reference_height) <= 1.5 / plot_height)
+        tint = vec3(1.0, 0.55, 0.12);
+
+    if (abs(level - pq_input) <= 0.75 / plot_height)
+        tint = vec3(0.48);
+
+    if (abs(level - pq_output) <= 1.5 / plot_height)
+        tint = vec3(1.0, 0.78, 0.12);
+
+    return vec4(tint, 1.0);
+}
+
+vec4 draw_vectorscope(vec2 px) {
+    vec2 origin = vec2(
+        MARGIN * SCALE,
+        MARGIN * SCALE + PREVIEW_HISTOGRAM_EXTENT + PREVIEW_PANEL_GAP
+    );
+    vec2 padding = vec2(PAD * SCALE);
+    vec2 panel_min = origin - padding;
+    vec2 panel_max = origin + vec2(PREVIEW_VECTORSCOPE_EXTENT) + padding;
+
+    if (any(lessThan(px, panel_min)) || any(greaterThan(px, panel_max)))
+        return vec4(0.0);
+
+    vec2 local = px - origin;
+    if (local.x < 0.0 || local.x >= PREVIEW_VECTORSCOPE_EXTENT ||
+        local.y < 0.0 || local.y >= PREVIEW_VECTORSCOPE_EXTENT)
+        return vec4(0.0, 0.0, 0.0, 1.0);
+
+    vec2 unit = (local + 0.5) / PREVIEW_VECTORSCOPE_EXTENT;
+    uvec2 bin = min(
+        uvec2(unit * float(PREVIEW_VECTORSCOPE_SIZE)),
+        uvec2(PREVIEW_VECTORSCOPE_SIZE - 1u)
+    );
+    uint index = bin.y * PREVIEW_VECTORSCOPE_SIZE + bin.x;
+    float count = float(vectorscope_histogram[index]);
+    float density = clamp(log2(1.0 + count) / 8.0, 0.0, 1.0);
+    vec3 color_sum = vec3(
+        vectorscope_color_r[index],
+        vectorscope_color_g[index],
+        vectorscope_color_b[index]
+    );
+    vec3 average_color = color_sum / max(
+        count * PREVIEW_VECTORSCOPE_COLOR_SCALE,
+        1.0
+    );
+    float color_peak = max(
+        max(average_color.r, average_color.g),
+        average_color.b
+    );
+    vec3 trace_color = color_peak > 1e-4
+        ? average_color / color_peak
+        : vec3(1.0);
+
+    vec2 plane = vec2(2.0 * unit.x - 1.0, 1.0 - 2.0 * unit.y);
+    float radius = length(plane);
+    float line_width = 2.0 / PREVIEW_VECTORSCOPE_EXTENT;
+    float axis_distance = min(abs(plane.x), abs(plane.y));
+    float ring_distance = min(abs(radius - 0.5), abs(radius - 1.0));
+
+    vec3 tint = vec3(0.0);
+    if (axis_distance < line_width || ring_distance < line_width)
+        tint = vec3(0.10);
+
+    tint = max(tint, trace_color * sqrt(density));
+    return vec4(tint, 1.0);
+}
+
+const uint FONT_DIGITS[10] = uint[10](
+    0x7B6Fu, 0x749Au, 0x73E7u, 0x79E7u, 0x49EDu,
+    0x79CFu, 0x7BCFu, 0x4927u, 0x7BEFu, 0x79EFu
+);
+const uint FONT_LETTERS[26] = uint[26](
+    0x5BEFu, 0x3AEBu, 0x724Fu, 0x3B6Bu, 0x72CFu, 0x12CFu, 0x7B4Fu,
+    0x5BEDu, 0x7497u, 0x7B24u, 0x5AEDu, 0x7249u, 0x5BFDu, 0x5B6Fu,
+    0x7B6Fu, 0x13EFu, 0x49EFu, 0x5AEFu, 0x388Eu, 0x2497u, 0x7B6Du,
+    0x256Du, 0x5FEDu, 0x5AADu, 0x24ADu, 0x72A7u
+);
+const uint FONT_COLON = 0x0410u;
+const uint FONT_DOT   = 0x2000u;
+const uint FONT_MINUS = 0x01C0u;
+const uint FONT_SPACE = 0x0000u;
+const uint FONT_TOFU  = 0x7FFFu;
+
+const int CH_SPACE = 32;
+const int CH_MINUS = 45;
+const int CH_DOT   = 46;
+const int CH_0 = 48;
+const int CH_9 = 57;
+const int CH_COLON = 58;
+const int CH_A = 65;
+const int CH_E = 69;
+const int CH_G = 71;
+const int CH_I = 73;
+const int CH_M = 77;
+const int CH_N = 78;
+const int CH_V = 86;
+const int CH_X = 88;
+const int CH_Z = 90;
+
+uint get_glyph(int ch) {
+    if (ch >= CH_0 && ch <= CH_9)
+        return FONT_DIGITS[ch - CH_0];
+    if (ch >= CH_A && ch <= CH_Z)
+        return FONT_LETTERS[ch - CH_A];
+
+    if (ch == CH_SPACE) return FONT_SPACE;
+    if (ch == CH_MINUS) return FONT_MINUS;
+    if (ch == CH_DOT)   return FONT_DOT;
+    if (ch == CH_COLON) return FONT_COLON;
+    return FONT_TOFU;
+}
+
+bool glyph_pixel(uint glyph, vec2 p) {
+    if (p.x < 0.0 || p.x >= CHAR_W || p.y < 0.0 || p.y >= CHAR_H) return false;
+    uint bit = uint(p.y) * 3u + uint(p.x);
+    return (glyph & (1u << bit)) != 0u;
+}
+
+vec4 draw_char(int ch, vec2 local, inout float cx) {
+    vec2 cp = local - vec2(cx, 0.0);
+    cx += CHAR_W + SPACING;
+    if (cp.x >= 0.0 && cp.x < CHAR_W && cp.y >= 0.0 && cp.y < CHAR_H) {
+        if (glyph_pixel(get_glyph(ch), cp))
+            return vec4(1.0, 1.0, 1.0, 1.0);
+    }
+    return vec4(0.0);
+}
+
+float number_width(float value) {
+    float abs_val = min(abs(value), 99999.99);
+    uint int_part = uint(abs_val * 100.0 + 0.5) / 100u;
+
+    uint digits = 1u;
+    if      (int_part >= 10000u) digits = 5u;
+    else if (int_part >= 1000u)  digits = 4u;
+    else if (int_part >= 100u)   digits = 3u;
+    else if (int_part >= 10u)    digits = 2u;
+
+    float characters = float(digits + 3u) + (value < 0.0 ? 1.0 : 0.0);
+    return characters * (CHAR_W + SPACING);
+}
+
+float pq_number_width(float value) {
+    // PQ codes where two-decimal formatting rounds up to 10, 100, 1000,
+    // and 10000 nits respectively.
+    const vec4 digit_thresholds = vec4(
+        0.299659661,
+        0.508073403,
+        0.751826551,
+        0.999999948
+    );
+    float digits = 1.0 + dot(step(digit_thresholds, vec4(value)), vec4(1.0));
+    return (digits + 3.0) * (CHAR_W + SPACING);
+}
+
+vec4 draw_number(float value, vec2 local, inout float cx) {
+    bool negative = value < 0.0;
+    float abs_val = min(abs(value), 99999.99);
+
+    uint fixed_value = uint(abs_val * 100.0 + 0.5);
+    uint int_part = fixed_value / 100u;
+    uint dec_part = fixed_value - int_part * 100u;
+
+    uint d0 = (int_part / 10000u) % 10u;
+    uint d1 = (int_part / 1000u) % 10u;
+    uint d2 = (int_part / 100u) % 10u;
+    uint d3 = (int_part / 10u) % 10u;
+    uint d4 = int_part % 10u;
+    uint d5 = dec_part / 10u;
+    uint d6 = dec_part % 10u;
+
+    uint first = 4u;
+    if (d0 > 0u) first = 0u;
+    else if (d1 > 0u) first = 1u;
+    else if (d2 > 0u) first = 2u;
+    else if (d3 > 0u) first = 3u;
+
+    vec4 r = vec4(0.0);
+
+    if (negative)    r = max(r, draw_char(CH_MINUS, local, cx));
+    if (first <= 0u) r = max(r, draw_char(int(d0) + CH_0, local, cx));
+    if (first <= 1u) r = max(r, draw_char(int(d1) + CH_0, local, cx));
+    if (first <= 2u) r = max(r, draw_char(int(d2) + CH_0, local, cx));
+    if (first <= 3u) r = max(r, draw_char(int(d3) + CH_0, local, cx));
+    r = max(r, draw_char(int(d4) + CH_0, local, cx));
+    r = max(r, draw_char(CH_DOT, local, cx));
+    r = max(r, draw_char(int(d5) + CH_0, local, cx));
+    r = max(r, draw_char(int(d6) + CH_0, local, cx));
+
+    return r;
+}
+
+// Draw a labeled row: "LABEL:value".
+vec4 draw_row(float value, vec2 origin, vec2 px, int c0, int c1, int c2) {
+    float label_width = 4.0 * (CHAR_W + SPACING);
+    float width = label_width + number_width(value);
+    vec2 local = (px - origin) / SCALE;
+
+    if (local.x < 0.0 || local.x >= width ||
+        local.y < 0.0 || local.y >= CHAR_H)
+        return vec4(0.0);
+
+    vec4 r = vec4(0.0);
+    float cx = 0.0;
+
+    if (local.x < label_width) {
+        r = max(r, draw_char(c0, local, cx));
+        r = max(r, draw_char(c1, local, cx));
+        r = max(r, draw_char(c2, local, cx));
+        r = max(r, draw_char(CH_COLON, local, cx));
+    } else {
+        cx = label_width;
+        r = max(r, draw_number(value, local, cx));
+    }
+
+    return r;
+}
+
+vec4 draw_metrics_panel(vec2 px) {
+    // The longest row contains four label characters and a signed 5.2 number.
+    const float MAX_ROW_WIDTH = 13.0 * (CHAR_W + SPACING);
+    float metrics_bottom = HOOKED_size.y - MARGIN * SCALE - CHAR_H * SCALE;
+    float metrics_top = metrics_bottom - 3.0 * LINE_H * SCALE;
+    float chart_stack_bottom = MARGIN * SCALE +
+                               PREVIEW_HISTOGRAM_EXTENT +
+                               PREVIEW_PANEL_GAP +
+                               PREVIEW_VECTORSCOPE_EXTENT + PAD * SCALE;
+    float metrics_x = metrics_top - PAD * SCALE < chart_stack_bottom
+        ? MARGIN * SCALE + PREVIEW_VECTORSCOPE_EXTENT + PREVIEW_PANEL_GAP
+        : MARGIN * SCALE;
+    vec2 o3 = vec2(metrics_x, metrics_bottom);
+    vec2 o0 = o3 - vec2(0.0, 3.0 * LINE_H * SCALE);
+    vec2 panel_min = o0 - vec2(PAD * SCALE);
+    vec2 panel_max = vec2(
+        o0.x + (MAX_ROW_WIDTH + PAD) * SCALE,
+        o3.y + (CHAR_H + PAD) * SCALE
+    );
+
+    if (any(lessThan(px, panel_min)) || any(greaterThan(px, panel_max)))
+        return vec4(0.0);
+
+    float label_width = 4.0 * (CHAR_W + SPACING);
+    vec4 row_widths = label_width + vec4(
+        pq_number_width(input_max_i),
+        pq_number_width(input_min_i),
+        pq_number_width(input_avg_i),
+        number_width(ev)
+    );
+    float max_w = max(max(row_widths.x, row_widths.y),
+                      max(row_widths.z, row_widths.w));
+
+    if (px.x > o0.x + (max_w + PAD) * SCALE)
+        return vec4(0.0);
+
+    vec4 r = vec4(0.0, 0.0, 0.0, 1.0);
+    float row_stride = LINE_H * SCALE;
+    int row = int(floor((px.y - o0.y) / row_stride));
+
+    if (row >= 0 && row < 4) {
+        vec2 origin = o0 + vec2(0.0, float(row) * row_stride);
+        vec2 local = px - origin;
+
+        if (local.x >= 0.0 && local.x < row_widths[row] * SCALE &&
+            local.y >= 0.0 && local.y < CHAR_H * SCALE) {
+            if (row == 0)
+                r = max(r, draw_row(pq_eotf(input_max_i), origin, px, CH_M, CH_A, CH_X));
+            else if (row == 1)
+                r = max(r, draw_row(pq_eotf(input_min_i), origin, px, CH_M, CH_I, CH_N));
+            else if (row == 2)
+                r = max(r, draw_row(pq_eotf(input_avg_i), origin, px, CH_A, CH_V, CH_G));
+            else
+                r = max(r, draw_row(ev, origin, px, CH_E, CH_V, CH_SPACE));
+        }
+    }
+
+    return r;
+}
+
+vec3 composite_preview_layer(vec3 color, vec4 layer) {
+    return mix(color, layer.rgb, layer.a);
+}
+
+vec4 render_metering_preview() {
+    vec4 color = HOOKED_tex(HOOKED_pos);
+    vec2 px = HOOKED_pos * HOOKED_size;
+    float value = METERING_tex(METERING_pos).x;
+
+    color.rgb = composite_preview_layer(color.rgb, draw_highlights(value));
+    color.rgb = composite_preview_layer(color.rgb, draw_histogram(px));
+    color.rgb = composite_preview_layer(color.rgb, draw_vectorscope(px));
+    color.rgb = composite_preview_layer(color.rgb, draw_metrics_panel(px));
+
+    return color;
+}
+
+vec4 hook() { return render_metering_preview(); }
