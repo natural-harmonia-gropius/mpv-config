@@ -102,7 +102,7 @@ sudo winget install Gyan.FFmpeg
 
 - cinegrain.glsl
 
-[natural-harmonia-gropius/glsl-chroma-from-luma-prediction](https://github.com/natural-harmonia-gropius/glsl-chroma-from-luma-prediction) (forked from [Artoriuz/glsl-chroma-from-luma-prediction](https://github.com/Artoriuz/glsl-chroma-from-luma-prediction))
+[Artoriuz/glsl-chroma-from-luma-prediction](https://github.com/Artoriuz/glsl-chroma-from-luma-prediction)
 
 - CfL_Prediction.glsl
 
