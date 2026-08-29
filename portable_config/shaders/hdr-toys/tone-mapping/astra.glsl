@@ -165,8 +165,8 @@
 0
 
 //!BUFFER METERED
-//!VAR uint metered_max_i
 //!VAR uint metered_max_rgb
+//!VAR uint metered_max_i
 //!VAR uint metered_min_i
 //!VAR uint metered_avg_i
 //!VAR uint metered_histogram[1024]
@@ -206,15 +206,15 @@
 //!STORAGE
 
 //!BUFFER METADATA
-//!VAR float max_rgb
-//!VAR float min_i
 //!VAR float input_max_i
 //!VAR float input_min_i
 //!VAR float input_avg_i
-//!VAR float ev
+//!VAR float exposure_ev
 //!VAR float exposure_scale
-//!VAR float output_black_j
-//!VAR float output_white_j
+//!VAR float exposed_max_i
+//!VAR float exposed_min_i
+//!VAR float output_max_j
+//!VAR float output_min_j
 //!STORAGE
 
 //!BUFFER VECTORSCOPE
@@ -912,6 +912,19 @@ void hook() {
 //!WHEN auto_exposure_anchor 0 > preview_metering + enable_metering 1 > *
 //!DESC metering (matrix zones)
 
+// No metadata-absence conditions here, on either side. The max side rides
+// on this pass's METERING binding: the intensity-map pass gates itself off
+// whenever max_pq_y or scene_max is present, so this pass never runs while
+// peak metadata exists. The average side needs no condition because it can
+// never occur without the max side: max_pq_y/avg_pq_y are written only
+// together by libplacebo's peak detection (pl_get_detected_hdr_metadata
+// fills both from one buffer and writes nothing when the average is zero),
+// and scene_max/scene_avg both come from mandatory HDR10+ payload fields
+// (maxscl and average_maxrgb). An average-without-maximum state is not
+// representable in either source, so avg absence conditions here would
+// only ever be true in configurations the max conditions already gate
+// off.
+
 // A 256x144 analysis grid maps exactly to 16x9 workgroups. Each workgroup
 // builds a compact histogram for one image zone, then publishes a robust mean
 // and its P10-P90 spread for the matrix reduction below.
@@ -1092,6 +1105,9 @@ void hook() { analyze_matrix_zone(); }
 //!COMPUTE 256 1 256 1
 //!DESC metering (statistics reduction)
 
+// One just-noticeable difference step on the PQ scale.
+const float JND = 1.0 / 720.0;
+
 // Histogram statistics.
 const uint METERING_HISTOGRAM_SIZE = 1024u;
 const uint METERING_REDUCTION_SIZE = 256u;
@@ -1099,35 +1115,37 @@ const uint METERING_BINS_PER_THREAD = 4u;
 const uint METERING_COARSE_HISTOGRAM_SIZE = 64u;
 const uint METERING_BLOCKS_PER_COARSE_BIN = 4u;
 const uint METERING_SAMPLE_COUNT = 512u * 288u;
-const float METERING_BLACK_PERCENTILE = 0.005;
 
+// The percentile family: BLACK and WHITE locate the extrema histogram
+// positions and the average trim removes the same fraction from each tail.
 // A robust white point constrains automatic exposure without allowing one
 // unstable highlight sample to move the whole frame. The maximum RGB channel
 // is measured separately to define the tone-curve endpoint.
+const float METERING_BLACK_PERCENTILE = 0.005;
 const float METERING_WHITE_PERCENTILE = 0.995;
 const float METERING_AVERAGE_TRIM_PERCENTILE = 0.05;
 
 // Matrix refinement of the histogram-derived average.
-const uint METERING_ZONE_COLUMNS = 16u;
-const uint METERING_ZONE_ROWS = 9u;
-const uint METERING_ZONE_COUNT = METERING_ZONE_COLUMNS * METERING_ZONE_ROWS;
+const uint MATRIX_ZONE_COLUMNS = 16u;
+const uint MATRIX_ZONE_ROWS = 9u;
+const uint MATRIX_ZONE_COUNT = MATRIX_ZONE_COLUMNS * MATRIX_ZONE_ROWS;
 const float METERING_MATRIX_WEIGHT_MIN = 0.50;
 const float METERING_MATRIX_WEIGHT_MAX = 0.75;
-const float METERING_MATRIX_DIFFERENCE_MIN = 0.05;
-const float METERING_MATRIX_DIFFERENCE_MAX = 0.20;
 const float METERING_MATRIX_SPATIAL_SCALE = 3.0;
-const float METERING_MATRIX_SPREAD_MIN = 0.06;
-const float METERING_MATRIX_SPREAD_MAX = 0.30;
-const float METERING_MATRIX_COHERENCE_MIN = 0.03;
-const float METERING_MATRIX_COHERENCE_MAX = 0.18;
-const float METERING_BORDER_BLACK_MAX = 0.02;
+const float METERING_MATRIX_DIFFERENCE_MIN = 36 * JND;
+const float METERING_MATRIX_DIFFERENCE_MAX = 144 * JND;
+const float METERING_MATRIX_SPREAD_MIN = 48 * JND;
+const float METERING_MATRIX_SPREAD_MAX = 216 * JND;
+const float METERING_MATRIX_COHERENCE_MIN = 24 * JND;
+const float METERING_MATRIX_COHERENCE_MAX = 132 * JND;
+const float METERING_BORDER_BLACK_MAX = 12 * JND;
 const float METERING_BORDER_BLACK_RELATIVE_SCALE = 0.10;
-const float METERING_BORDER_SPREAD_MAX = 0.075;
-const float METERING_BORDER_GLOBAL_MIN = 0.02;
+const float METERING_BORDER_SPREAD_MAX = 52 * JND;
+const float METERING_BORDER_GLOBAL_MIN = 12 * JND;
 const float METERING_BORDER_OCCUPANCY_MIN = 0.80;
 const uint METERING_ACTIVE_COLUMNS_MIN = 4u;
 const uint METERING_ACTIVE_ROWS_MIN = 3u;
-const float METERING_MATRIX_BORDER_WEIGHT = 0.95;
+const float METERING_BORDER_MATRIX_WEIGHT = 0.95;
 
 shared uint histogram_prefix[METERING_REDUCTION_SIZE];
 shared float average_partial[METERING_REDUCTION_SIZE];
@@ -1250,18 +1268,18 @@ bool matrix_zone_looks_like_border(uint index) {
 
 float matrix_column_black_fraction(uint x) {
     uint count = 0u;
-    for (uint y = 0u; y < METERING_ZONE_ROWS; y++) {
-        uint index = y * METERING_ZONE_COLUMNS + x;
+    for (uint y = 0u; y < MATRIX_ZONE_ROWS; y++) {
+        uint index = y * MATRIX_ZONE_COLUMNS + x;
         if (matrix_zone_looks_like_border(index))
             count++;
     }
-    return float(count) / float(METERING_ZONE_ROWS);
+    return float(count) / float(MATRIX_ZONE_ROWS);
 }
 
 float matrix_row_black_fraction(uint y, uint left, uint right) {
     uint count = 0u;
     for (uint x = left; x < right; x++) {
-        uint index = y * METERING_ZONE_COLUMNS + x;
+        uint index = y * MATRIX_ZONE_COLUMNS + x;
         if (matrix_zone_looks_like_border(index))
             count++;
     }
@@ -1271,19 +1289,19 @@ float matrix_row_black_fraction(uint y, uint left, uint right) {
 void prepare_matrix_active_region(uint tid) {
     if (tid == 0u) {
         uint left = 0u;
-        uint right = METERING_ZONE_COLUMNS;
+        uint right = MATRIX_ZONE_COLUMNS;
         uint top = 0u;
-        uint bottom = METERING_ZONE_ROWS;
+        uint bottom = MATRIX_ZONE_ROWS;
 
         if (metered_zone_valid > 0u) {
-            for (uint x = 0u; x < METERING_ZONE_COLUMNS; x++) {
+            for (uint x = 0u; x < MATRIX_ZONE_COLUMNS; x++) {
                 if (matrix_column_black_fraction(x) <
                     METERING_BORDER_OCCUPANCY_MIN) {
                     break;
                 }
                 left = x + 1u;
             }
-            for (int x = int(METERING_ZONE_COLUMNS) - 1; x >= 0; x--) {
+            for (int x = int(MATRIX_ZONE_COLUMNS) - 1; x >= 0; x--) {
                 if (matrix_column_black_fraction(uint(x)) <
                     METERING_BORDER_OCCUPANCY_MIN) {
                     break;
@@ -1293,14 +1311,14 @@ void prepare_matrix_active_region(uint tid) {
 
             if (right > left &&
                 right - left >= METERING_ACTIVE_COLUMNS_MIN) {
-                for (uint y = 0u; y < METERING_ZONE_ROWS; y++) {
+                for (uint y = 0u; y < MATRIX_ZONE_ROWS; y++) {
                     if (matrix_row_black_fraction(y, left, right) <
                         METERING_BORDER_OCCUPANCY_MIN) {
                         break;
                     }
                     top = y + 1u;
                 }
-                for (int y = int(METERING_ZONE_ROWS) - 1; y >= 0; y--) {
+                for (int y = int(MATRIX_ZONE_ROWS) - 1; y >= 0; y--) {
                     if (matrix_row_black_fraction(
                             uint(y), left, right
                         ) < METERING_BORDER_OCCUPANCY_MIN) {
@@ -1316,15 +1334,15 @@ void prepare_matrix_active_region(uint tid) {
                             bottom - top >= METERING_ACTIVE_ROWS_MIN;
         if (!valid_bounds) {
             left = 0u;
-            right = METERING_ZONE_COLUMNS;
+            right = MATRIX_ZONE_COLUMNS;
             top = 0u;
-            bottom = METERING_ZONE_ROWS;
+            bottom = MATRIX_ZONE_ROWS;
         }
 
         matrix_active_bounds = uvec4(left, right, top, bottom);
         float active_area = float((right - left) * (bottom - top));
         float removed_fraction = 1.0 - active_area /
-                                 float(METERING_ZONE_COUNT);
+                                 float(MATRIX_ZONE_COUNT);
         matrix_border_confidence = valid_bounds
             ? smoothstep(0.05, 0.30, removed_fraction)
             : 0.0;
@@ -1340,8 +1358,8 @@ bool matrix_zone_inside_active_region(uint x, uint y) {
 }
 
 float matrix_zone_neighbor_difference(uint index, float value) {
-    uint x = index % METERING_ZONE_COLUMNS;
-    uint y = index / METERING_ZONE_COLUMNS;
+    uint x = index % MATRIX_ZONE_COLUMNS;
+    uint y = index / MATRIX_ZONE_COLUMNS;
     float difference = 0.0;
     uint count = 0u;
 
@@ -1355,13 +1373,13 @@ float matrix_zone_neighbor_difference(uint index, float value) {
     }
     if (y > matrix_active_bounds.z) {
         difference += abs(
-            value - metered_zone_average[index - METERING_ZONE_COLUMNS]
+            value - metered_zone_average[index - MATRIX_ZONE_COLUMNS]
         );
         count++;
     }
     if (y + 1u < matrix_active_bounds.w) {
         difference += abs(
-            value - metered_zone_average[index + METERING_ZONE_COLUMNS]
+            value - metered_zone_average[index + MATRIX_ZONE_COLUMNS]
         );
         count++;
     }
@@ -1378,11 +1396,11 @@ float matrix_difference_confidence(float difference) {
 }
 
 vec2 matrix_zone_partial(uint index, float reference_average) {
-    if (metered_zone_valid == 0u || index >= METERING_ZONE_COUNT)
+    if (metered_zone_valid == 0u || index >= MATRIX_ZONE_COUNT)
         return vec2(0.0);
 
-    uint x = index % METERING_ZONE_COLUMNS;
-    uint y = index / METERING_ZONE_COLUMNS;
+    uint x = index % MATRIX_ZONE_COLUMNS;
+    uint y = index / MATRIX_ZONE_COLUMNS;
     if (!matrix_zone_inside_active_region(x, y))
         return vec2(0.0);
 
@@ -1464,7 +1482,7 @@ void publish_matrix_average(uint tid) {
     // contribution as a guard against false detection.
     matrix_weight = mix(
         matrix_weight,
-        METERING_MATRIX_BORDER_WEIGHT,
+        METERING_BORDER_MATRIX_WEIGHT,
         matrix_border_confidence
     );
     if (preview_metering > 0u) {
@@ -1578,7 +1596,7 @@ void refine_average_with_matrix(uint tid) {
     prepare_matrix_active_region(tid);
 
     vec2 partial = matrix_zone_partial(tid, histogram_average);
-    if (preview_metering > 0u && tid < METERING_ZONE_COUNT) {
+    if (preview_metering > 0u && tid < MATRIX_ZONE_COUNT) {
         // Keep the spread feeding the preview weight immutable throughout
         // this pass. A separate preview slot avoids a cross-invocation SSBO
         // read/write dependency; barrier() alone only orders shared
@@ -1619,6 +1637,9 @@ void hook() { reduce_metering_statistics(); }
 //!WHEN temporal_stable_duration 0.0 >
 //!DESC metering (temporal stabilization)
 
+// One just-noticeable difference step on the PQ scale.
+const float JND = 1.0 / 720.0;
+
 // Scene analysis is distribution-based. The current frame is compared both
 // with a slowly moving shot reference and with the immediately previous frame:
 // only an abrupt transition can start a cut candidate, so gradual ramps do not
@@ -1626,11 +1647,13 @@ void hook() { reduce_metering_statistics(); }
 
 const uint TEMPORAL_HISTOGRAM_SIZE = 64u;
 const uint TEMPORAL_HISTOGRAM_SAMPLE_COUNT = 512u * 288u;
-const float TEMPORAL_HISTOGRAM_CUT_THRESHOLD = 0.20;
-const float TEMPORAL_HISTOGRAM_FRAME_THRESHOLD = 0.10;
+const float TEMPORAL_HISTOGRAM_CUT_THRESHOLD = 144 * JND;
+const float TEMPORAL_HISTOGRAM_FRAME_THRESHOLD = 72 * JND;
 const float TEMPORAL_HISTOGRAM_TIME_SCALE = 0.50;
 const float TEMPORAL_SCENE_CONFIRM_TIME_SCALE = 0.25;
 const float TEMPORAL_SCENE_ADAPTATION_TIME_SCALE = 0.50;
+// The floor shared by the reference blend and both scene ramps: even the
+// fastest stabilization setting keeps one 240-fps frame of smoothing.
 const float TEMPORAL_MIN_TIME_CONSTANT = 1.0 / 240.0;
 const float TEMPORAL_PTS_EPSILON = 1e-6;
 
@@ -1906,15 +1929,21 @@ void hook() { analyze_metering_temporally(); }
 // The dynamic-metadata parameters at the top of the file are provided by mpv
 // [vo_gpu_next: add chroma location to shader parameters](https://github.com/mpv-player/mpv/pull/15239)
 
+// The same minimum time constant the temporal pass uses: the auto-exposure
+// and curve LUT ramps share it via ramp_alpha below, so neither copy can
+// drift away from the smoothing floor.
+const float TEMPORAL_MIN_TIME_CONSTANT = 1.0 / 240.0;
+
 // Filter automatic exposure in its final EV domain so observation noise cannot
 // become a large nonlinear luminance change. Manual exposure remains direct.
-// The ramp floor below is shared with the curve LUT via temporal_ramp_alpha.
 const float EXPOSURE_RISE_TIME_SCALE = 0.50;
 const float EXPOSURE_FALL_TIME_SCALE = 0.35;
-const float TEMPORAL_RAMP_MIN_TIME_CONSTANT = 1.0 / 240.0;
 const float EXPOSURE_PTS_EPSILON = 1e-6;
+
+// Fast-response window after a scene change: the duration scales the
+// stabilization interval and the time scale clamps the ramp.
 const float OUTPUT_TEMPORAL_SCENE_TIME_SCALE = 0.125;
-const float OUTPUT_TEMPORAL_SCENE_ADAPTATION_SCALE = 0.50;
+const float OUTPUT_TEMPORAL_SCENE_ADAPTATION_TIME_SCALE = 0.50;
 
 // All curve samples use one PTS-derived coefficient. Compute it once in this
 // single-invocation pass instead of repeating the timestamp state and exp()
@@ -2140,8 +2169,8 @@ float output_temporal_time_scale(float normal_scale) {
         metered_scene_adaptation_end_pts
     );
     float adaptation_duration = max(
-        temporal_stable_duration * OUTPUT_TEMPORAL_SCENE_ADAPTATION_SCALE,
-        TEMPORAL_RAMP_MIN_TIME_CONSTANT
+        temporal_stable_duration * OUTPUT_TEMPORAL_SCENE_ADAPTATION_TIME_SCALE,
+        TEMPORAL_MIN_TIME_CONSTANT
     );
     bool fast_response = metered_scene_fast_response > 0u &&
                          PTS < adaptation_end &&
@@ -2151,13 +2180,11 @@ float output_temporal_time_scale(float normal_scale) {
         : normal_scale;
 }
 
-// Both temporal consumers ramp with the same exponential form and share the
-// same minimum time constant. Keeping one copy prevents the auto-exposure
-// and curve LUT ramps from drifting apart.
-float temporal_ramp_alpha(float delta_time, float time_scale) {
+// The exponential ramp form shared by auto-exposure and the curve LUT.
+float ramp_alpha(float delta_time, float time_scale) {
     float time_constant = max(
         temporal_stable_duration * time_scale,
-        TEMPORAL_RAMP_MIN_TIME_CONSTANT
+        TEMPORAL_MIN_TIME_CONSTANT
     );
     return 1.0 - exp(-delta_time / time_constant);
 }
@@ -2226,7 +2253,7 @@ float stabilize_auto_exposure(float target, bool automatic) {
         ? EXPOSURE_RISE_TIME_SCALE
         : EXPOSURE_FALL_TIME_SCALE;
     time_scale = output_temporal_time_scale(time_scale);
-    float alpha = temporal_ramp_alpha(delta_time, time_scale);
+    float alpha = ramp_alpha(delta_time, time_scale);
     smoothed_ev = mix(smoothed_ev, target, alpha);
     smoothed_ev_pts = floatBitsToUint(PTS);
     return smoothed_ev;
@@ -2285,7 +2312,7 @@ void prepare_curve_temporal() {
     float time_scale = output_temporal_time_scale(
         CURVE_TEMPORAL_TIME_SCALE
     );
-    curve_temporal_alpha = temporal_ramp_alpha(delta_time, time_scale);
+    curve_temporal_alpha = ramp_alpha(delta_time, time_scale);
     curve_temporal_reset = 0u;
 }
 
@@ -2319,8 +2346,8 @@ bool automatic_exposure_enabled(MeteringMetrics metrics) {
 }
 
 void publish_metering_metadata(MeteringMetrics metrics) {
-    max_rgb = metrics.max_rgb;
-    min_i = metrics.minimum;
+    exposed_max_i = metrics.max_rgb;
+    exposed_min_i = metrics.minimum;
 }
 
 void publish_input_metering_metadata(MeteringMetrics metrics) {
@@ -2330,10 +2357,10 @@ void publish_input_metering_metadata(MeteringMetrics metrics) {
 }
 
 void publish_output_lightness_range() {
-    output_black_j = I_to_J(
+    output_max_j = I_to_J(iz_eotf_inv(reference_white));
+    output_min_j = I_to_J(
         iz_eotf_inv(reference_white / contrast_ratio)
     );
-    output_white_j = I_to_J(iz_eotf_inv(reference_white));
 }
 
 void update_metering_metadata() {
@@ -2343,11 +2370,11 @@ void update_metering_metadata() {
     MeteringMetrics metrics = resolve_metering_metrics();
     publish_input_metering_metadata(metrics);
     float target_ev = resolve_exposure(metrics);
-    ev = stabilize_auto_exposure(
+    exposure_ev = stabilize_auto_exposure(
         target_ev,
         automatic_exposure_enabled(metrics)
     );
-    exposure_scale = exp2(ev);
+    exposure_scale = exp2(exposure_ev);
     apply_exposure_to_range(metrics, exposure_scale);
     publish_metering_metadata(metrics);
 }
@@ -2853,10 +2880,10 @@ float f(float x, float iw, float ib, float ow, float ob) {
 }
 
 float evaluate_tone_curve(float x) {
-    float ow = output_white_j;
-    float ob = output_black_j;
-    float iw = I_to_J(iz_eotf_inv(pq_eotf(max_rgb)));
-    float ib = I_to_J(iz_eotf_inv(pq_eotf(min_i)));
+    float ow = output_max_j;
+    float ob = output_min_j;
+    float iw = I_to_J(iz_eotf_inv(pq_eotf(exposed_max_i)));
+    float ib = I_to_J(iz_eotf_inv(pq_eotf(exposed_min_i)));
 
     iw = max(iw, ow);
     ib = min(ib, ob);
@@ -2903,8 +2930,8 @@ float decode_signed_coordinate(float coordinate, float limit) {
 
 vec3 lut_coordinates_to_LAB(vec3 coordinates) {
     float L = mix(
-        output_black_j,
-        output_white_j,
+        output_min_j,
+        output_max_j,
         clamp(coordinates.x, 0.0, 1.0)
     );
     float a_ratio = decode_signed_coordinate(coordinates.y, A_RATIO_LIMIT);
@@ -3418,8 +3445,8 @@ float encode_signed_coordinate(float value, float limit) {
 }
 
 float encode_output_lightness(float lightness) {
-    float range = max(output_white_j - output_black_j, 1e-6);
-    return clamp((lightness - output_black_j) / range, 0.0, 1.0);
+    float range = max(output_max_j - output_min_j, 1e-6);
+    return clamp((lightness - output_min_j) / range, 0.0, 1.0);
 }
 
 vec3 RGB_to_lut_coordinates(vec3 rgb) {
@@ -3749,6 +3776,7 @@ void hook() {
 //!WHEN preview_metering
 //!DESC metering (preview)
 
+// One just-noticeable difference step on the PQ scale.
 const float JND = 1.0 / 720.0;
 
 float to_float(uint x) {
@@ -3799,6 +3827,7 @@ const float MARGIN = 8.0;
 const float PAD = 2.0;
 const float SCALE = 4.0;
 const float LINE_H = CHAR_H + 2.0;
+const float GAP = 6.0 * SCALE;
 
 // The preview histogram uses the same 64-bin grouping as scene-change
 // detection. Cyan bars are the current frame, the orange trace is the
@@ -3807,8 +3836,6 @@ const float LINE_H = CHAR_H + 2.0;
 const uint PREVIEW_HISTOGRAM_SIZE = 64u;
 const float PREVIEW_HISTOGRAM_BIN_WIDTH = 4.0;
 const float PREVIEW_HISTOGRAM_EXTENT = 256.0;
-const uint PREVIEW_VECTORSCOPE_SIZE = 96u;
-const uint VECTORSCOPE_CHANNEL_COUNT = 4u;
 
 // The density reference is the fixed 128-bin display scale from the
 // historical calibration (the preview grid was 128 bins until it was
@@ -3817,14 +3844,16 @@ const uint VECTORSCOPE_CHANNEL_COUNT = 4u;
 // or brightening the trace. Deriving the reference from the current grid
 // size would cancel the grid out of the ratio and silently defeat that
 // invariance.
+const uint PREVIEW_VECTORSCOPE_SIZE = 96u;
+const uint PREVIEW_VECTORSCOPE_CHANNEL_COUNT = 4u;
 const float PREVIEW_VECTORSCOPE_DENSITY_REFERENCE_SIZE = 128.0;
 const float PREVIEW_VECTORSCOPE_EXTENT = 256.0;
 const float PREVIEW_VECTORSCOPE_AB_RANGE = 0.36;
 const float PREVIEW_VECTORSCOPE_COLOR_SCALE = 65535.0;
-const float PREVIEW_PANEL_GAP = 6.0 * SCALE;
+
 const uvec2 PREVIEW_MATRIX_SIZE = uvec2(16u, 9u);
-const float PREVIEW_MATRIX_DIFFERENCE_RANGE = 0.20;
-const float PREVIEW_MATRIX_WEIGHT_MAX = 4.0;
+const float PREVIEW_MATRIX_DIFFERENCE_RANGE = 144 * JND;
+const float PREVIEW_ZONE_WEIGHT_MAX = 4.0;
 
 // Overlay the actual matrix inputs and weights on their source regions. Blue
 // zones pull the matrix estimate below the histogram average, orange zones
@@ -3859,7 +3888,7 @@ vec4 draw_matrix_metering(vec2 position) {
     // the spread used by active-region and reliability calculations.
     float zone_weight = metered_zone_preview_weight[index];
     float relative_weight = clamp(
-        zone_weight / PREVIEW_MATRIX_WEIGHT_MAX,
+        zone_weight / PREVIEW_ZONE_WEIGHT_MAX,
         0.0,
         1.0
     );
@@ -4047,7 +4076,7 @@ vec4 draw_histogram(vec2 px) {
 vec4 draw_vectorscope(vec2 px) {
     vec2 origin = vec2(
         MARGIN * SCALE,
-        MARGIN * SCALE + PREVIEW_HISTOGRAM_EXTENT + PREVIEW_PANEL_GAP
+        MARGIN * SCALE + PREVIEW_HISTOGRAM_EXTENT + GAP
     );
     vec2 padding = vec2(PAD * SCALE);
     vec2 panel_min = origin - padding;
@@ -4067,7 +4096,7 @@ vec4 draw_vectorscope(vec2 px) {
         uvec2(PREVIEW_VECTORSCOPE_SIZE - 1u)
     );
     uint index = bin.y * PREVIEW_VECTORSCOPE_SIZE + bin.x;
-    uint base = index * VECTORSCOPE_CHANNEL_COUNT;
+    uint base = index * PREVIEW_VECTORSCOPE_CHANNEL_COUNT;
     float count = float(vectorscope_bins[base + 0u]);
     // The density reference is the calibrated 128-bin display scale from
     // the last preview grid retune. The (grid / 128)^2 normalization keeps
@@ -4328,7 +4357,7 @@ vec4 draw_metrics_row(
         value = metered_matrix_blend;
         label = ivec3(CH_M, CH_I, CH_X);
     } else if (row == row_count - 1) {
-        value = ev;
+        value = exposure_ev;
     } else {
         // The EV row is always last. Any other unhandled row draws nothing,
         // so a future row insertion cannot silently relabel EV or duplicate
@@ -4360,10 +4389,10 @@ vec4 draw_metrics_panel(vec2 px) {
                         float(row_count - 1) * LINE_H * SCALE;
     float chart_stack_bottom = MARGIN * SCALE +
                                PREVIEW_HISTOGRAM_EXTENT +
-                               PREVIEW_PANEL_GAP +
+                               GAP +
                                PREVIEW_VECTORSCOPE_EXTENT + PAD * SCALE;
     float metrics_x = metrics_top - PAD * SCALE < chart_stack_bottom
-        ? MARGIN * SCALE + PREVIEW_VECTORSCOPE_EXTENT + PREVIEW_PANEL_GAP
+        ? MARGIN * SCALE + PREVIEW_VECTORSCOPE_EXTENT + GAP
         : MARGIN * SCALE;
     vec2 o0 = vec2(metrics_x, metrics_top);
     vec2 panel_min = o0 - vec2(PAD * SCALE);
@@ -4390,7 +4419,7 @@ vec4 draw_metrics_panel(vec2 px) {
         pq_width = max(pq_width, pq_number_width(metered_histogram_average));
     if (show_matrix_metrics)
         pq_width = max(pq_width, pq_number_width(metered_matrix_average));
-    float scalar_width = number_width(ev);
+    float scalar_width = number_width(exposure_ev);
     if (show_matrix_metrics)
         scalar_width = max(scalar_width, number_width(metered_matrix_blend));
     float max_w = label_width + max(pq_width, scalar_width);
