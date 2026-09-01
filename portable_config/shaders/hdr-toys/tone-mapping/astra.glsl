@@ -158,6 +158,12 @@
 //!MAXIMUM 2
 2
 
+//!PARAM force_metering
+//!TYPE uint
+//!MINIMUM 0
+//!MAXIMUM 1
+0
+
 //!PARAM preview_metering
 //!TYPE uint
 //!MINIMUM 0
@@ -231,13 +237,14 @@
 //!BIND HOOKED
 //!SAVE METERING
 //!COMPONENTS 2
-//!WHEN enable_metering 0 > max_pq_y 0 > ! * scene_max_r 0 > scene_max_g 0 > + scene_max_b 0 > + ! * preview_metering +
+//!WHEN enable_metering 0 > max_pq_y 0 > ! scene_max_r 0 > scene_max_g 0 > + scene_max_b 0 > + ! * force_metering + * preview_metering +
 //!DESC metering (intensity map)
 
 // The peak conditions above must stay aligned with resolve_metering_metrics'
 // has_pq_peak/has_scene_peak: both treat NaN and negative metadata as
 // absent, so the resolver never consumes METERED while this pass is gated
-// off. The two expressions cannot share code - change both sides together.
+// off, and force_metering waives the absence test identically on both
+// sides. The two expressions cannot share code - change both sides together.
 //
 // The alignment covers only the resolver: the histogram, statistics,
 // temporal, and preview passes consume METERING/METERED unconditionally,
@@ -914,8 +921,10 @@ void hook() {
 
 // No metadata-absence conditions here, on either side. The max side rides
 // on this pass's METERING binding: the intensity-map pass gates itself off
-// whenever max_pq_y or scene_max is present, so this pass never runs while
-// peak metadata exists. The average side needs no condition because it can
+// whenever max_pq_y or scene_max is present and force_metering is off, so
+// this pass never runs while peak metadata exists unless force_metering
+// keeps the metering chain active. The average side needs no condition
+// because it can
 // never occur without the max side: max_pq_y/avg_pq_y are written only
 // together by libplacebo's peak detection (pl_get_detected_hdr_metadata
 // fills both from one buffer and writes nothing when the average is zero),
@@ -1640,10 +1649,11 @@ void hook() { reduce_metering_statistics(); }
 // One just-noticeable difference step on the PQ scale.
 const float JND = 1.0 / 720.0;
 
-// Scene analysis is distribution-based. The current frame is compared both
-// with a slowly moving shot reference and with the immediately previous frame:
-// only an abrupt transition can start a cut candidate, so gradual ramps do not
-// become cuts merely because they eventually move far from the old reference.
+// Scene analysis uses one-dimensional Wasserstein distance on the 64-bin PQ
+// distributions. The current frame is compared both with a slowly moving shot
+// reference and with the immediately previous frame: only an abrupt transition
+// can start a cut candidate, so gradual ramps do not become cuts merely because
+// they eventually move far from the old reference.
 
 const uint TEMPORAL_HISTOGRAM_SIZE = 64u;
 const uint TEMPORAL_HISTOGRAM_SAMPLE_COUNT = 512u * 288u;
@@ -1723,13 +1733,42 @@ void temporal_initialize_frame() {
     temporal_frame_operation = TEMPORAL_FRAME_INITIALIZE;
 }
 
-vec2 temporal_measure_distance(uint index, float current) {
-    vec2 distance = vec2(
-        abs(current - metered_reference_histogram[index]),
-        abs(current - metered_previous_histogram[index])
+vec2 temporal_measure_distribution_delta(uint index, float current) {
+    vec2 delta = vec2(
+        current - metered_reference_histogram[index],
+        current - metered_previous_histogram[index]
     );
     metered_previous_histogram[index] = current;
-    return distance;
+    return delta;
+}
+
+void temporal_scan_distribution_delta(uint tid, vec2 delta) {
+    temporal_distance_partial[tid] = delta;
+    barrier();
+
+    // Inclusive Hillis-Steele scan. The barrier before each write keeps every
+    // read on the previous iteration's shared-memory snapshot.
+    for (uint offset = 1u;
+         offset < TEMPORAL_HISTOGRAM_SIZE;
+         offset <<= 1u) {
+        vec2 inclusive = temporal_distance_partial[tid];
+        if (tid >= offset)
+            inclusive += temporal_distance_partial[tid - offset];
+        barrier();
+        temporal_distance_partial[tid] = inclusive;
+        barrier();
+    }
+}
+
+vec2 temporal_cdf_distance(uint tid) {
+    // Both normalized CDFs end at total probability one, so their last
+    // inclusive difference is zero. Wasserstein-1 therefore integrates only
+    // the first 63 boundaries.
+    // Each uniform PQ bin spans 1/64 of the normalized code-value axis.
+    return tid + 1u < TEMPORAL_HISTOGRAM_SIZE
+        ? abs(temporal_distance_partial[tid]) /
+          float(TEMPORAL_HISTOGRAM_SIZE)
+        : vec2(0.0);
 }
 
 void temporal_reduce_distances(uint tid, vec2 distance) {
@@ -1899,14 +1938,13 @@ void analyze_metering_temporally() {
         return;
     }
 
-    vec2 distance = temporal_measure_distance(index, current);
+    vec2 delta = temporal_measure_distribution_delta(index, current);
+    temporal_scan_distribution_delta(index, delta);
+    vec2 distance = temporal_cdf_distance(index);
     temporal_reduce_distances(index, distance);
 
-    if (index == 0u) {
-        temporal_process_distances(
-            0.5 * temporal_distance_partial[0]
-        );
-    }
+    if (index == 0u)
+        temporal_process_distances(temporal_distance_partial[0]);
     barrier();
 
     temporal_update_reference_bin(index, current);
@@ -2058,17 +2096,20 @@ MeteringMetrics resolve_metering_metrics() {
     // This must match the peak-metadata conditions on the intensity-map pass
     // (its WHEN header with the max_pq_y 0 > ! ... expression). Both sides
     // treat NaN and negative metadata as absent, so a skipped pass can never
-    // make the resolver consume stale METERED values. The two expressions
-    // cannot share code; any change to one side must update the other.
+    // make the resolver consume stale METERED values, and force_metering
+    // waives the absence test identically on both sides. The two
+    // expressions cannot share code; any change to one side must update the
+    // other.
     bool use_measured = enable_metering > 0 &&
-                        !has_pq_peak && !has_scene_peak;
+                        (force_metering > 0 ||
+                         (!has_pq_peak && !has_scene_peak));
 
-    if (has_pq_peak)
+    if (use_measured)
+        metrics.maximum = to_float(metered_max_i);
+    else if (has_pq_peak)
         metrics.maximum = pq_peak;
     else if (has_scene_peak)
         metrics.maximum = metadata_nits_to_pq(RGB_to_Y(scene_max_rgb));
-    else if (use_measured)
-        metrics.maximum = to_float(metered_max_i);
     else if (static_max_cll > 0.0)
         metrics.maximum = metadata_nits_to_pq(static_max_cll);
     else if (static_max_luma > 0.0)
@@ -2076,12 +2117,12 @@ MeteringMetrics resolve_metering_metrics() {
     else
         metrics.maximum = pq_eotf_inv(1000.0);
 
-    if (has_scene_peak)
+    if (use_measured)
+        metrics.max_rgb = uintBitsToFloat(metered_max_rgb);
+    else if (has_scene_peak)
         metrics.max_rgb = metadata_nits_to_pq(
             max(max(scene_max_rgb.r, scene_max_rgb.g), scene_max_rgb.b)
         );
-    else if (use_measured)
-        metrics.max_rgb = uintBitsToFloat(metered_max_rgb);
     else
         metrics.max_rgb = metrics.maximum;
 
@@ -2092,12 +2133,12 @@ MeteringMetrics resolve_metering_metrics() {
     else
         metrics.minimum = 0.0;
 
-    if (pq_average > 0.0)
+    if (use_measured && enable_metering > 1)
+        metrics.average = to_float(metered_avg_i);
+    else if (pq_average > 0.0)
         metrics.average = pq_average;
     else if (scene_average > 0.0)
         metrics.average = metadata_nits_to_pq(scene_average);
-    else if (use_measured && enable_metering > 1)
-        metrics.average = to_float(metered_avg_i);
     // MaxFALL is the static-metadata fallback for average luminance, but using
     // it as the exposure anchor produced poor results in practice.
     // else if (max_fall > 0.0)
@@ -2110,7 +2151,10 @@ MeteringMetrics resolve_metering_metrics() {
     // average clamp is not: it rewrites the metadata average into the
     // measured band in mixed metadata+measured configurations, and pins the
     // matrix-refined measured average inside the robust [minimum, maximum]
-    // band in pure measured configurations.
+    // band in pure measured configurations. force_metering at enable_metering
+    // 1 deliberately lands in the mixed configuration: the extrema come from
+    // measurement while the average (which level 1 does not measure) falls
+    // back to the metadata source.
     //
     // This is deliberate: without it, a mixed-path average above the
     // measured maximum would invert the negative exposure limit
@@ -3489,8 +3533,17 @@ float sample_tone_curve_lut(float x) {
 }
 
 float chroma_correction_attenuation(float x, float rate, float threshold) {
-    float range = max(1.0 - threshold, 1e-6);
-    float norm = clamp((x - threshold) / range, 0.0, 1.0);
+    // Preserve the identity endpoint when threshold collapses the interval.
+    if (x >= 1.0)
+        return 1.0;
+    if (threshold >= 1.0)
+        return 0.0;
+
+    float norm = clamp(
+        (x - threshold) / (1.0 - threshold),
+        0.0,
+        1.0
+    );
     return pow(norm, 1.0 + rate * (1.0 - norm));
 }
 
@@ -3800,7 +3853,7 @@ vec4 draw_highlights(float value) {
         step(value, metrics.z + 5.0 * JND)
     );
 
-    if (enable_metering <= 1)
+    if (!(enable_metering > 1))
         matches.y = 0.0;
 
     float opacity = 0.75 * max(max(matches.x, matches.y), matches.z);

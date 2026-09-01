@@ -32,7 +32,7 @@
 
 //!PARAM reference_white
 //!TYPE float
-//!MINIMUM 0.0
+//!MINIMUM 1.0
 //!MAXIMUM 1000.0
 203.0
 
