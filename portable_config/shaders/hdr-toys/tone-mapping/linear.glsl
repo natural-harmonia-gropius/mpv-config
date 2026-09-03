@@ -34,6 +34,12 @@
 //!MAXIMUM 1000.0
 203.0
 
+//!PARAM contrast_ratio
+//!TYPE float
+//!MINIMUM 0.0
+//!MAXIMUM 100000000.0
+1000.0
+
 //!PARAM chroma_correction_scaling
 //!TYPE float
 //!MINIMUM 0.0
@@ -190,7 +196,9 @@ float f_scale(float x, float x0, float y0, float x1, float y1) {
 
 float curve(float x) {
     float ow = pq_eotf_inv(reference_white);
-    float ob = pq_eotf_inv(reference_white / 1000.0);
+    float ob = pq_eotf_inv(
+        contrast_ratio > 0.0 ? reference_white / contrast_ratio : 0.0
+    );
     float iw = max(get_max_i(), ow);
     float ib = min(get_min_i(), ob);
     return f_scale(x, ib, ob, iw, ow);

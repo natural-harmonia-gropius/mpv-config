@@ -15,6 +15,12 @@
 //!MAXIMUM 1000.0
 203.0
 
+//!PARAM contrast_ratio
+//!TYPE float
+//!MINIMUM 0.0
+//!MAXIMUM 100000000.0
+1000.0
+
 //!HOOK OUTPUT
 //!BIND HOOKED
 //!DESC tone mapping (bt.2446a)
@@ -128,7 +134,13 @@ vec4 hook() {
     color.rgb = RGB_to_YCbCr(color.rgb);
     color.rgb = tone_mapping(color.rgb);
     color.rgb = YCbCr_to_RGB(color.rgb);
-    color.rgb = f_scale(color.rgb, 0.0, 0.001, 1.0, 1.0);
+    color.rgb = f_scale(
+        color.rgb,
+        0.0,
+        contrast_ratio > 0.0 ? 1.0 / contrast_ratio : 0.0,
+        1.0,
+        1.0
+    );
 
     return color;
 }

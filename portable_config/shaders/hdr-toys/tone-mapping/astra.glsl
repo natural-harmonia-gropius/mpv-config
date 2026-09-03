@@ -52,7 +52,7 @@
 
 //!PARAM contrast_ratio
 //!TYPE float
-//!MINIMUM 10.0
+//!MINIMUM 0.0
 //!MAXIMUM 100000000.0
 1000.0
 
@@ -2403,7 +2403,9 @@ void publish_input_metering_metadata(MeteringMetrics metrics) {
 void publish_output_lightness_range() {
     output_max_j = I_to_J(iz_eotf_inv(reference_white));
     output_min_j = I_to_J(
-        iz_eotf_inv(reference_white / contrast_ratio)
+        iz_eotf_inv(
+            contrast_ratio > 0.0 ? reference_white / contrast_ratio : 0.0
+        )
     );
 }
 

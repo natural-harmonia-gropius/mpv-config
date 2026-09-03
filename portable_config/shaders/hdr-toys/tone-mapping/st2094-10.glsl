@@ -47,6 +47,12 @@
 //!MAXIMUM 1000.0
 203.0
 
+//!PARAM contrast_ratio
+//!TYPE float
+//!MINIMUM 0.0
+//!MAXIMUM 100000000.0
+1000.0
+
 //!PARAM chroma_correction_scaling
 //!TYPE float
 //!MINIMUM 0.0
@@ -79,10 +85,10 @@
 //!BIND HOOKED
 //!SAVE AVG
 //!COMPONENTS 1
-//!WIDTH 1024
-//!HEIGHT 1024
+//!WIDTH 128
+//!HEIGHT 128
 //!WHEN avg_pq_y 0 = scene_avg 0 = *
-//!DESC tone mapping (st2094-10, average, 1024)
+//!DESC tone mapping (st2094-10, average, 128)
 
 const vec3 y_coef = vec3(0.2627002120112671, 0.6779980715188708, 0.05930171646986196);
 
@@ -102,36 +108,9 @@ vec4 hook() {
     vec4 color = HOOKED_tex(HOOKED_pos);
     float l = dot(color.rgb, y_coef);
     float l_abs = l * reference_white;
-    float i = pq_eotf_inv(l);
+    float i = pq_eotf_inv(l_abs);
     return vec4(i, vec3(0.0));
 }
-
-//!HOOK OUTPUT
-//!BIND AVG
-//!SAVE AVG
-//!WIDTH AVG.w 2 /
-//!HEIGHT AVG.h 2 /
-//!WHEN avg_pq_y 0 = scene_avg 0 = *
-//!DESC tone mapping (st2094-10, average, 512)
-vec4 hook() { return AVG_tex(AVG_pos); }
-
-//!HOOK OUTPUT
-//!BIND AVG
-//!SAVE AVG
-//!WIDTH AVG.w 2 /
-//!HEIGHT AVG.h 2 /
-//!WHEN avg_pq_y 0 = scene_avg 0 = *
-//!DESC tone mapping (st2094-10, average, 256)
-vec4 hook() { return AVG_tex(AVG_pos); }
-
-//!HOOK OUTPUT
-//!BIND AVG
-//!SAVE AVG
-//!WIDTH AVG.w 2 /
-//!HEIGHT AVG.h 2 /
-//!WHEN avg_pq_y 0 = scene_avg 0 = *
-//!DESC tone mapping (st2094-10, average, 128)
-vec4 hook() { return AVG_tex(AVG_pos); }
 
 //!HOOK OUTPUT
 //!BIND AVG
@@ -393,7 +372,7 @@ float f(float x, float iw, float ib, float ow, float ob, float adapt) {
 
 float curve(float x) {
     float ow = 1.0;
-    float ob = 0.001;
+    float ob = contrast_ratio > 0.0 ? 1.0 / contrast_ratio : 0.0;
     float iw = max(get_max_l() / reference_white, ow + 1e-3);
     float ib = min(get_min_l() / reference_white, ob - 1e-3);
     float avg = get_avg_l() / reference_white;
@@ -421,14 +400,14 @@ vec3 gamut_adjustment(vec3 f) {
     return gamut_adjustment(f, chroma_compensation_weight, saturation_gain);
 }
 
-vec3 detail_managenment(vec3 p, float t) {
+vec3 detail_management(vec3 p, float t) {
     // TODO: do what?
     vec3 q =  p;
     return p * (1.0 - t) + q * t;
 }
 
-vec3 detail_managenment(vec3 p) {
-    return detail_managenment(p, tone_detail_factor);
+vec3 detail_management(vec3 p) {
+    return detail_management(p, tone_detail_factor);
 }
 
 vec4 hook() {
@@ -438,7 +417,7 @@ vec4 hook() {
     color.rgb = tone_mapping(color.rgb);
     color.rgb = ICtCp_to_RGB(color.rgb);
     color.rgb = gamut_adjustment(color.rgb);
-    color.rgb = detail_managenment(color.rgb);
+    color.rgb = detail_management(color.rgb);
 
     return color;
 }

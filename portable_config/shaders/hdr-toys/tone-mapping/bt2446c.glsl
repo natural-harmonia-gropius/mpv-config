@@ -7,6 +7,12 @@
 //!MAXIMUM 1000.0
 203.0
 
+//!PARAM contrast_ratio
+//!TYPE float
+//!MINIMUM 0.0
+//!MAXIMUM 100000000.0
+1000.0
+
 //!PARAM alpha
 //!TYPE float
 //!MINIMUM 0.00
@@ -325,7 +331,13 @@ vec3 f_scale(vec3 x, float x0, float y0, float x1, float y1) {
 vec4 hook() {
     vec4 color = HOOKED_tex(HOOKED_pos);
 
-    color.rgb = f_scale(color.rgb, 0.0, 0.001, 1019.0 / 940.0, 1.0);
+    color.rgb = f_scale(
+        color.rgb,
+        0.0,
+        contrast_ratio > 0.0 ? 1.0 / contrast_ratio : 0.0,
+        1019.0 / 940.0,
+        1.0
+    );
 
     return color;
 }
