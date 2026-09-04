@@ -80,6 +80,18 @@
 //!MAXIMUM 1
 1
 
+//!PARAM auto_exposure_white_constraint
+//!TYPE float
+//!MINIMUM 0.0
+//!MAXIMUM 1.0
+0.25
+
+//!PARAM auto_exposure_headroom_retention
+//!TYPE float
+//!MINIMUM 0.0
+//!MAXIMUM 1.0
+0.5
+
 //!PARAM exposure_value
 //!TYPE float
 //!MINIMUM -64
@@ -175,6 +187,8 @@
 //!VAR uint metered_max_i
 //!VAR uint metered_min_i
 //!VAR uint metered_avg_i
+//!VAR uint metered_median_i
+//!VAR uint metered_diffuse_white_i
 //!VAR uint metered_histogram[1024]
 //!VAR uint metered_coarse_histogram[64]
 //!VAR float metered_zone_average[144]
@@ -1126,12 +1140,15 @@ const uint METERING_BLOCKS_PER_COARSE_BIN = 4u;
 const uint METERING_SAMPLE_COUNT = 512u * 288u;
 
 // The percentile family: BLACK and WHITE locate the extrema histogram
-// positions and the average trim removes the same fraction from each tail.
+// positions, MEDIAN and DIFFUSE_WHITE characterize the content-white range,
+// and the average trim removes the same fraction from each tail.
 // A robust white point constrains automatic exposure without allowing one
 // unstable highlight sample to move the whole frame. The maximum RGB channel
 // is measured separately to define the tone-curve endpoint.
 const float METERING_BLACK_PERCENTILE = 0.005;
 const float METERING_WHITE_PERCENTILE = 0.995;
+const float METERING_MEDIAN_PERCENTILE = 0.50;
+const float METERING_DIFFUSE_WHITE_PERCENTILE = 0.80;
 const float METERING_AVERAGE_TRIM_PERCENTILE = 0.05;
 
 // Matrix refinement of the histogram-derived average.
@@ -1161,6 +1178,8 @@ shared float average_partial[METERING_REDUCTION_SIZE];
 shared float histogram_average;
 shared uint black_bin;
 shared uint white_bin;
+shared uint median_bin;
+shared uint diffuse_white_bin;
 
 shared vec2 matrix_partial[METERING_REDUCTION_SIZE];
 shared uvec4 matrix_active_bounds;
@@ -1471,7 +1490,8 @@ void publish_matrix_average(uint tid) {
     if (tid != 0u)
         return;
 
-    float matrix_average = matrix_partial[0].y > 0.0
+    bool matrix_available = matrix_partial[0].y > 0.0;
+    float matrix_average = matrix_available
         ? matrix_partial[0].x / matrix_partial[0].y
         : histogram_average;
 
@@ -1494,11 +1514,13 @@ void publish_matrix_average(uint tid) {
         METERING_BORDER_MATRIX_WEIGHT,
         matrix_border_confidence
     );
-    if (preview_metering > 0u) {
-        metered_histogram_average = histogram_average;
-        metered_matrix_average = matrix_average;
-        metered_matrix_blend = matrix_weight;
-    }
+    if (!matrix_available)
+        matrix_weight = 0.0;
+    // These values feed the two independent exposure branches as well as the
+    // optional preview. Publish them unconditionally whenever metering runs.
+    metered_histogram_average = histogram_average;
+    metered_matrix_average = matrix_average;
+    metered_matrix_blend = matrix_weight;
     metered_avg_i = pq_to_uint(
         mix(histogram_average, matrix_average, matrix_weight)
     );
@@ -1542,6 +1564,17 @@ void locate_percentiles(uint tid, uint first, uvec4 counts) {
         uint(ceil(float(METERING_SAMPLE_COUNT) * METERING_WHITE_PERCENTILE)),
         1u
     );
+    uint median_target = max(
+        uint(ceil(float(METERING_SAMPLE_COUNT) * METERING_MEDIAN_PERCENTILE)),
+        1u
+    );
+    uint diffuse_white_target = max(
+        uint(ceil(
+            float(METERING_SAMPLE_COUNT) *
+            METERING_DIFFUSE_WHITE_PERCENTILE
+        )),
+        1u
+    );
     if (cumulative_before < black_target && cumulative >= black_target) {
         black_bin = find_percentile_bin(
             counts,
@@ -1558,6 +1591,23 @@ void locate_percentiles(uint tid, uint first, uvec4 counts) {
             white_target
         );
     }
+    if (cumulative_before < median_target && cumulative >= median_target) {
+        median_bin = find_percentile_bin(
+            counts,
+            first,
+            cumulative_before,
+            median_target
+        );
+    }
+    if (cumulative_before < diffuse_white_target &&
+        cumulative >= diffuse_white_target) {
+        diffuse_white_bin = find_percentile_bin(
+            counts,
+            first,
+            cumulative_before,
+            diffuse_white_target
+        );
+    }
 }
 
 void reduce_histogram_statistics(
@@ -1568,6 +1618,8 @@ void reduce_histogram_statistics(
     if (tid == 0u) {
         black_bin = 0u;
         white_bin = METERING_HISTOGRAM_SIZE - 1u;
+        median_bin = 0u;
+        diffuse_white_bin = METERING_HISTOGRAM_SIZE - 1u;
     }
 
     scan_histogram_blocks(tid, sum_histogram_block(counts));
@@ -1594,6 +1646,11 @@ void reduce_histogram_statistics(
                             float(max(global_retained, 1u));
         metered_min_i = black_bin << 2u;
         metered_max_i = min((white_bin << 2u) + 3u, 4095u);
+        metered_median_i = min((median_bin << 2u) + 2u, 4095u);
+        metered_diffuse_white_i = min(
+            (diffuse_white_bin << 2u) + 2u,
+            4095u
+        );
     }
     barrier();
 }
@@ -2077,6 +2134,11 @@ struct MeteringMetrics {
     float max_rgb;
     float minimum;
     float average;
+    float histogram_average;
+    float matrix_average;
+    float matrix_weight;
+    float median;
+    float diffuse_white;
 };
 
 MeteringMetrics resolve_metering_metrics() {
@@ -2146,6 +2208,32 @@ MeteringMetrics resolve_metering_metrics() {
     else
         metrics.average = 0.0;
 
+    // The separate averages and percentile statistics only exist in the full
+    // measurement path. Metadata paths retain the original single-exposure
+    // behavior by assigning the resolved average to both branches and giving
+    // the matrix branch zero weight.
+    if (use_measured && enable_metering > 1) {
+        metrics.histogram_average = sanitize_metadata_pq(
+            metered_histogram_average
+        );
+        metrics.matrix_average = sanitize_metadata_pq(
+            metered_matrix_average
+        );
+        metrics.matrix_weight = sanitize_bounded(
+            metered_matrix_blend,
+            0.0,
+            1.0
+        );
+        metrics.median = to_float(metered_median_i);
+        metrics.diffuse_white = to_float(metered_diffuse_white_i);
+    } else {
+        metrics.histogram_average = metrics.average;
+        metrics.matrix_average = metrics.average;
+        metrics.matrix_weight = 0.0;
+        metrics.median = 0.0;
+        metrics.diffuse_white = 0.0;
+    }
+
     // Enforce the physical ordering assumed by the exposure-limit logarithms.
     // The max/min ordering lines are no-ops for consistent inputs. The
     // average clamp is not: it rewrites the metadata average into the
@@ -2169,8 +2257,99 @@ MeteringMetrics resolve_metering_metrics() {
             metrics.maximum
         );
     }
+    if (metrics.histogram_average > 0.0) {
+        metrics.histogram_average = clamp(
+            metrics.histogram_average,
+            metrics.minimum,
+            metrics.maximum
+        );
+    }
+    if (metrics.matrix_average > 0.0) {
+        metrics.matrix_average = clamp(
+            metrics.matrix_average,
+            metrics.minimum,
+            metrics.maximum
+        );
+    }
+    if (metrics.median > 0.0)
+        metrics.median = clamp(
+            metrics.median,
+            metrics.minimum,
+            metrics.maximum
+        );
+    if (metrics.diffuse_white > 0.0)
+        metrics.diffuse_white = clamp(
+            metrics.diffuse_white,
+            metrics.median,
+            metrics.maximum
+        );
 
     return metrics;
+}
+
+float calculate_content_white_exposure(MeteringMetrics metrics) {
+    float median = max(pq_eotf(metrics.median), 0.0);
+    float diffuse_white = max(pq_eotf(metrics.diffuse_white), 1e-6);
+
+    // P80 represents the frame's bright content without chasing specular
+    // outliers. Cap it at 1.5 times P50 in perceptual Jz lightness so a sparse
+    // bright tail cannot masquerade as the content white.
+    float median_j = I_to_J(iz_eotf_inv(median));
+    float maximum_j = I_to_J(iz_eotf_inv(pw));
+    float content_white_j = min(
+        I_to_J(iz_eotf_inv(diffuse_white)),
+        min(1.5 * median_j, maximum_j)
+    );
+    float content_white = max(
+        iz_eotf(J_to_I(max(content_white_j, 0.0))),
+        1e-6
+    );
+
+    return log2(reference_white / content_white);
+}
+
+float constrain_exposure_to_content_white(
+    float exposure,
+    MeteringMetrics metrics
+) {
+    if (auto_exposure_white_constraint <= 0.0 ||
+        metrics.median <= 0.0 ||
+        metrics.diffuse_white <= 0.0)
+        return exposure;
+
+    float content_white_exposure = calculate_content_white_exposure(metrics);
+    bool constrains_negative = exposure < 0.0 &&
+                               content_white_exposure <= 0.0 &&
+                               content_white_exposure > exposure;
+    bool constrains_positive = exposure > 0.0 &&
+                               content_white_exposure >= 0.0 &&
+                               content_white_exposure < exposure;
+    if (!constrains_negative && !constrains_positive)
+        return exposure;
+
+    return mix(
+        exposure,
+        content_white_exposure,
+        clamp(auto_exposure_white_constraint, 0.0, 1.0)
+    );
+}
+
+float limit_average_exposure(
+    float exposure,
+    float average,
+    float maximum,
+    float minimum,
+    float negative_limit
+) {
+    float ev_limit_neg = negative_limit;
+    float ev_limit_pos = auto_exposure_limit_positive;
+
+    if (auto_exposure_limit_input > 0) {
+        ev_limit_neg = min(ev_limit_neg, log2(maximum / average));
+        ev_limit_pos = min(ev_limit_pos, log2(average / minimum));
+    }
+
+    return clamp(exposure, -ev_limit_neg, ev_limit_pos);
 }
 
 float calculate_auto_exposure(MeteringMetrics metrics) {
@@ -2180,21 +2359,64 @@ float calculate_auto_exposure(MeteringMetrics metrics) {
     float anchor_iz = J_to_I(anchor_j);
     float anchor = iz_eotf(anchor_iz);
 
-    float average = max(pq_eotf(metrics.average), 1e-6);
+    float histogram_average = max(
+        pq_eotf(metrics.histogram_average),
+        1e-6
+    );
+    float matrix_average = max(pq_eotf(metrics.matrix_average), 1e-6);
     float maximum = max(pq_eotf(metrics.maximum), 1e-6);
     float minimum = max(pq_eotf(metrics.minimum), 1e-6);
 
-    float exposure = log2(anchor / average);
+    float histogram_exposure = log2(anchor / histogram_average);
+    float matrix_exposure = log2(anchor / matrix_average);
 
-    float ev_limit_neg = auto_exposure_limit_negative;
-    float ev_limit_pos = auto_exposure_limit_positive;
+    // Content-distribution strategies belong to the histogram branch. The
+    // matrix branch remains free to expose the selected subject or active
+    // picture region, particularly when black bars have raised its weight.
+    histogram_exposure = constrain_exposure_to_content_white(
+        histogram_exposure,
+        metrics
+    );
 
-    if (auto_exposure_limit_input > 0) {
-        ev_limit_neg = min(ev_limit_neg, log2(maximum / average));
-        ev_limit_pos = min(ev_limit_pos, log2(average / minimum));
+    float histogram_negative_limit = auto_exposure_limit_negative;
+    bool has_content_white = metrics.median > 0.0 &&
+                             metrics.diffuse_white > 0.0;
+    if (auto_exposure_headroom_retention > 0.0 && has_content_white) {
+        float highlight_headroom = max(
+            log2(maximum / max(reference_white, 1e-6)),
+            0.0
+        );
+        float retained_headroom = clamp(
+            auto_exposure_headroom_retention,
+            0.0,
+            1.0
+        );
+        histogram_negative_limit = min(
+            histogram_negative_limit,
+            (1.0 - retained_headroom) * highlight_headroom
+        );
     }
 
-    return clamp(exposure, -ev_limit_neg, ev_limit_pos);
+    histogram_exposure = limit_average_exposure(
+        histogram_exposure,
+        histogram_average,
+        maximum,
+        minimum,
+        histogram_negative_limit
+    );
+    matrix_exposure = limit_average_exposure(
+        matrix_exposure,
+        matrix_average,
+        maximum,
+        minimum,
+        auto_exposure_limit_negative
+    );
+
+    return mix(
+        histogram_exposure,
+        matrix_exposure,
+        clamp(metrics.matrix_weight, 0.0, 1.0)
+    );
 }
 
 float resolve_exposure(MeteringMetrics metrics) {
