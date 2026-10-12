@@ -205,19 +205,22 @@
 //!VAR float metered_previous_histogram[64]
 //!VAR uint metered_temporal_valid
 //!VAR uint metered_temporal_pts
-//!VAR uint metered_scene_candidate_start_pts
-//!VAR uint metered_scene_candidate_active
 //!VAR uint metered_scene_adaptation_end_pts
 //!VAR uint metered_scene_fast_response
+//!VAR uint metered_scene_cut_confirmed
+//!VAR float metered_scene_speed
 //!VAR float metered_reference_zones[144]
 //!VAR uint metered_reference_zones_valid
 //!VAR float metered_response_evidence
 //!VAR float metered_response_direction
 //!VAR float metered_response_confidence
+//!VAR uint metered_response_candidate_active
+//!VAR uint metered_response_candidate_start_pts
 //!STORAGE
 
 //!BUFFER EXPOSURE_TEMPORAL
 //!VAR float exposure_temporal_ev
+//!VAR float exposure_temporal_variance
 //!VAR uint exposure_temporal_pts
 //!VAR uint exposure_temporal_valid
 //!STORAGE
@@ -238,6 +241,8 @@
 //!VAR float exposure_scale
 //!VAR float exposed_max_i
 //!VAR float exposed_min_i
+//!VAR float input_max_j
+//!VAR float input_min_j
 //!VAR float output_max_j
 //!VAR float output_min_j
 //!VAR float output_reverse_max_jhk
@@ -1504,24 +1509,33 @@ void hook() { reduce_metering_statistics(); }
 //!WHEN temporal_stable_duration 0.0 >
 //!DESC metering (temporal stabilization)
 
+// METERED_TEMPORAL lifecycle:
+// Written by temporal metering; read by metadata only when its PTS matches
+// the current, selected measurements. A confirmed cut remains latched across
+// redraws of that PTS and is cleared on the next processed observation.
+// Exposure and curve consumers check their own PTS before acting on the cut,
+// so each history resets only once. Fast response instead lasts until its
+// adaptation deadline; zone confidence describes sustained spatial change.
+
 // One just-noticeable difference step on the PQ scale.
 const float JND = 1.0 / 720.0;
 
 // Scene analysis uses one-dimensional Wasserstein distance on the 64-bin PQ
 // distributions. The current frame is compared both with a slowly moving shot
 // reference and with the immediately previous frame: only an abrupt transition
-// can start a cut candidate, so gradual ramps do not become cuts merely because
-// they eventually move far from the old reference.
+// resets the output histories immediately. The previous speed predicts change over
+// the elapsed PTS interval, so sustained ramps do not become cuts merely
+// because their per-observation distance grows with the sampling interval.
 
 const uint TEMPORAL_HISTOGRAM_SIZE = 64u;
 const uint TEMPORAL_HISTOGRAM_SAMPLE_COUNT = 512u * 288u;
 const float TEMPORAL_HISTOGRAM_CUT_THRESHOLD = 144 * JND;
 const float TEMPORAL_HISTOGRAM_FRAME_THRESHOLD = 72 * JND;
 const float TEMPORAL_HISTOGRAM_TIME_SCALE = 0.50;
-const float TEMPORAL_SCENE_CONFIRM_TIME_SCALE = 0.25;
+const float TEMPORAL_SCENE_SPEED_TIME_SCALE = 0.50;
 const float TEMPORAL_SCENE_ADAPTATION_TIME_SCALE = 0.50;
-// The floor shared by the reference blend and both scene ramps: even the
-// fastest stabilization setting keeps one 240-fps frame of smoothing.
+// Minimum temporal time constant in seconds (approximately 4.17 ms),
+// shared by the reference blend and scene response intervals.
 const float TEMPORAL_MIN_TIME_CONSTANT = 1.0 / 240.0;
 const float TEMPORAL_PTS_EPSILON = 1e-6;
 
@@ -1531,6 +1545,8 @@ const float TEMPORAL_ZONE_DIFFERENCE_HIGH = 32 * JND;
 const float TEMPORAL_ZONE_SUPPORT_LOW = 0.25;
 const float TEMPORAL_ZONE_SUPPORT_HIGH = 0.75;
 const float TEMPORAL_EVIDENCE_TIME_SCALE = 0.25;
+const float TEMPORAL_DIRECTION_DEADBAND = 0.05;
+const float TEMPORAL_DIRECTION_CONFIRM_TIME_SCALE = 0.125;
 
 const uint TEMPORAL_FRAME_SKIP = 0u;
 const uint TEMPORAL_FRAME_INITIALIZE = 1u;
@@ -1571,12 +1587,13 @@ float temporal_histogram_value(uint coarse_index) {
            float(TEMPORAL_HISTOGRAM_SAMPLE_COUNT);
 }
 
-void temporal_clear_scene_candidate() {
-    metered_scene_candidate_start_pts = 0u;
-    metered_scene_candidate_active = 0u;
+void temporal_clear_zone_candidate() {
+    metered_response_candidate_active = 0u;
+    metered_response_candidate_start_pts = 0u;
 }
 
 void temporal_reset_zone_response() {
+    temporal_clear_zone_candidate();
     metered_reference_zones_valid = 0u;
     metered_response_evidence = 0.0;
     metered_response_direction = 0.0;
@@ -1584,10 +1601,11 @@ void temporal_reset_zone_response() {
 }
 
 void temporal_set_scalar_state(uint histogram_valid) {
-    temporal_clear_scene_candidate();
     metered_temporal_valid = histogram_valid;
     metered_scene_adaptation_end_pts = 0u;
     metered_scene_fast_response = 0u;
+    metered_scene_cut_confirmed = 0u;
+    metered_scene_speed = 0.0;
     temporal_reset_zone_response();
 }
 
@@ -1693,26 +1711,55 @@ void temporal_reduce_zone_support(uint index, vec2 support) {
 
 void temporal_update_zone_evidence(bool initialize) {
     vec2 support = temporal_zone_support[0] / float(TEMPORAL_ZONE_COUNT);
-    float direction = sign(support.x - support.y);
+    float balance = support.x - support.y;
+    float direction = abs(balance) > TEMPORAL_DIRECTION_DEADBAND
+        ? sign(balance) : 0.0;
     float target = smoothstep(
         TEMPORAL_ZONE_SUPPORT_LOW,
         TEMPORAL_ZONE_SUPPORT_HIGH,
         max(support.x, support.y)
     );
     float evidence = metered_response_evidence;
-    temporal_zone_reversed = !initialize &&
-                             metered_response_direction != 0.0 &&
-                             direction != metered_response_direction;
-    if (initialize || !finite_float(evidence) ||
-        direction != metered_response_direction) {
+    temporal_zone_reversed = false;
+    if (initialize || !finite_float(evidence)) {
         evidence = 0.0;
+        metered_response_direction = 0.0;
+        temporal_clear_zone_candidate();
+    }
+
+    if (direction == 0.0) {
+        // Ambiguous support interrupts confirmation, but only decays evidence.
+        temporal_clear_zone_candidate();
+        target = 0.0;
+    } else if (metered_response_direction == 0.0 ||
+               direction == metered_response_direction) {
+        metered_response_direction = direction;
+        temporal_clear_zone_candidate();
+    } else {
+        // Do not turn a single opposite observation into a direction reset.
+        if (metered_response_candidate_active == 0u) {
+            metered_response_candidate_active = 1u;
+            metered_response_candidate_start_pts = pts_to_uint(PTS);
+        }
+        float elapsed = PTS - pts_to_float(metered_response_candidate_start_pts);
+        float confirmation_time = max(
+            temporal_stable_duration * TEMPORAL_DIRECTION_CONFIRM_TIME_SCALE,
+            TEMPORAL_MIN_TIME_CONSTANT
+        );
+        if (elapsed >= confirmation_time) {
+            evidence = 0.0;
+            metered_response_direction = direction;
+            temporal_zone_reversed = true;
+            temporal_clear_zone_candidate();
+        }
+        // Pending reversals decay old evidence; confirmed ones rebase below.
+        target = 0.0;
     }
     float response_alpha = initialize ? 1.0 : temporal_alpha(
         temporal_delta_time,
         temporal_stable_duration * TEMPORAL_EVIDENCE_TIME_SCALE
     );
     metered_response_evidence = mix(evidence, target, response_alpha);
-    metered_response_direction = direction;
     metered_response_confidence = smoothstep(
         0.5, 1.0, metered_response_evidence
     );
@@ -1767,22 +1814,28 @@ void temporal_update_fast_response() {
     }
 }
 
-bool temporal_scene_candidate_active(
-    float reference_distance,
-    float frame_distance
-) {
-    bool far_from_reference = reference_distance >
-                              TEMPORAL_HISTOGRAM_CUT_THRESHOLD;
-    if (metered_scene_candidate_active > 0u) {
-        return far_from_reference;
-    }
-
-    return far_from_reference &&
-           frame_distance > TEMPORAL_HISTOGRAM_FRAME_THRESHOLD;
+float temporal_expected_scene_distance() {
+    float speed = finite_float(metered_scene_speed)
+        ? max(metered_scene_speed, 0.0) : 0.0;
+    // Do not let old motion explain away arbitrarily large new transitions.
+    return min(speed * temporal_delta_time, TEMPORAL_HISTOGRAM_CUT_THRESHOLD);
 }
 
-void temporal_confirm_scene_change() {
-    temporal_clear_scene_candidate();
+bool temporal_detect_scene_cut(
+    float reference_distance,
+    float unexpected_distance
+) {
+    // Expected distance is nonnegative, so the residual also bounds frame distance.
+    return reference_distance > TEMPORAL_HISTOGRAM_CUT_THRESHOLD &&
+           unexpected_distance > TEMPORAL_HISTOGRAM_FRAME_THRESHOLD;
+}
+
+// Commit the accepted cut to metering state. Metadata translates this event
+// into exposure resets and reset instructions for the curve LUT pass.
+void temporal_accept_scene_cut() {
+    temporal_reset_zone_response();
+    metered_scene_cut_confirmed = 1u;
+    metered_scene_speed = 0.0;
     metered_scene_adaptation_end_pts = pts_to_uint(
         PTS + temporal_scene_time(TEMPORAL_SCENE_ADAPTATION_TIME_SCALE)
     );
@@ -1790,33 +1843,43 @@ void temporal_confirm_scene_change() {
     temporal_reference_operation = TEMPORAL_REFERENCE_REPLACE;
 }
 
-void temporal_process_distances(vec2 distance) {
-    bool candidate = temporal_stable_scene_change > 0 &&
-                     temporal_scene_candidate_active(
-                         distance.x,
-                         distance.y
-                     );
+void temporal_update_scene_speed(float frame_distance, float expected_distance) {
+    float speed = finite_float(metered_scene_speed)
+        ? max(metered_scene_speed, 0.0) : 0.0;
+    // Winsorize positive innovations in distance units before learning the
+    // speed, limiting how strongly a flash outside the cut gate raises it.
+    float limited_distance = min(
+        frame_distance,
+        expected_distance + TEMPORAL_HISTOGRAM_FRAME_THRESHOLD
+    );
+    float observed_speed = max(limited_distance, 0.0) / temporal_delta_time;
+    float alpha = temporal_alpha(
+        temporal_delta_time, temporal_stable_duration * TEMPORAL_SCENE_SPEED_TIME_SCALE
+    );
+    metered_scene_speed = mix(speed, observed_speed, alpha);
+}
 
-    if (!candidate) {
-        temporal_clear_scene_candidate();
-        temporal_reference_operation = TEMPORAL_REFERENCE_BLEND;
-        temporal_reference_alpha = temporal_reference_blend_alpha(
-            temporal_delta_time
-        );
+void temporal_process_distances(vec2 distance) {
+    float reference_distance = distance.x;
+    float frame_distance = distance.y;
+    // Predict from the old trend before learning the current observation.
+    float expected_distance = temporal_expected_scene_distance();
+    float unexpected_distance = frame_distance - expected_distance;
+    bool cut = temporal_stable_scene_change > 0 && temporal_detect_scene_cut(
+        reference_distance, unexpected_distance
+    );
+    if (cut) {
+        // Reset both output histories on the first detected discontinuity.
+        // Waiting for persistence would render the new shot with old mapping.
+        // A flash crossing these gates also resets; past brightness statistics
+        // alone cannot distinguish its first edge from a cut.
+        temporal_accept_scene_cut();
         return;
     }
 
-    if (metered_scene_candidate_active == 0u) {
-        metered_scene_candidate_start_pts = pts_to_uint(PTS);
-        metered_scene_candidate_active = 1u;
-    }
-
-    float elapsed = PTS - pts_to_float(
-        metered_scene_candidate_start_pts
-    );
-    if (elapsed >= temporal_scene_time(TEMPORAL_SCENE_CONFIRM_TIME_SCALE)) {
-        temporal_confirm_scene_change();
-    }
+    temporal_update_scene_speed(frame_distance, expected_distance);
+    temporal_reference_operation = TEMPORAL_REFERENCE_BLEND;
+    temporal_reference_alpha = temporal_reference_blend_alpha(temporal_delta_time);
 }
 
 void temporal_prepare_frame() {
@@ -1849,6 +1912,7 @@ void temporal_prepare_frame() {
         return;
     }
 
+    metered_scene_cut_confirmed = 0u;
     temporal_delta_time = delta_time;
     metered_temporal_pts = pts_to_uint(PTS);
     temporal_update_fast_response();
@@ -1922,6 +1986,13 @@ void hook() { analyze_metering_temporally(); }
 //!COMPUTE 1 1
 //!DESC metering (metadata)
 
+// CURVE_TEMPORAL ownership:
+// Metadata owns pts/valid and publishes reset/alpha for the current dispatch.
+// The curve LUT pass owns values and consumes those instructions: reset
+// overwrites history without reading alpha; otherwise alpha blends history.
+// With smoothing enabled and valid history, repeated PTS publishes
+// reset=0, alpha=0 to hold the existing LUT.
+
 // The dynamic-metadata parameters at the top of the file are provided by mpv
 // [vo_gpu_next: add chroma location to shader parameters](https://github.com/mpv-player/mpv/pull/15239)
 
@@ -1930,9 +2001,8 @@ void hook() { analyze_metering_temporally(); }
 const float AUTO_EXPOSURE_WHITE_CONSTRAINT = 0.25;
 const float AUTO_EXPOSURE_HEADROOM_RETENTION = 0.5;
 
-// The same minimum time constant the temporal pass uses: the auto-exposure
-// and curve LUT ramps share it via ramp_alpha below, so neither copy can
-// drift away from the smoothing floor.
+// Match the temporal pass's minimum time constant for both the exposure
+// integrator and the curve LUT ramp.
 const float TEMPORAL_MIN_TIME_CONSTANT = 1.0 / 240.0;
 
 // Filter automatic exposure in its final EV domain so observation noise cannot
@@ -1940,11 +2010,16 @@ const float TEMPORAL_MIN_TIME_CONSTANT = 1.0 / 240.0;
 const float EXPOSURE_RISE_TIME_SCALE = 0.50;
 const float EXPOSURE_FALL_TIME_SCALE = 0.35;
 const float EXPOSURE_PTS_EPSILON = 1e-6;
+// IMQ soft threshold in EV. Covariance is dimensionless, normalized so its
+// unweighted continuous-time equilibrium is one; there is no reference fps.
+const float EXPOSURE_WOLF_OUTLIER_EV = 0.5;
+const float EXPOSURE_WOLF_VARIANCE_MIN = 1e-6;
+const float EXPOSURE_WOLF_VARIANCE_MAX = 1e6;
 
 // Fast-response window after a scene change: the duration scales the
 // stabilization interval and the time scale clamps the ramp.
 const float OUTPUT_TEMPORAL_SCENE_TIME_SCALE = 0.125;
-const float OUTPUT_TEMPORAL_SCENE_ADAPTATION_TIME_SCALE = 0.50;
+const float CURVE_TEMPORAL_RESPONSE_TIME_SCALE = 0.0625;
 
 // All curve samples use one PTS-derived coefficient. Compute it once in this
 // single-invocation pass instead of repeating the timestamp state and exp()
@@ -2366,32 +2441,43 @@ float resolve_exposure(MeteringMetrics metrics) {
     return calculate_auto_exposure(metrics);
 }
 
-float output_temporal_time_scale(float normal_scale) {
-    float adaptation_end = uintBitsToFloat(
-        metered_scene_adaptation_end_pts
-    );
-    float adaptation_duration = max(
-        temporal_stable_duration * OUTPUT_TEMPORAL_SCENE_ADAPTATION_TIME_SCALE,
-        TEMPORAL_MIN_TIME_CONSTANT
-    );
-    bool fast_response = metered_scene_fast_response > 0u &&
-                         PTS < adaptation_end &&
-                         PTS >= adaptation_end - adaptation_duration;
-    float response = fast_response ? 1.0 : 0.0;
-    if (full_metering_enabled() && metered_temporal_valid > 0u &&
-        metered_reference_zones_valid > 0u &&
-        abs(PTS - uintBitsToFloat(metered_temporal_pts)) <= EXPOSURE_PTS_EPSILON &&
-        finite_float(metered_response_confidence)) {
-        response = max(response, clamp(metered_response_confidence, 0.0, 1.0));
+// Resolve once per metadata pass. Only current, selected measurements may
+// influence output history; preview-only or stale metering must not do so.
+float output_change_confidence;
+bool output_cut_confirmed;
+
+void prepare_output_temporal_response() {
+    output_change_confidence = 0.0;
+    output_cut_confirmed = false;
+    bool current = temporal_stable_duration > 0.0 &&
+                   measured_metering_enabled() && metered_temporal_valid > 0u &&
+                   finite_float(PTS) &&
+                   abs(PTS - uintBitsToFloat(metered_temporal_pts)) <=
+                       EXPOSURE_PTS_EPSILON;
+    if (!current) {
+        return;
     }
-    return mix(
-        normal_scale,
-        min(normal_scale, OUTPUT_TEMPORAL_SCENE_TIME_SCALE),
-        response
-    );
+
+    output_cut_confirmed = temporal_stable_scene_change > 0u &&
+                           metered_scene_cut_confirmed > 0u;
+    bool fast_response = temporal_stable_scene_change > 0u &&
+                         metered_scene_fast_response > 0u &&
+                         PTS < uintBitsToFloat(metered_scene_adaptation_end_pts);
+    output_change_confidence = fast_response ? 1.0 : 0.0;
+    if (full_metering_enabled() && metered_reference_zones_valid > 0u &&
+        finite_float(metered_response_confidence)) {
+        output_change_confidence = max(
+            output_change_confidence, clamp(metered_response_confidence, 0.0, 1.0)
+        );
+    }
 }
 
-// The exponential ramp form shared by auto-exposure and the curve LUT.
+float output_temporal_time_scale(float normal_scale, float response_scale) {
+    return mix(normal_scale, min(normal_scale, response_scale),
+               output_change_confidence);
+}
+
+// PTS-derived exponential blend coefficient for the curve LUT.
 float ramp_alpha(float delta_time, float time_scale) {
     float time_constant = max(
         temporal_stable_duration * time_scale,
@@ -2402,9 +2488,47 @@ float ramp_alpha(float delta_time, float time_scale) {
 
 float reset_auto_exposure(float target) {
     exposure_temporal_ev = target;
+    exposure_temporal_variance = 1.0;
     exposure_temporal_pts = floatBitsToUint(PTS);
     exposure_temporal_valid = 1u;
     return target;
+}
+
+// Continuous-time adaptation of WoLF's IMQ observation weighting:
+// https://arxiv.org/html/2405.05646v2 (equation 17).
+// With s = elapsed PTS / tau, integrate dP/ds = 1 - w^2 P^2 and
+// dx/ds = w^2 P (target - x), holding target, w and tau over this interval.
+// The closed-form update composes exactly for a fixed weight and time scale.
+// Residual-dependent weights are sampled per observation, so different input
+// PTS sequences need not give identical nonlinear trajectories.
+// Advance the variance history and return the corresponding EV blend gain.
+float update_exposure_wolf_gain(float delta_time, float time_scale, float residual) {
+    float tau = max(temporal_stable_duration * time_scale,
+                    TEMPORAL_MIN_TIME_CONSTANT);
+    float scaled_residual = residual / EXPOSURE_WOLF_OUTLIER_EV;
+    float weight = inversesqrt(1.0 + scaled_residual * scaled_residual);
+    float variance = clamp(exposure_temporal_variance,
+                           EXPOSURE_WOLF_VARIANCE_MIN,
+                           EXPOSURE_WOLF_VARIANCE_MAX);
+    float u = weight * delta_time / tau;
+    float decay = exp(-u);
+    // Avoid cancellation in 1-exp(-u) for very short PTS intervals.
+    float one_minus_decay = u < 0.001
+        ? u * (1.0 - 0.5 * u + u * u / 6.0)
+        : 1.0 - decay;
+    float one_minus_decay_squared = one_minus_decay * (1.0 + decay);
+    float one_plus_decay_squared = 1.0 + decay * decay;
+    float b = variance * weight;
+    float denominator = one_plus_decay_squared + b * one_minus_decay_squared;
+    float gain = one_minus_decay * (one_minus_decay + b * (1.0 + decay)) /
+                 denominator;
+    float hyperbolic_tangent = one_minus_decay_squared / one_plus_decay_squared;
+    exposure_temporal_variance = clamp(
+        (variance + hyperbolic_tangent / weight) /
+            (1.0 + b * hyperbolic_tangent),
+        EXPOSURE_WOLF_VARIANCE_MIN, EXPOSURE_WOLF_VARIANCE_MAX
+    );
+    return clamp(gain, 0.0, 1.0);
 }
 
 float stabilize_auto_exposure(float target, bool automatic) {
@@ -2427,7 +2551,9 @@ float stabilize_auto_exposure(float target, bool automatic) {
         return reset_auto_exposure(target);
     }
 
-    if (exposure_temporal_valid == 0u) {
+    if (exposure_temporal_valid == 0u ||
+        !finite_float(exposure_temporal_variance) ||
+        exposure_temporal_variance <= 0.0) {
         return reset_auto_exposure(target);
     }
 
@@ -2436,15 +2562,20 @@ float stabilize_auto_exposure(float target, bool automatic) {
         return exposure_temporal_ev;
     }
 
-    if (delta_time < 0.0 || delta_time > temporal_stable_duration) {
+    if (delta_time < 0.0 || delta_time > temporal_stable_duration ||
+        output_cut_confirmed) {
         return reset_auto_exposure(target);
     }
 
     float time_scale = target > exposure_temporal_ev
         ? EXPOSURE_RISE_TIME_SCALE
         : EXPOSURE_FALL_TIME_SCALE;
-    time_scale = output_temporal_time_scale(time_scale);
-    float alpha = ramp_alpha(delta_time, time_scale);
+    time_scale = output_temporal_time_scale(
+        time_scale, OUTPUT_TEMPORAL_SCENE_TIME_SCALE
+    );
+    float alpha = update_exposure_wolf_gain(
+        delta_time, time_scale, target - exposure_temporal_ev
+    );
     exposure_temporal_ev = mix(exposure_temporal_ev, target, alpha);
     exposure_temporal_pts = floatBitsToUint(PTS);
     return exposure_temporal_ev;
@@ -2483,12 +2614,15 @@ void prepare_curve_temporal() {
     }
 
     record_curve_temporal_pts();
-    if (delta_time < 0.0 || delta_time > temporal_stable_duration) {
+    if (delta_time < 0.0 || delta_time > temporal_stable_duration ||
+        output_cut_confirmed) {
         return;
     }
 
+    // Exposure is already filtered: shorten the second ramp during changes.
+    // One coefficient for the entire LUT preserves monotonicity.
     float time_scale = output_temporal_time_scale(
-        CURVE_TEMPORAL_TIME_SCALE
+        CURVE_TEMPORAL_TIME_SCALE, CURVE_TEMPORAL_RESPONSE_TIME_SCALE
     );
     curve_temporal_alpha = ramp_alpha(delta_time, time_scale);
     curve_temporal_reset = 0u;
@@ -2512,6 +2646,14 @@ void apply_exposure_to_range(inout MeteringMetrics metrics, float scale) {
 void publish_metering_metadata(MeteringMetrics metrics) {
     exposed_max_i = metrics.max_rgb;
     exposed_min_i = metrics.minimum;
+    // All 1024 curve samples share these exposed, output-bounded endpoints.
+    // Convert PQ to J once in this single-invocation metadata pass.
+    input_max_j = max(
+        I_to_J(iz_eotf_inv(pq_eotf(exposed_max_i))), output_max_j
+    );
+    input_min_j = min(
+        I_to_J(iz_eotf_inv(pq_eotf(exposed_min_i))), output_min_j
+    );
 }
 
 void publish_input_metering_metadata(MeteringMetrics metrics) {
@@ -2536,6 +2678,7 @@ void publish_output_lightness_range() {
 }
 
 void update_metering_metadata() {
+    prepare_output_temporal_response();
     prepare_curve_temporal();
     publish_output_lightness_range();
 
@@ -2898,9 +3041,11 @@ float f_shoulder_rational(
     return y0 + dy * mapped;
 }
 
-float evaluate_piecewise_tone_curve(
-    float x, float iw, float ib, float ow, float ob
-) {
+float evaluate_tone_curve(float x) {
+    float iw = input_max_j;
+    float ib = input_min_j;
+    float ow = output_max_j;
+    float ob = output_min_j;
     float midgray   = 0.5 * ow;
     float shadow    = mix(midgray, ob, shadow_weight);
     float highlight = mix(midgray, ow, highlight_weight);
@@ -2974,18 +3119,6 @@ float evaluate_piecewise_tone_curve(
     }
 
     return x;
-}
-
-float evaluate_tone_curve(float x) {
-    float ow = output_max_j;
-    float ob = output_min_j;
-    float iw = I_to_J(iz_eotf_inv(pq_eotf(exposed_max_i)));
-    float ib = I_to_J(iz_eotf_inv(pq_eotf(exposed_min_i)));
-
-    iw = max(iw, ow);
-    ib = min(ib, ob);
-
-    return evaluate_piecewise_tone_curve(x, iw, ib, ow, ob);
 }
 
 // LUT atlas layout: a flattened 65^3 RGB-to-Jab LUT, a 129x65x65
