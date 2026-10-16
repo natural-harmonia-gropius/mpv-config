@@ -207,7 +207,7 @@
 //!VAR uint metered_temporal_pts
 //!VAR uint metered_scene_adaptation_end_pts
 //!VAR uint metered_scene_fast_response
-//!VAR uint metered_scene_cut_confirmed
+//!VAR uint metered_scene_cut_detected
 //!VAR float metered_scene_speed
 //!VAR float metered_reference_zones[144]
 //!VAR uint metered_reference_zones_valid
@@ -1511,7 +1511,7 @@ void hook() { reduce_metering_statistics(); }
 
 // METERED_TEMPORAL lifecycle:
 // Written by temporal metering; read by metadata only when its PTS matches
-// the current, selected measurements. A confirmed cut remains latched across
+// the current, selected measurements. A detected cut remains latched across
 // redraws of that PTS and is cleared on the next processed observation.
 // Exposure and curve consumers check their own PTS before acting on the cut,
 // so each history resets only once. Fast response instead lasts until its
@@ -1604,7 +1604,7 @@ void temporal_set_scalar_state(uint histogram_valid) {
     metered_temporal_valid = histogram_valid;
     metered_scene_adaptation_end_pts = 0u;
     metered_scene_fast_response = 0u;
-    metered_scene_cut_confirmed = 0u;
+    metered_scene_cut_detected = 0u;
     metered_scene_speed = 0.0;
     temporal_reset_zone_response();
 }
@@ -1834,7 +1834,7 @@ bool temporal_detect_scene_cut(
 // into exposure resets and reset instructions for the curve LUT pass.
 void temporal_accept_scene_cut() {
     temporal_reset_zone_response();
-    metered_scene_cut_confirmed = 1u;
+    metered_scene_cut_detected = 1u;
     metered_scene_speed = 0.0;
     metered_scene_adaptation_end_pts = pts_to_uint(
         PTS + temporal_scene_time(TEMPORAL_SCENE_ADAPTATION_TIME_SCALE)
@@ -1912,7 +1912,7 @@ void temporal_prepare_frame() {
         return;
     }
 
-    metered_scene_cut_confirmed = 0u;
+    metered_scene_cut_detected = 0u;
     temporal_delta_time = delta_time;
     metered_temporal_pts = pts_to_uint(PTS);
     temporal_update_fast_response();
@@ -2443,12 +2443,13 @@ float resolve_exposure(MeteringMetrics metrics) {
 
 // Resolve once per metadata pass. Only current, selected measurements may
 // influence output history; preview-only or stale metering must not do so.
-float output_change_confidence;
-bool output_cut_confirmed;
+// Acceleration weight combining zone confidence and the post-cut fast window.
+float output_response_weight;
+bool output_scene_cut;
 
 void prepare_output_temporal_response() {
-    output_change_confidence = 0.0;
-    output_cut_confirmed = false;
+    output_response_weight = 0.0;
+    output_scene_cut = false;
     bool current = temporal_stable_duration > 0.0 &&
                    measured_metering_enabled() && metered_temporal_valid > 0u &&
                    finite_float(PTS) &&
@@ -2458,23 +2459,23 @@ void prepare_output_temporal_response() {
         return;
     }
 
-    output_cut_confirmed = temporal_stable_scene_change > 0u &&
-                           metered_scene_cut_confirmed > 0u;
+    output_scene_cut = temporal_stable_scene_change > 0u &&
+                       metered_scene_cut_detected > 0u;
     bool fast_response = temporal_stable_scene_change > 0u &&
                          metered_scene_fast_response > 0u &&
                          PTS < uintBitsToFloat(metered_scene_adaptation_end_pts);
-    output_change_confidence = fast_response ? 1.0 : 0.0;
+    output_response_weight = fast_response ? 1.0 : 0.0;
     if (full_metering_enabled() && metered_reference_zones_valid > 0u &&
         finite_float(metered_response_confidence)) {
-        output_change_confidence = max(
-            output_change_confidence, clamp(metered_response_confidence, 0.0, 1.0)
+        output_response_weight = max(
+            output_response_weight, clamp(metered_response_confidence, 0.0, 1.0)
         );
     }
 }
 
 float output_temporal_time_scale(float normal_scale, float response_scale) {
     return mix(normal_scale, min(normal_scale, response_scale),
-               output_change_confidence);
+               output_response_weight);
 }
 
 // PTS-derived exponential blend coefficient for the curve LUT.
@@ -2563,7 +2564,7 @@ float stabilize_auto_exposure(float target, bool automatic) {
     }
 
     if (delta_time < 0.0 || delta_time > temporal_stable_duration ||
-        output_cut_confirmed) {
+        output_scene_cut) {
         return reset_auto_exposure(target);
     }
 
@@ -2615,7 +2616,7 @@ void prepare_curve_temporal() {
 
     record_curve_temporal_pts();
     if (delta_time < 0.0 || delta_time > temporal_stable_duration ||
-        output_cut_confirmed) {
+        output_scene_cut) {
         return;
     }
 
@@ -2920,18 +2921,13 @@ float Jhk_to_J(vec3 JCh) {
     return J - C * hke_fh(h);
 }
 
-// The JND coefficient of ΔE_{ITP} is 1 / 720
-// 0.0001 C_z is much smaller than a JND
-// [BT.2124: Objective metric for the assessment of the potential visibility of colour differences in television](https://www.itu.int/rec/R-REC-BT.2124)
-const float epsilon = 0.0001;
-
 vec3 Lab_to_LCh(vec3 Lab) {
     float L = Lab.x;
     float a = Lab.y;
     float b = Lab.z;
 
     float C = length(vec2(a, b));
-    float h = C < epsilon ? 0.0 : atan(b, a);
+    float h = C == 0.0 ? 0.0 : atan(b, a);
 
     return vec3(L, C, h);
 }
@@ -2995,6 +2991,17 @@ float f_contrast_slope(float c) {
     return exp2(c);
 }
 
+// Generalized rational toe/shoulder inspired by:
+// - Suzuki's hyperbolic segments, recovered here when overshoot = 0 (p = 1).
+//   [Hyperbola tone mapping](https://technorgb.blogspot.com/2018/02/hyperbola-tone-mapping.html)
+// - Hable's piecewise construction, slope matching, and shoulder overshoot.
+//   [Filmic Tonemapping with Piecewise Power Curves](https://filmicworlds.com/blog/filmic-tonemapping-with-piecewise-power-curves/)
+// This extension keeps both anchors and the join slope fixed while varying
+// the denominator exponent; it does not use Hable's power-curve formula or
+// his virtual-white-point construction. The toe reflects the shoulder.
+// "rational" names the base family: for noninteger p the generalized form
+// is generally not a rational function (a ratio of polynomials).
+//
 // Generalized rational toe, the reflection of f_shoulder_rational:
 //
 //   g(t) = t / (1 + a * (1 - t))^p
@@ -3495,6 +3502,7 @@ void hook() {
 //!BIND HOOKED
 //!BIND LUTS
 //!BIND METADATA
+//!BIND CURVE_TEMPORAL
 //!DESC tone mapping (astra)
 
 // LUT atlas layout: a flattened 65^3 RGB-to-Jab LUT, a 129x65x65
@@ -3711,8 +3719,40 @@ float sample_tone_curve_lut(float x) {
     return LUTS_mul * mix(lower_value, upper_value, weight);
 }
 
+float sample_tone_curve_slope(float x) {
+    float position = sanitize_bounded(x, 0.0, 1.0) *
+                     float(CURVE_SIZE - 1);
+    int lower_index = min(int(floor(position)), CURVE_SIZE - 2);
+    int upper_index = lower_index + 1;
+    float weight = position - float(lower_index);
+
+    // Use the full-precision, temporally stabilized source of the LUT.
+    // Differencing a half-float atlas could amplify quantization into bands.
+    float lower_value = curve_temporal_values[lower_index];
+    float upper_value = curve_temporal_values[upper_index];
+    float previous_value = lower_index > 0
+        ? curve_temporal_values[lower_index - 1]
+        : 2.0 * lower_value - upper_value;
+    float next_value = upper_index < CURVE_SIZE - 1
+        ? curve_temporal_values[upper_index + 1]
+        : 2.0 * upper_value - lower_value;
+
+    // Derivative of a cubic B-spline reconstruction: blend three secant
+    // slopes with nonnegative quadratic weights. The slope estimate is
+    // C1 across LUT cells, without changing the linear lightness lookup.
+    // Linear endpoint extrapolation preserves a constant curve slope.
+    float left_weight = 0.5 * (1.0 - weight) * (1.0 - weight);
+    float right_weight = 0.5 * weight * weight;
+    float middle_weight = 1.0 - left_weight - right_weight;
+    return max(0.0, float(CURVE_SIZE - 1) * (
+        left_weight * (lower_value - previous_value) +
+        middle_weight * (upper_value - lower_value) +
+        right_weight * (next_value - upper_value)
+    ));
+}
+
 float chroma_correction_attenuation(float x, float rate, float threshold) {
-    // Preserve the identity endpoint when threshold collapses the interval.
+    // Preserve the identity endpoint; threshold == 1 remains a hard switch.
     if (x >= 1.0) {
         return 1.0;
     }
@@ -3725,7 +3765,24 @@ float chroma_correction_attenuation(float x, float rate, float threshold) {
         0.0,
         1.0
     );
-    return pow(norm, 1.0 + rate * (1.0 - norm));
+    // Flat endpoint slopes smooth both the cutoff and the l1 == l2 crossing.
+    // Rate accelerates fading; rate == 0 retains the smoothstep baseline.
+    float smooth_ratio = norm * norm * (3.0 - 2.0 * norm);
+    return pow(smooth_ratio, 1.0 + rate);
+}
+
+float chroma_correction_contrast(float bias, float lightness) {
+    if (bias == 0.0) {
+        return 1.0;
+    }
+
+    // Keep the full middle-segment gain; relax toward unity as toe/shoulder
+    // compression flattens the curve. This weights the contrast adjustment,
+    // not the chroma itself, so a flat segment does not force extra fading.
+    float middle_slope = exp2(bias);
+    float local_slope = sample_tone_curve_slope(lightness);
+    float weight = smoothstep(0.0, 1.0, local_slope / middle_slope);
+    return exp2(bias * weight);
 }
 
 // Based on the chroma correction method for ICtCp in BT.2390/BT.2408
@@ -3745,11 +3802,13 @@ vec2 chroma_correction(vec2 ab, float l1, float l2) {
     float ratio_min = min(l1, l2) / max(max(l1, l2), 1e-6);
     float ratio_scaled = mix(1.0, ratio_min, chroma_correction_scaling);
     float ratio_safe = max(ratio_scaled, 0.0);
-    return ab * chroma_correction_attenuation(
+    float contrast_gain = chroma_correction_contrast(contrast_bias, l1);
+    float attenuation = chroma_correction_attenuation(
         ratio_safe,
         chroma_correction_rate,
         chroma_correction_threshold
     );
+    return ab * contrast_gain * attenuation;
 }
 
 vec3 tone_mapping(vec3 lab) {
