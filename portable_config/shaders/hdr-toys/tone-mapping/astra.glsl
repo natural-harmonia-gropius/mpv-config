@@ -745,6 +745,10 @@ const vec2 MATRIX_METERING_SIZE = vec2(256.0, 144.0);
 // Each entry contains (sum_of_15_bit_values << MATRIX_ZONE_COUNT_BITS)
 // | sample_count.
 shared uint zone_histogram[MATRIX_ZONE_HISTOGRAM_SIZE];
+shared uint zone_prefix[2][MATRIX_ZONE_HISTOGRAM_SIZE];
+shared uint zone_retained_count[MATRIX_ZONE_HISTOGRAM_SIZE];
+shared uint zone_low_bin;
+shared uint zone_high_bin;
 
 // Ordered-comparison sanitizer; see the metering intensity pass.
 float sanitize_bounded(float value, float lower_bound, float upper_bound) {
@@ -816,58 +820,78 @@ uint percentile_target(uint sample_count, float percentile) {
     return max(uint(ceil(float(sample_count) * percentile)), 1u);
 }
 
-void publish_matrix_zone(uint zone_index) {
+void publish_matrix_zone(uint tid, uint zone_index) {
     uint trim = uint(floor(
         float(MATRIX_ZONE_SAMPLE_COUNT) * MATRIX_ZONE_TRIM_PERCENTILE
     ));
-    uint lower_target = trim;
     uint upper_target = MATRIX_ZONE_SAMPLE_COUNT - trim;
     uint low_target = percentile_target(
-        MATRIX_ZONE_SAMPLE_COUNT,
-        MATRIX_ZONE_LOW_PERCENTILE
+        MATRIX_ZONE_SAMPLE_COUNT, MATRIX_ZONE_LOW_PERCENTILE
     );
     uint high_target = percentile_target(
-        MATRIX_ZONE_SAMPLE_COUNT,
-        MATRIX_ZONE_HIGH_PERCENTILE
+        MATRIX_ZONE_SAMPLE_COUNT, MATRIX_ZONE_HIGH_PERCENTILE
     );
 
-    uint cumulative = 0u;
-    uint low_bin = 0u;
-    uint high_bin = MATRIX_ZONE_HISTOGRAM_SIZE - 1u;
-    float sum = 0.0;
+    uint packed_value = 0u;
+    uint sample_count = 0u;
+    if (tid < MATRIX_ZONE_HISTOGRAM_SIZE) {
+        packed_value = zone_histogram[tid];
+        sample_count = matrix_zone_bin_count(packed_value);
+        zone_prefix[0][tid] = sample_count;
+    }
+    if (tid == 0u) {
+        zone_low_bin = 0u;
+        zone_high_bin = MATRIX_ZONE_HISTOGRAM_SIZE - 1u;
+    }
+    barrier();
 
-    for (uint i = 0u; i < MATRIX_ZONE_HISTOGRAM_SIZE; i++) {
-        uint packed_value = zone_histogram[i];
-        uint sample_count = matrix_zone_bin_count(packed_value);
-        uint next = cumulative + sample_count;
-        uint retained = retained_count(
-            cumulative,
-            next,
-            lower_target,
-            upper_target
-        );
-        sum += matrix_zone_retained_sum(
-            packed_value,
-            sample_count,
-            retained
-        );
-
-        if (cumulative < low_target && next >= low_target) {
-            low_bin = i;
+    // Separate read/write banks need only one workgroup barrier per step.
+    uint bank = 0u;
+    for (uint offset = 1u; offset < MATRIX_ZONE_HISTOGRAM_SIZE; offset <<= 1u) {
+        if (tid < MATRIX_ZONE_HISTOGRAM_SIZE) {
+            uint inclusive = zone_prefix[bank][tid];
+            if (tid >= offset) {
+                inclusive += zone_prefix[bank][tid - offset];
+            }
+            zone_prefix[1u - bank][tid] = inclusive;
         }
-        if (cumulative < high_target && next >= high_target) {
-            high_bin = i;
-        }
-
-        cumulative = next;
+        barrier();
+        bank = 1u - bank;
     }
 
-    uint retained_total = upper_target - lower_target;
-    metered_zone_average[zone_index] = sum /
-                                       float(max(retained_total, 1u));
-    metered_zone_spread[zone_index] =
-        float(high_bin - low_bin) /
-        float(MATRIX_ZONE_HISTOGRAM_SIZE - 1u);
+    if (tid < MATRIX_ZONE_HISTOGRAM_SIZE) {
+        uint cumulative = zone_prefix[bank][tid];
+        uint before = cumulative - sample_count;
+        uint retained = retained_count(before, cumulative, trim, upper_target);
+        zone_retained_count[tid] = retained;
+        if (before < low_target && cumulative >= low_target) {
+            zone_low_bin = tid;
+        }
+        if (before < high_target && cumulative >= high_target) {
+            zone_high_bin = tid;
+        }
+    }
+    barrier();
+
+    if (tid == 0u) {
+        // Keep the original contribution expression and accumulation order:
+        // moving float intermediates into shared memory changes contraction
+        // differently in Vulkan and D3D11 shader compilers.
+        float sum = 0.0;
+        for (uint i = 0u; i < MATRIX_ZONE_HISTOGRAM_SIZE; i++) {
+            uint packed = zone_histogram[i];
+            sum += matrix_zone_retained_sum(
+                packed, matrix_zone_bin_count(packed), zone_retained_count[i]
+            );
+        }
+        metered_zone_average[zone_index] = sum /
+            float(max(upper_target - trim, 1u));
+        metered_zone_spread[zone_index] = float(zone_high_bin - zone_low_bin) /
+            float(MATRIX_ZONE_HISTOGRAM_SIZE - 1u);
+        if (zone_index == 0u) {
+            metered_zones_valid = 1u;
+        }
+    }
 }
 
 void analyze_matrix_zone() {
@@ -886,15 +910,10 @@ void analyze_matrix_zone() {
     );
     barrier();
 
-    if (tid == 0u) {
-        uint zone_index = gl_WorkGroupID.y * MATRIX_ZONE_COLUMNS +
-                          gl_WorkGroupID.x;
-        if (zone_index < MATRIX_ZONE_COUNT) {
-            publish_matrix_zone(zone_index);
-            if (zone_index == 0u) {
-                metered_zones_valid = 1u;
-            }
-        }
+    uint zone_index = gl_WorkGroupID.y * MATRIX_ZONE_COLUMNS +
+                      gl_WorkGroupID.x;
+    if (zone_index < MATRIX_ZONE_COUNT) {
+        publish_matrix_zone(tid, zone_index);
     }
 }
 
@@ -957,7 +976,7 @@ const uint METERING_ACTIVE_COLUMNS_MIN = 4u;
 const uint METERING_ACTIVE_ROWS_MIN = 3u;
 const float METERING_BORDER_MATRIX_WEIGHT = 0.95;
 
-shared uint histogram_prefix[METERING_REDUCTION_SIZE];
+shared uint histogram_scan[2][METERING_REDUCTION_SIZE];
 shared float average_partial[METERING_REDUCTION_SIZE];
 shared float histogram_average;
 shared uint black_bin;
@@ -968,6 +987,8 @@ shared uint diffuse_white_bin;
 shared vec2 matrix_partial[METERING_REDUCTION_SIZE];
 shared uvec4 matrix_active_bounds;
 shared float matrix_border_confidence;
+shared uint matrix_border_columns[MATRIX_ZONE_COLUMNS];
+shared float matrix_border_rows[MATRIX_ZONE_ROWS];
 
 uvec4 load_histogram_block(uint first) {
     return uvec4(
@@ -983,17 +1004,20 @@ uint sum_histogram_block(uvec4 counts) {
 }
 
 void scan_histogram_blocks(uint tid, uint block_count) {
-    histogram_prefix[tid] = block_count;
+    histogram_scan[0][tid] = block_count;
     barrier();
 
+    // Ping-pong storage preserves the add order without a pre-write barrier.
+    // The fixed power-of-four size has an even number of rounds: bank 0 wins.
+    uint bank = 0u;
     for (uint offset = 1u; offset < METERING_REDUCTION_SIZE; offset <<= 1u) {
-        uint inclusive = histogram_prefix[tid];
+        uint inclusive = histogram_scan[bank][tid];
         if (tid >= offset) {
-            inclusive += histogram_prefix[tid - offset];
+            inclusive += histogram_scan[bank][tid - offset];
         }
+        histogram_scan[1u - bank][tid] = inclusive;
         barrier();
-        histogram_prefix[tid] = inclusive;
-        barrier();
+        bank = 1u - bank;
     }
 }
 
@@ -1077,31 +1101,28 @@ bool matrix_zone_looks_like_border(uint index) {
            metered_zone_spread[index] <= METERING_BORDER_SPREAD_MAX;
 }
 
-// The fraction of a run of zones that look like presentation bars. A column is
-// the same run read with the grid's width as the stride, which is why one
-// counter serves both.
-float border_fraction(uint first, uint stride, uint extent) {
-    uint count = 0u;
-
-    for (uint i = 0u; i < extent; i++) {
-        if (matrix_zone_looks_like_border(first + i * stride)) {
-            count++;
-        }
-    }
-
-    return float(count) / float(max(extent, 1u));
-}
-
+// Each column packs its nine border classifications into a bit mask.
+// Both horizontal and vertical occupancy reuse those exact classifications.
 float matrix_column_black_fraction(uint x) {
-    return border_fraction(x, MATRIX_ZONE_COLUMNS, MATRIX_ZONE_ROWS);
+    return float(bitCount(matrix_border_columns[x])) / float(MATRIX_ZONE_ROWS);
 }
 
-float matrix_row_black_fraction(uint y, uint left, uint right) {
-    return border_fraction(
-        y * MATRIX_ZONE_COLUMNS + left,
-        1u,
-        right - left
-    );
+uvec2 matrix_horizontal_bounds() {
+    uint left = 0u;
+    uint right = MATRIX_ZONE_COLUMNS;
+    for (uint x = 0u; x < MATRIX_ZONE_COLUMNS; x++) {
+        if (matrix_column_black_fraction(x) < METERING_BORDER_OCCUPANCY_MIN) {
+            break;
+        }
+        left = x + 1u;
+    }
+    for (int x = int(MATRIX_ZONE_COLUMNS) - 1; x >= 0; x--) {
+        if (matrix_column_black_fraction(uint(x)) < METERING_BORDER_OCCUPANCY_MIN) {
+            break;
+        }
+        right = uint(x);
+    }
+    return uvec2(left, right);
 }
 
 struct MatrixActiveRegion {
@@ -1116,34 +1137,21 @@ MatrixActiveRegion detect_matrix_active_region() {
     uint bottom = MATRIX_ZONE_ROWS;
 
     if (metered_zones_valid > 0u) {
-        for (uint x = 0u; x < MATRIX_ZONE_COLUMNS; x++) {
-            if (matrix_column_black_fraction(x) <
-                METERING_BORDER_OCCUPANCY_MIN) {
-                break;
-            }
-            left = x + 1u;
-        }
-        for (int x = int(MATRIX_ZONE_COLUMNS) - 1; x >= 0; x--) {
-            if (matrix_column_black_fraction(uint(x)) <
-                METERING_BORDER_OCCUPANCY_MIN) {
-                break;
-            }
-            right = uint(x);
-        }
+        uvec2 horizontal = matrix_horizontal_bounds();
+        left = horizontal.x;
+        right = horizontal.y;
 
         if (right > left &&
             right - left >= METERING_ACTIVE_COLUMNS_MIN) {
             for (uint y = 0u; y < MATRIX_ZONE_ROWS; y++) {
-                if (matrix_row_black_fraction(y, left, right) <
+                if (matrix_border_rows[y] <
                     METERING_BORDER_OCCUPANCY_MIN) {
                     break;
                 }
                 top = y + 1u;
             }
             for (int y = int(MATRIX_ZONE_ROWS) - 1; y >= 0; y--) {
-                if (matrix_row_black_fraction(
-                        uint(y), left, right
-                    ) < METERING_BORDER_OCCUPANCY_MIN) {
+                if (matrix_border_rows[y] < METERING_BORDER_OCCUPANCY_MIN) {
                     break;
                 }
                 bottom = uint(y);
@@ -1173,6 +1181,35 @@ MatrixActiveRegion detect_matrix_active_region() {
 }
 
 void prepare_matrix_active_region(uint tid) {
+    if (tid < MATRIX_ZONE_COLUMNS) {
+        uint mask = 0u;
+        for (uint y = 0u; y < MATRIX_ZONE_ROWS; y++) {
+            if (metered_zones_valid > 0u &&
+                matrix_zone_looks_like_border(y * MATRIX_ZONE_COLUMNS + tid)) {
+                mask |= 1u << y;
+            }
+        }
+        matrix_border_columns[tid] = mask;
+    }
+    // Keep synchronization unconditional for the D3D11 compiler.
+    barrier();
+
+    if (tid < MATRIX_ZONE_ROWS) {
+        // Rows depend on the detected horizontal crop. Repeating this
+        // small scan in nine lanes avoids another scalar handoff/barrier.
+        uvec2 horizontal = matrix_horizontal_bounds();
+        uint count = 0u;
+        uint width = horizontal.y > horizontal.x
+            ? horizontal.y - horizontal.x : 0u;
+        if (width >= METERING_ACTIVE_COLUMNS_MIN) {
+            for (uint x = horizontal.x; x < horizontal.y; x++) {
+                count += (matrix_border_columns[x] >> tid) & 1u;
+            }
+        }
+        matrix_border_rows[tid] = float(count) / float(max(width, 1u));
+    }
+    barrier();
+
     if (tid == 0u) {
         MatrixActiveRegion region = detect_matrix_active_region();
         matrix_active_bounds = region.bounds;
@@ -1356,9 +1393,9 @@ void publish_coarse_histogram(uint tid) {
     uint first_block = tid * METERING_BLOCKS_PER_COARSE_BIN;
     uint cumulative_before = first_block == 0u
         ? 0u
-        : histogram_prefix[first_block - 1u];
+        : histogram_scan[0][first_block - 1u];
     metered_coarse_histogram[tid] =
-        histogram_prefix[last_block] - cumulative_before;
+        histogram_scan[0][last_block] - cumulative_before;
 }
 
 // A percentile of the declared sample count, floored at one sample so a
@@ -1368,8 +1405,8 @@ uint percentile_target(uint sample_count, float percentile) {
 }
 
 void locate_percentiles(uint tid, uint first, uvec4 counts) {
-    uint cumulative_before = tid == 0u ? 0u : histogram_prefix[tid - 1u];
-    uint cumulative = histogram_prefix[tid];
+    uint cumulative_before = tid == 0u ? 0u : histogram_scan[0][tid - 1u];
+    uint cumulative = histogram_scan[0][tid];
     uint black_target = percentile_target(
         METERING_SAMPLE_COUNT,
         METERING_BLACK_PERCENTILE
@@ -1437,9 +1474,9 @@ void reduce_histogram_statistics(
     publish_coarse_histogram(tid);
     locate_percentiles(tid, first, counts);
 
-    uint global_total = histogram_prefix[METERING_REDUCTION_SIZE - 1u];
+    uint global_total = histogram_scan[0][METERING_REDUCTION_SIZE - 1u];
     uvec2 global_targets = average_trim_targets(global_total);
-    uint global_before = tid == 0u ? 0u : histogram_prefix[tid - 1u];
+    uint global_before = tid == 0u ? 0u : histogram_scan[0][tid - 1u];
 
     reduce_average_partials(
         tid,
@@ -1555,12 +1592,12 @@ const uint TEMPORAL_REFERENCE_KEEP = 0u;
 const uint TEMPORAL_REFERENCE_BLEND = 1u;
 const uint TEMPORAL_REFERENCE_REPLACE = 2u;
 
-shared vec2 temporal_distance_partial[TEMPORAL_HISTOGRAM_SIZE];
+shared vec2 temporal_scan[2][TEMPORAL_HISTOGRAM_SIZE];
 shared uint temporal_frame_operation;
 shared uint temporal_reference_operation;
 shared float temporal_delta_time;
 shared float temporal_reference_alpha;
-shared vec2 temporal_zone_support[TEMPORAL_HISTOGRAM_SIZE];
+shared vec4 temporal_partial[TEMPORAL_HISTOGRAM_SIZE];
 shared bool temporal_zone_reversed;
 shared uint temporal_zones_available;
 
@@ -1625,21 +1662,20 @@ vec2 temporal_measure_delta_and_update_previous(uint index, float current) {
 }
 
 void temporal_scan_distribution_delta(uint tid, vec2 delta) {
-    temporal_distance_partial[tid] = delta;
+    temporal_scan[0][tid] = delta;
     barrier();
 
-    // Inclusive Hillis-Steele scan. The barrier before each write keeps every
-    // read on the previous iteration's shared-memory snapshot.
-    for (uint offset = 1u;
-         offset < TEMPORAL_HISTOGRAM_SIZE;
-         offset <<= 1u) {
-        vec2 inclusive = temporal_distance_partial[tid];
+    // Ping-pong storage preserves the add order without a pre-write barrier.
+    // The fixed power-of-four size has an even number of rounds: bank 0 wins.
+    uint bank = 0u;
+    for (uint offset = 1u; offset < TEMPORAL_HISTOGRAM_SIZE; offset <<= 1u) {
+        vec2 inclusive = temporal_scan[bank][tid];
         if (tid >= offset) {
-            inclusive += temporal_distance_partial[tid - offset];
+            inclusive += temporal_scan[bank][tid - offset];
         }
+        temporal_scan[1u - bank][tid] = inclusive;
         barrier();
-        temporal_distance_partial[tid] = inclusive;
-        barrier();
+        bank = 1u - bank;
     }
 }
 
@@ -1649,21 +1685,20 @@ vec2 temporal_cdf_distance(uint tid) {
     // the first 63 boundaries.
     // Each uniform PQ bin spans 1/64 of the normalized code-value axis.
     return tid + 1u < TEMPORAL_HISTOGRAM_SIZE
-        ? abs(temporal_distance_partial[tid]) /
+        ? abs(temporal_scan[0][tid]) /
           float(TEMPORAL_HISTOGRAM_SIZE)
         : vec2(0.0);
 }
 
-void temporal_reduce_distances(uint tid, vec2 distance) {
-    temporal_distance_partial[tid] = distance;
+void temporal_reduce_statistics(uint index, vec2 distance, vec2 support) {
+    // Independent reductions share synchronization, not their arithmetic:
+    // preserve each component's original 32,16,...,1 addition tree.
+    temporal_partial[index] = vec4(distance, support);
     barrier();
-
     for (uint size = TEMPORAL_HISTOGRAM_SIZE >> 1u;
-         size > 0u;
-         size >>= 1u) {
-        if (tid < size) {
-            temporal_distance_partial[tid] +=
-                temporal_distance_partial[tid + size];
+         size > 0u; size >>= 1u) {
+        if (index < size) {
+            temporal_partial[index] += temporal_partial[index + size];
         }
         barrier();
     }
@@ -1697,20 +1732,8 @@ vec2 temporal_update_zone_references(uint index, bool initialize) {
     return support;
 }
 
-void temporal_reduce_zone_support(uint index, vec2 support) {
-    temporal_zone_support[index] = support;
-    barrier();
-    for (uint size = TEMPORAL_HISTOGRAM_SIZE >> 1u;
-         size > 0u; size >>= 1u) {
-        if (index < size) {
-            temporal_zone_support[index] += temporal_zone_support[index + size];
-        }
-        barrier();
-    }
-}
-
 void temporal_update_zone_evidence(bool initialize) {
-    vec2 support = temporal_zone_support[0] / float(TEMPORAL_ZONE_COUNT);
+    vec2 support = temporal_partial[0].zw / float(TEMPORAL_ZONE_COUNT);
     float balance = support.x - support.y;
     float direction = abs(balance) > TEMPORAL_DIRECTION_DEADBAND
         ? sign(balance) : 0.0;
@@ -1770,28 +1793,6 @@ void temporal_rebase_zone_references(uint index) {
     for (uint zone = index; zone < TEMPORAL_ZONE_COUNT;
          zone += TEMPORAL_HISTOGRAM_SIZE) {
         metered_reference_zones[zone] = metered_zone_average[zone];
-    }
-}
-
-void temporal_update_zone_response(uint index) {
-    if (temporal_zones_available == 0u) {
-        if (index == 0u) {
-            temporal_reset_zone_response();
-        }
-        return;
-    }
-
-    bool initialize = temporal_frame_operation == TEMPORAL_FRAME_INITIALIZE ||
-                      metered_reference_zones_valid == 0u;
-    vec2 support = temporal_update_zone_references(index, initialize);
-    temporal_reduce_zone_support(index, support);
-
-    if (index == 0u) {
-        temporal_update_zone_evidence(initialize);
-    }
-    barrier();
-    if (temporal_zone_reversed) {
-        temporal_rebase_zone_references(index);
     }
 }
 
@@ -1950,22 +1951,42 @@ void analyze_metering_temporally() {
         return;
     }
 
-    temporal_update_zone_response(index);
-
+    bool zones_available = temporal_zones_available > 0u;
+    bool initialize = temporal_frame_operation == TEMPORAL_FRAME_INITIALIZE ||
+                      metered_reference_zones_valid == 0u;
+    vec2 support = zones_available
+        ? temporal_update_zone_references(index, initialize) : vec2(0.0);
     float current = temporal_histogram_value(index);
+    bool process = temporal_frame_operation == TEMPORAL_FRAME_PROCESS;
+    vec2 distance = vec2(0.0);
+    if (process) {
+        vec2 delta = temporal_measure_delta_and_update_previous(index, current);
+        temporal_scan_distribution_delta(index, delta);
+        distance = temporal_cdf_distance(index);
+    }
+    if (process || zones_available) {
+        temporal_reduce_statistics(index, distance, support);
+    }
 
-    if (temporal_frame_operation == TEMPORAL_FRAME_INITIALIZE) {
+    // Zone evidence still precedes cut acceptance, which may reset it.
+    if (index == 0u) {
+        if (zones_available) {
+            temporal_update_zone_evidence(initialize);
+        } else {
+            temporal_reset_zone_response();
+        }
+    }
+    barrier();
+    if (zones_available && temporal_zone_reversed) {
+        temporal_rebase_zone_references(index);
+    }
+
+    if (!process) {
         temporal_initialize_histogram(index, current);
         return;
     }
-
-    vec2 delta = temporal_measure_delta_and_update_previous(index, current);
-    temporal_scan_distribution_delta(index, delta);
-    vec2 distance = temporal_cdf_distance(index);
-    temporal_reduce_distances(index, distance);
-
     if (index == 0u) {
-        temporal_process_distances(temporal_distance_partial[0]);
+        temporal_process_distances(temporal_partial[0].xy);
     }
     barrier();
 
